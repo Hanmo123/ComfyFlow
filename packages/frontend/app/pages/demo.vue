@@ -46,8 +46,7 @@ const workflowMode = ref(true);
     </div>
 
     <div
-      class="bg-indigo-500/10 -z-10"
-      :class="workflowMode ? 'fixed inset-0' : 'grow border rounded-xl'"
+      :class="workflowMode ? 'fixed inset-0 -z-10' : 'grow border rounded-xl'"
     ></div>
   </main>
 </template>

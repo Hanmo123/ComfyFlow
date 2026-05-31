@@ -30,6 +30,36 @@ const routes = {
     tokens: [{"old":"/api/v1/account/logout","type":0,"val":"api","end":""},{"old":"/api/v1/account/logout","type":0,"val":"v1","end":""},{"old":"/api/v1/account/logout","type":0,"val":"account","end":""},{"old":"/api/v1/account/logout","type":0,"val":"logout","end":""}],
     types: placeholder as Registry['profile.access_tokens.destroy']['types'],
   },
+  'workflows.workflows.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/workflows',
+    tokens: [{"old":"/api/v1/workflows","type":0,"val":"api","end":""},{"old":"/api/v1/workflows","type":0,"val":"v1","end":""},{"old":"/api/v1/workflows","type":0,"val":"workflows","end":""}],
+    types: placeholder as Registry['workflows.workflows.index']['types'],
+  },
+  'workflows.workflows.upload': {
+    methods: ["POST"],
+    pattern: '/api/v1/workflows/upload',
+    tokens: [{"old":"/api/v1/workflows/upload","type":0,"val":"api","end":""},{"old":"/api/v1/workflows/upload","type":0,"val":"v1","end":""},{"old":"/api/v1/workflows/upload","type":0,"val":"workflows","end":""},{"old":"/api/v1/workflows/upload","type":0,"val":"upload","end":""}],
+    types: placeholder as Registry['workflows.workflows.upload']['types'],
+  },
+  'workflows.workflows.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/workflows/:id',
+    tokens: [{"old":"/api/v1/workflows/:id","type":0,"val":"api","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"workflows","end":""},{"old":"/api/v1/workflows/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['workflows.workflows.show']['types'],
+  },
+  'workflows.workflows.update': {
+    methods: ["PUT"],
+    pattern: '/api/v1/workflows/:id',
+    tokens: [{"old":"/api/v1/workflows/:id","type":0,"val":"api","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"workflows","end":""},{"old":"/api/v1/workflows/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['workflows.workflows.update']['types'],
+  },
+  'workflows.workflows.destroy': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/workflows/:id',
+    tokens: [{"old":"/api/v1/workflows/:id","type":0,"val":"api","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"workflows","end":""},{"old":"/api/v1/workflows/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['workflows.workflows.destroy']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

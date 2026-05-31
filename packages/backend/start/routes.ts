@@ -11,6 +11,8 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import { controllers } from '#generated/controllers'
 
+const WorkflowsController = () => import('#controllers/workflows_controller')
+
 router.get('/', () => {
   return { hello: 'world' }
 })
@@ -33,5 +35,16 @@ router
       .prefix('account')
       .as('profile')
       .use(middleware.auth())
+
+    router
+      .group(() => {
+        router.get('/', [WorkflowsController, 'index'])
+        router.post('upload', [WorkflowsController, 'upload'])
+        router.get(':id', [WorkflowsController, 'show'])
+        router.put(':id', [WorkflowsController, 'update'])
+        router.delete(':id', [WorkflowsController, 'destroy'])
+      })
+      .prefix('workflows')
+      .as('workflows')
   })
   .prefix('/api/v1')

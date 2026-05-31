@@ -19,6 +19,7 @@
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",
+    "#comfy_nodes/*": "./app/comfy_nodes/*.js",
     "#exceptions/*": "./app/exceptions/*.js",
     "#models/*": "./app/models/*.js",
     "#mails/*": "./app/mails/*.js",
@@ -30,6 +31,7 @@
     "#transformers/*": "./app/transformers/*.js",
     "#validators/*": "./app/validators/*.js",
     "#providers/*": "./providers/*.js",
+    "#repositories/*": "./app/repositories/*.js",
     "#policies/*": "./app/policies/*.js",
     "#abilities/*": "./app/abilities/*.js",
     "#database/*": "./database/*.js",

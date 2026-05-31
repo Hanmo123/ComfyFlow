@@ -18,4 +18,13 @@ export interface ApiDefinition {
       destroy: typeof routes['profile.access_tokens.destroy']
     }
   }
+  workflows: {
+    workflows: {
+      index: typeof routes['workflows.workflows.index']
+      upload: typeof routes['workflows.workflows.upload']
+      show: typeof routes['workflows.workflows.show']
+      update: typeof routes['workflows.workflows.update']
+      destroy: typeof routes['workflows.workflows.destroy']
+    }
+  }
 }

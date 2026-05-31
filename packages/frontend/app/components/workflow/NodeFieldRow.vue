@@ -1,0 +1,39 @@
+<script setup lang="ts">
+import type { InputFieldDefinition, WorkflowInputVariable } from '@/lib/workflow'
+
+const props = defineProps<{
+  nodeId: string
+  field: string
+  definition: InputFieldDefinition
+  value: unknown
+  variable?: WorkflowInputVariable
+}>()
+
+const emit = defineEmits<{ toggle: [] }>()
+
+const displayValue = computed(() => {
+  if (Array.isArray(props.value)) return '已连接'
+  if (props.value === undefined || props.value === null) return '-'
+  if (typeof props.value === 'object') return JSON.stringify(props.value)
+  return String(props.value)
+})
+</script>
+
+<template>
+  <div class="rounded-md border border-slate-200 bg-white p-2 text-xs">
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-medium text-slate-700">{{ field }}</span>
+      <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{{ definition.type }}</span>
+    </div>
+    <div class="mt-1 truncate text-slate-500" :title="displayValue">{{ displayValue }}</div>
+    <button
+      v-if="definition.promotable"
+      class="mt-2 rounded px-2 py-1 text-[11px] font-medium transition"
+      :class="variable ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+      type="button"
+      @click="emit('toggle')"
+    >
+      {{ variable ? `输入：${variable.label}` : '设为输入变量' }}
+    </button>
+  </div>
+</template>
