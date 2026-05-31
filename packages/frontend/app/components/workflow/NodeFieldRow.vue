@@ -35,7 +35,7 @@ const displayValue = computed(() => {
       type="button"
       @click="emit('toggle')"
     >
-      {{ variable ? `输入：${variable.label}` : '设为输入变量' }}
+      {{ variable ? `输入：$${variable.name}` : '设为输入变量' }}
     </Button>
   </div>
 </template>

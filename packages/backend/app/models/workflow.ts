@@ -7,7 +7,7 @@ export interface WorkflowInputVariable {
   key: string
   nodeId: string
   field: string
-  label: string
+  name: string
   type: string
   default?: unknown
 }
@@ -16,7 +16,7 @@ export interface WorkflowOutputVariable {
   key: string
   nodeId: string
   slotIndex: number
-  label: string
+  name: string
   type: string
 }
 

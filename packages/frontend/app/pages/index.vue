@@ -34,6 +34,19 @@ const panelTitle = computed(() => {
   return "任务";
 });
 
+const duplicateVariableNames = computed(() => {
+  const counts = new Map<string, number>();
+  for (const item of [...inputs.value, ...outputs.value]) {
+    const name = normalizeVariableName(item.name);
+    if (!name) continue;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([name]) => name);
+});
+
 onMounted(async () => {
   await refreshWorkflows();
 });
@@ -46,8 +59,14 @@ function applyDetail(detail: WorkflowDetailResponse) {
   activeWorkflow.value = detail.workflow;
   graph.value = detail.graph;
   nodeDefinitions.value = detail.nodeDefinitions;
-  inputs.value = [...(detail.workflow.inputs ?? [])];
-  outputs.value = [...(detail.workflow.outputs ?? [])];
+  inputs.value = (detail.workflow.inputs ?? []).map((item) => ({
+    ...item,
+    name: normalizeVariableName(item.name || legacyVariableLabel(item)),
+  }));
+  outputs.value = (detail.workflow.outputs ?? []).map((item) => ({
+    ...item,
+    name: normalizeVariableName(item.name || legacyVariableLabel(item)),
+  }));
 }
 
 async function upload(rawJson: Record<string, unknown>) {
@@ -106,7 +125,7 @@ function toggleInput(nodeId: string, field: string) {
     key,
     nodeId,
     field,
-    label: field,
+    name: nextVariableName(field),
     type: definition.type,
     default: node.fieldValues[field],
   });
@@ -130,23 +149,60 @@ function toggleOutput(nodeId: string, slotIndex: number) {
     key,
     nodeId,
     slotIndex,
-    label: definition.name.toLowerCase(),
+    name: nextVariableName(definition.name.toLowerCase()),
     type: definition.type,
   });
 }
 
-function renameInput(key: string, label: string) {
+function renameInput(key: string, name: string) {
   const item = inputs.value.find((input) => input.key === key);
-  if (item) item.label = label;
+  if (item) item.name = normalizeVariableName(name);
 }
 
-function renameOutput(key: string, label: string) {
+function renameOutput(key: string, name: string) {
   const item = outputs.value.find((output) => output.key === key);
-  if (item) item.label = label;
+  if (item) item.name = normalizeVariableName(name);
+}
+
+function normalizeVariableName(value: string) {
+  return value.trim().replace(/^\$+/, "").trim();
+}
+
+function legacyVariableLabel(item: WorkflowInputVariable | WorkflowOutputVariable) {
+  return (item as unknown as { label?: string }).label ?? "";
+}
+
+function nextVariableName(base: string) {
+  const normalizedBase = normalizeVariableName(base) || "variable";
+  const existingNames = new Set(
+    [...inputs.value, ...outputs.value].map((item) =>
+      normalizeVariableName(item.name),
+    ),
+  );
+  if (!existingNames.has(normalizedBase)) return normalizedBase;
+
+  let index = 2;
+  while (existingNames.has(`${normalizedBase}${index}`)) index += 1;
+  return `${normalizedBase}${index}`;
+}
+
+function validateVariableNames() {
+  if ([...inputs.value, ...outputs.value].some((item) => !item.name)) {
+    error.value = "变量名不能为空";
+    return false;
+  }
+
+  if (duplicateVariableNames.value.length > 0) {
+    error.value = `变量名 $${duplicateVariableNames.value[0]} 重复`;
+    return false;
+  }
+
+  return true;
 }
 
 async function saveWorkflow(name: string) {
   if (!activeWorkflow.value) return;
+  if (!validateVariableNames()) return;
   try {
     saving.value = true;
     error.value = "";
@@ -214,11 +270,13 @@ async function saveWorkflow(name: string) {
         >
           <WorkflowInputsPanel
             :inputs="inputs"
+            :duplicate-names="duplicateVariableNames"
             @rename="renameInput"
             @remove="inputs = inputs.filter((item) => item.key !== $event)"
           />
           <WorkflowOutputsPanel
             :outputs="outputs"
+            :duplicate-names="duplicateVariableNames"
             @rename="renameOutput"
             @remove="outputs = outputs.filter((item) => item.key !== $event)"
           />

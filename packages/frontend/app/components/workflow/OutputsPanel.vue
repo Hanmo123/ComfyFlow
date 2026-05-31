@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { WorkflowOutputVariable } from "@/lib/workflow";
 
-defineProps<{ outputs: WorkflowOutputVariable[] }>();
+withDefaults(
+  defineProps<{ outputs: WorkflowOutputVariable[]; duplicateNames?: string[] }>(),
+  { duplicateNames: () => [] },
+);
 const emit = defineEmits<{
-  rename: [key: string, label: string];
+  rename: [key: string, name: string];
   remove: [key: string];
 }>();
 </script>
@@ -23,11 +26,23 @@ const emit = defineEmits<{
         :key="item.key"
         class="border rounded-md p-2"
       >
-        <div class="flex justify-between">
+        <div class="flex justify-between gap-2">
           <div
-            class="bg-emerald-500/10 text-emerald-600 w-fit px-2 py-1 text-sm rounded-sm"
+            class="flex min-w-0 flex-1 items-center rounded-sm border bg-white text-sm"
+            :class="
+              duplicateNames.includes(item.name)
+                ? 'border-red-300'
+                : 'border-emerald-200'
+            "
           >
-            ${{ item.key }}
+            <span class="border-r px-2 py-1 text-emerald-600">$</span>
+            <input
+              class="min-w-0 flex-1 rounded-r px-2 py-1 outline-none"
+              :value="item.name"
+              @input="
+                emit('rename', item.key, ($event.target as HTMLInputElement).value)
+              "
+            />
           </div>
 
           <div

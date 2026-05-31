@@ -25,7 +25,7 @@ const emit = defineEmits<{ toggle: [] }>()
       type="button"
       @click="emit('toggle')"
     >
-      {{ variable ? `输出：${variable.label}` : '设为输出变量' }}
+      {{ variable ? `输出：$${variable.name}` : '设为输出变量' }}
     </Button>
   </div>
 </template>
