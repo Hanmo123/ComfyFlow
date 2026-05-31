@@ -16,14 +16,16 @@ const emit = defineEmits<{ toggle: [] }>()
       <span class="font-medium text-slate-700">{{ slotIndex }} · {{ definition.name }}</span>
       <span class="rounded bg-white px-1.5 py-0.5 text-[10px] text-slate-500">{{ definition.type }}</span>
     </div>
-    <button
+    <Button
       v-if="definition.exposable"
-      class="mt-2 rounded px-2 py-1 text-[11px] font-medium transition"
+      variant="secondary"
+      size="sm"
+      class="mt-2 h-auto px-2 py-1 text-[11px]"
       :class="variable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
       type="button"
       @click="emit('toggle')"
     >
       {{ variable ? `输出：${variable.label}` : '设为输出变量' }}
-    </button>
+    </Button>
   </div>
 </template>

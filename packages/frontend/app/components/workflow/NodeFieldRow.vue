@@ -26,14 +26,16 @@ const displayValue = computed(() => {
       <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{{ definition.type }}</span>
     </div>
     <div class="mt-1 truncate text-slate-500" :title="displayValue">{{ displayValue }}</div>
-    <button
+    <Button
       v-if="definition.promotable"
-      class="mt-2 rounded px-2 py-1 text-[11px] font-medium transition"
+      variant="secondary"
+      size="sm"
+      class="mt-2 h-auto px-2 py-1 text-[11px]"
       :class="variable ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
       type="button"
       @click="emit('toggle')"
     >
       {{ variable ? `输入：${variable.label}` : '设为输入变量' }}
-    </button>
+    </Button>
   </div>
 </template>

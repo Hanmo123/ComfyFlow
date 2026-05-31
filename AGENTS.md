@@ -19,3 +19,8 @@
 代码规范：
 - 前端应遵循组件拆分“应拆尽拆”
 - 后端遵循Controller-Service-Repository三层架构，Controller只处理请求和响应，Service处理业务逻辑，Repository负责数据持久化
+
+设计规范：
+- 扁平化，避免使用`shadow-*`
+- 不要自己手搓shadcn-vue组件，而是使用命令拉取
+- 不要把加载中、处理中等字眼放在组件里展示，应该用sonner等全局提示组件展示

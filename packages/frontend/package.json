@@ -19,6 +19,7 @@
     "clsx": "^2.1.1",
     "lucide-vue-next": "^1.0.0",
     "nuxt": "^4.4.5",
+    "reka-ui": "^2.9.8",
     "shadcn-nuxt": "2.7.3",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.0",

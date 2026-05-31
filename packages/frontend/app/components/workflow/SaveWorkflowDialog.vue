@@ -24,17 +24,16 @@ watch(
         @keydown.enter="name.trim() && emit('save', name.trim())"
       />
       <div class="mt-4 flex justify-end gap-2">
-        <button class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100" type="button" @click="emit('close')">
+        <Button variant="ghost" type="button" @click="emit('close')">
           取消
-        </button>
-        <button
-          class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        </Button>
+        <Button
           type="button"
           :disabled="!name.trim() || saving"
           @click="emit('save', name.trim())"
         >
           {{ saving ? '保存中...' : '保存' }}
-        </button>
+        </Button>
       </div>
     </div>
   </div>

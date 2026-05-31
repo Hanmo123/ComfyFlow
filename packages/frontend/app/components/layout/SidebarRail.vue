@@ -14,16 +14,18 @@ const items = [
 
 <template>
   <nav class="flex flex-col gap-1.5 border-r bg-gray-50 px-2 py-3">
-    <button
+    <Button
       v-for="item in items"
       :key="item.value"
-      class="flex size-10 items-center justify-center rounded-md transition hover:bg-gray-500/5"
+      variant="ghost"
+      size="icon"
+      class="size-10 hover:bg-gray-500/5"
       :class="active === item.value ? 'bg-gray-500/10 text-slate-950' : 'text-slate-500'"
       :title="item.label"
       type="button"
       @click="emit('select', item.value)"
     >
       <component :is="item.icon" class="size-5.5" />
-    </button>
+    </Button>
   </nav>
 </template>
