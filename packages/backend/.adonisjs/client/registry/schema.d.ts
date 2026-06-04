@@ -115,4 +115,64 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/workflows_controller').default['destroy']>>>
     }
   }
+  'apps.apps.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/apps'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['index']>>>
+    }
+  }
+  'apps.apps.store': {
+    methods: ["POST"]
+    pattern: '/api/v1/apps'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/app').createAppValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/app').createAppValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'apps.apps.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/apps/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['show']>>>
+    }
+  }
+  'apps.apps.update': {
+    methods: ["PUT"]
+    pattern: '/api/v1/apps/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/app').updateAppValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/app').updateAppValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'apps.apps.destroy': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/apps/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['destroy']>>>
+    }
+  }
 }

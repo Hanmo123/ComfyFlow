@@ -12,6 +12,7 @@ import router from '@adonisjs/core/services/router'
 import { controllers } from '#generated/controllers'
 
 const WorkflowsController = () => import('#controllers/workflows_controller')
+const AppsController = () => import('#controllers/apps_controller')
 
 router.get('/', () => {
   return { hello: 'world' }
@@ -46,5 +47,16 @@ router
       })
       .prefix('workflows')
       .as('workflows')
+
+    router
+      .group(() => {
+        router.get('/', [AppsController, 'index'])
+        router.post('/', [AppsController, 'store'])
+        router.get(':id', [AppsController, 'show'])
+        router.put(':id', [AppsController, 'update'])
+        router.delete(':id', [AppsController, 'destroy'])
+      })
+      .prefix('apps')
+      .as('apps')
   })
   .prefix('/api/v1')

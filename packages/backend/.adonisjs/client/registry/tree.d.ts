@@ -27,4 +27,13 @@ export interface ApiDefinition {
       destroy: typeof routes['workflows.workflows.destroy']
     }
   }
+  apps: {
+    apps: {
+      index: typeof routes['apps.apps.index']
+      store: typeof routes['apps.apps.store']
+      show: typeof routes['apps.apps.show']
+      update: typeof routes['apps.apps.update']
+      destroy: typeof routes['apps.apps.destroy']
+    }
+  }
 }

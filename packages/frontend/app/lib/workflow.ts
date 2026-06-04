@@ -5,13 +5,13 @@ export interface WorkflowRecord {
   name: string | null
   status: WorkflowStatus
   rawJson: Record<string, unknown>
-  inputs: WorkflowInputVariable[]
-  outputs: WorkflowOutputVariable[]
+  parameters: WorkflowParameter[]
+  results: WorkflowResult[]
   createdAt: string
   updatedAt: string | null
 }
 
-export interface WorkflowInputVariable {
+export interface WorkflowParameter {
   key: string
   nodeId: string
   field: string
@@ -20,7 +20,7 @@ export interface WorkflowInputVariable {
   default?: unknown
 }
 
-export interface WorkflowOutputVariable {
+export interface WorkflowResult {
   key: string
   nodeId: string
   slotIndex: number

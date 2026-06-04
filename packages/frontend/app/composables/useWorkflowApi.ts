@@ -1,7 +1,7 @@
 import type {
   WorkflowDetailResponse,
-  WorkflowInputVariable,
-  WorkflowOutputVariable,
+  WorkflowParameter,
+  WorkflowResult,
   WorkflowRecord,
 } from '@/lib/workflow'
 
@@ -22,8 +22,8 @@ export function useWorkflowApi() {
     id: number,
     payload: {
       name: string
-      inputs: WorkflowInputVariable[]
-      outputs: WorkflowOutputVariable[]
+      parameters: WorkflowParameter[]
+      results: WorkflowResult[]
     }
   ) =>
     $fetch<WorkflowDetailResponse>(`${API_BASE}/workflows/${id}`, {

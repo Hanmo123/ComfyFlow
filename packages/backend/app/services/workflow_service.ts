@@ -1,13 +1,13 @@
 import WorkflowRepository from '#repositories/workflow_repository'
-import type { WorkflowInputVariable, WorkflowOutputVariable, WorkflowStatus } from '#models/workflow'
+import type { WorkflowParameter, WorkflowResult, WorkflowStatus } from '#models/workflow'
 import { Exception } from '@adonisjs/core/exceptions'
 import { parseComfyApiJson } from './comfy_parser.js'
 
 export interface UpdateWorkflowPayload {
   name?: string | null
   status?: WorkflowStatus
-  inputs?: WorkflowInputVariable[]
-  outputs?: WorkflowOutputVariable[]
+  parameters?: WorkflowParameter[]
+  results?: WorkflowResult[]
 }
 
 export default class WorkflowService {
@@ -23,8 +23,8 @@ export default class WorkflowService {
       name: null,
       status: 'draft',
       rawJson,
-      inputs: [],
-      outputs: [],
+      parameters: [],
+      results: [],
     })
 
     return { workflow, ...parsed }
@@ -51,13 +51,13 @@ export default class WorkflowService {
   private normalizePayload(payload: UpdateWorkflowPayload): UpdateWorkflowPayload {
     return {
       ...payload,
-      inputs: payload.inputs?.map((item) => ({ ...item, name: normalizeVariableName(item) })),
-      outputs: payload.outputs?.map((item) => ({ ...item, name: normalizeVariableName(item) })),
+      parameters: payload.parameters?.map((item) => ({ ...item, name: normalizeVariableName(item) })),
+      results: payload.results?.map((item) => ({ ...item, name: normalizeVariableName(item) })),
     }
   }
 
   private ensureUniqueVariableNames(payload: UpdateWorkflowPayload) {
-    const names = [...(payload.inputs ?? []), ...(payload.outputs ?? [])].map((item) => item.name)
+    const names = [...(payload.parameters ?? []), ...(payload.results ?? [])].map((item) => item.name)
 
     if (names.some((name) => !name)) {
       throw new Exception('变量名不能为空', { status: 422, code: 'E_INVALID_WORKFLOW_VARIABLES' })
@@ -76,7 +76,7 @@ export default class WorkflowService {
   }
 }
 
-function normalizeVariableName(item: WorkflowInputVariable | WorkflowOutputVariable) {
+function normalizeVariableName(item: WorkflowParameter | WorkflowResult) {
   const legacyLabel = (item as unknown as { label?: string }).label ?? ''
   return (item.name || legacyLabel).trim().replace(/^\$+/, '').trim()
 }

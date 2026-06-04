@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { InputFieldDefinition, WorkflowInputVariable } from '@/lib/workflow'
+import type { InputFieldDefinition, WorkflowParameter } from '@/lib/workflow'
 
 const props = defineProps<{
   nodeId: string
   field: string
   definition: InputFieldDefinition
   value: unknown
-  variable?: WorkflowInputVariable
+  variable?: WorkflowParameter
 }>()
 
 const emit = defineEmits<{ toggle: [] }>()
@@ -35,7 +35,7 @@ const displayValue = computed(() => {
       type="button"
       @click="emit('toggle')"
     >
-      {{ variable ? `输入：$${variable.name}` : '设为输入变量' }}
+      {{ variable ? `参数：$${variable.name}` : '设为工作流参数' }}
     </Button>
   </div>
 </template>

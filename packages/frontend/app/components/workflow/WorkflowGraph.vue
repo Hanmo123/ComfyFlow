@@ -6,15 +6,15 @@ import { VueFlow, type Edge, type Node } from '@vue-flow/core'
 import type {
   NodeDefinition,
   ParsedWorkflowGraph,
-  WorkflowInputVariable,
-  WorkflowOutputVariable,
+  WorkflowParameter,
+  WorkflowResult,
 } from '@/lib/workflow'
 
 const props = defineProps<{
   graph?: ParsedWorkflowGraph
   nodeDefinitions: Record<string, NodeDefinition>
-  inputs: WorkflowInputVariable[]
-  outputs: WorkflowOutputVariable[]
+  parameters: WorkflowParameter[]
+  results: WorkflowResult[]
   fullscreen?: boolean
   controlsOffsetLeft?: number
 }>()
@@ -36,8 +36,8 @@ const flowNodes = computed<Node[]>(() =>
     data: {
       node,
       definition: props.nodeDefinitions[node.classType],
-      inputs: props.inputs,
-      outputs: props.outputs,
+      parameters: props.parameters,
+      results: props.results,
       onToggleInput: (nodeId: string, field: string) => emit('toggleInput', nodeId, field),
       onToggleOutput: (nodeId: string, slotIndex: number) => emit('toggleOutput', nodeId, slotIndex),
     },

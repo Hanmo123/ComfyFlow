@@ -50,22 +50,43 @@ export class UserSchema extends BaseModel {
 }
 
 export class WorkflowSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'inputs', 'name', 'outputs', 'rawJson', 'status', 'updatedAt'] as const
+  static $columns = ['createdAt', 'id', 'name', 'parameters', 'rawJson', 'results', 'status', 'updatedAt'] as const
   $columns = WorkflowSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
   declare id: number
   @column()
-  declare inputs: any
-  @column()
   declare name: string | null
   @column()
-  declare outputs: any
+  declare parameters: any
   @column()
   declare rawJson: any
+  @column()
+  declare results: any
   @column()
   declare status: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class AppSchema extends BaseModel {
+  static $columns = ['createdAt', 'description', 'graph', 'id', 'name', 'status', 'updatedAt', 'variables'] as const
+  $columns = AppSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string | null
+  @column()
+  declare graph: any
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare variables: any
 }

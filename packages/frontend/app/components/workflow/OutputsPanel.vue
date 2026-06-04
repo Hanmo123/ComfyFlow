@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { WorkflowOutputVariable } from "@/lib/workflow";
+import type { WorkflowResult } from "@/lib/workflow";
 
 withDefaults(
-  defineProps<{ outputs: WorkflowOutputVariable[]; duplicateNames?: string[] }>(),
+  defineProps<{ results: WorkflowResult[]; duplicateNames?: string[] }>(),
   { duplicateNames: () => [] },
 );
 const emit = defineEmits<{
@@ -13,16 +13,16 @@ const emit = defineEmits<{
 
 <template>
   <div class="rounded-xl">
-    <div class="mb-2 text-sm font-medium text-gray-800">输出变量</div>
+    <div class="mb-2 text-sm font-medium text-gray-800">工作流结果</div>
     <div
-      v-if="outputs.length === 0"
+      v-if="results.length === 0"
       class="border rounded-md text-center py-4 text-xs text-slate-500"
     >
-      尚未设置输出变量
+      尚未设置工作流结果
     </div>
     <div v-else class="flex flex-col gap-2">
       <div
-        v-for="item in outputs"
+        v-for="item in results"
         :key="item.key"
         class="border rounded-md p-2"
       >

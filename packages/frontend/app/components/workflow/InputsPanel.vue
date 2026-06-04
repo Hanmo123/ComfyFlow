@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { WorkflowInputVariable } from "@/lib/workflow";
+import type { WorkflowParameter } from "@/lib/workflow";
 
 withDefaults(
-  defineProps<{ inputs: WorkflowInputVariable[]; duplicateNames?: string[] }>(),
+  defineProps<{ parameters: WorkflowParameter[]; duplicateNames?: string[] }>(),
   { duplicateNames: () => [] },
 );
 const emit = defineEmits<{
@@ -13,15 +13,15 @@ const emit = defineEmits<{
 
 <template>
   <div class="rounded-xl">
-    <div class="mb-2 text-sm font-medium text-gray-800">输入变量</div>
+    <div class="mb-2 text-sm font-medium text-gray-800">工作流参数</div>
     <div
-      v-if="inputs.length === 0"
+      v-if="parameters.length === 0"
       class="border rounded-md text-center py-4 text-xs text-slate-500"
     >
-      尚未设置输入变量
+      尚未设置工作流参数
     </div>
     <div v-else class="flex flex-col gap-2">
-      <div v-for="item in inputs" :key="item.key" class="border rounded-md p-2">
+      <div v-for="item in parameters" :key="item.key" class="border rounded-md p-2">
         <div class="flex justify-between gap-2">
           <div
             class="flex min-w-0 flex-1 items-center rounded-sm border bg-white text-sm"

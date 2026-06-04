@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(defineProps<{ workflowMode?: boolean }>(), {
   workflowMode: true,
-})
+});
 </script>
 
 <template>
@@ -11,9 +11,10 @@ withDefaults(defineProps<{ workflowMode?: boolean }>(), {
       <slot name="panel" />
     </div>
 
-    <div :class="workflowMode ? 'fixed inset-0 -z-10' : 'grow rounded-xl border'" />
-
-    <section class="relative z-0 min-w-0 grow overflow-hidden rounded-xl" :class="workflowMode ? '' : 'border bg-white'">
+    <section
+      class="relative z-0 min-w-0 grow overflow-hidden rounded-xl"
+      :class="workflowMode ? '' : 'border bg-white'"
+    >
       <slot />
     </section>
   </main>

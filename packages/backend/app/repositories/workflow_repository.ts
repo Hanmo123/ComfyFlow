@@ -1,6 +1,6 @@
 import Workflow, {
-  type WorkflowInputVariable,
-  type WorkflowOutputVariable,
+  type WorkflowParameter,
+  type WorkflowResult,
   type WorkflowStatus,
 } from '#models/workflow'
 
@@ -8,15 +8,15 @@ export interface CreateWorkflowPayload {
   name?: string | null
   status: WorkflowStatus
   rawJson: Record<string, unknown>
-  inputs?: WorkflowInputVariable[]
-  outputs?: WorkflowOutputVariable[]
+  parameters?: WorkflowParameter[]
+  results?: WorkflowResult[]
 }
 
 export interface UpdateWorkflowPayload {
   name?: string | null
   status?: WorkflowStatus
-  inputs?: WorkflowInputVariable[]
-  outputs?: WorkflowOutputVariable[]
+  parameters?: WorkflowParameter[]
+  results?: WorkflowResult[]
 }
 
 export default class WorkflowRepository {
@@ -33,8 +33,8 @@ export default class WorkflowRepository {
       name: payload.name ?? null,
       status: payload.status,
       rawJson: payload.rawJson,
-      inputs: payload.inputs ?? [],
-      outputs: payload.outputs ?? [],
+      parameters: payload.parameters ?? [],
+      results: payload.results ?? [],
     })
   }
 

@@ -3,16 +3,16 @@ import { Handle, Position } from '@vue-flow/core'
 import type {
   NodeDefinition,
   ParsedWorkflowNode,
-  WorkflowInputVariable,
-  WorkflowOutputVariable,
+  WorkflowParameter,
+  WorkflowResult,
 } from '@/lib/workflow'
 
 const props = defineProps<{
   data: {
     node: ParsedWorkflowNode
     definition: NodeDefinition
-    inputs: WorkflowInputVariable[]
-    outputs: WorkflowOutputVariable[]
+    parameters: WorkflowParameter[]
+    results: WorkflowResult[]
     onToggleInput: (nodeId: string, field: string) => void
     onToggleOutput: (nodeId: string, slotIndex: number) => void
   }
@@ -21,11 +21,11 @@ const props = defineProps<{
 const inputEntries = computed(() => Object.entries(props.data.definition.inputs))
 
 function inputVariable(field: string) {
-  return props.data.inputs.find((item) => item.nodeId === props.data.node.id && item.field === field)
+  return props.data.parameters.find((item) => item.nodeId === props.data.node.id && item.field === field)
 }
 
 function outputVariable(slotIndex: number) {
-  return props.data.outputs.find((item) => item.nodeId === props.data.node.id && item.slotIndex === slotIndex)
+  return props.data.results.find((item) => item.nodeId === props.data.node.id && item.slotIndex === slotIndex)
 }
 </script>
 

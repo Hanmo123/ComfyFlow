@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { OutputSlotDefinition, WorkflowOutputVariable } from '@/lib/workflow'
+import type { OutputSlotDefinition, WorkflowResult } from '@/lib/workflow'
 
 defineProps<{
   slotIndex: number
   definition: OutputSlotDefinition
-  variable?: WorkflowOutputVariable
+  variable?: WorkflowResult
 }>()
 
 const emit = defineEmits<{ toggle: [] }>()
@@ -25,7 +25,7 @@ const emit = defineEmits<{ toggle: [] }>()
       type="button"
       @click="emit('toggle')"
     >
-      {{ variable ? `输出：$${variable.name}` : '设为输出变量' }}
+      {{ variable ? `结果：$${variable.name}` : '设为工作流结果' }}
     </Button>
   </div>
 </template>

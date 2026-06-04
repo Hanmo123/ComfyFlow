@@ -3,7 +3,7 @@ import { DateTime } from 'luxon'
 
 export type WorkflowStatus = 'draft' | 'saved'
 
-export interface WorkflowInputVariable {
+export interface WorkflowParameter {
   key: string
   nodeId: string
   field: string
@@ -12,7 +12,7 @@ export interface WorkflowInputVariable {
   default?: unknown
 }
 
-export interface WorkflowOutputVariable {
+export interface WorkflowResult {
   key: string
   nodeId: string
   slotIndex: number
@@ -34,10 +34,10 @@ export default class Workflow extends BaseModel {
   declare rawJson: Record<string, unknown>
 
   @column({ prepare: stringifyJson, consume: parseJson })
-  declare inputs: WorkflowInputVariable[]
+  declare parameters: WorkflowParameter[]
 
   @column({ prepare: stringifyJson, consume: parseJson })
-  declare outputs: WorkflowOutputVariable[]
+  declare results: WorkflowResult[]
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

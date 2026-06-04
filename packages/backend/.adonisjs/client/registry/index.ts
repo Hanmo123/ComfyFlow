@@ -60,6 +60,36 @@ const routes = {
     tokens: [{"old":"/api/v1/workflows/:id","type":0,"val":"api","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/workflows/:id","type":0,"val":"workflows","end":""},{"old":"/api/v1/workflows/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['workflows.workflows.destroy']['types'],
   },
+  'apps.apps.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/apps',
+    tokens: [{"old":"/api/v1/apps","type":0,"val":"api","end":""},{"old":"/api/v1/apps","type":0,"val":"v1","end":""},{"old":"/api/v1/apps","type":0,"val":"apps","end":""}],
+    types: placeholder as Registry['apps.apps.index']['types'],
+  },
+  'apps.apps.store': {
+    methods: ["POST"],
+    pattern: '/api/v1/apps',
+    tokens: [{"old":"/api/v1/apps","type":0,"val":"api","end":""},{"old":"/api/v1/apps","type":0,"val":"v1","end":""},{"old":"/api/v1/apps","type":0,"val":"apps","end":""}],
+    types: placeholder as Registry['apps.apps.store']['types'],
+  },
+  'apps.apps.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/apps/:id',
+    tokens: [{"old":"/api/v1/apps/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['apps.apps.show']['types'],
+  },
+  'apps.apps.update': {
+    methods: ["PUT"],
+    pattern: '/api/v1/apps/:id',
+    tokens: [{"old":"/api/v1/apps/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['apps.apps.update']['types'],
+  },
+  'apps.apps.destroy': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/apps/:id',
+    tokens: [{"old":"/api/v1/apps/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['apps.apps.destroy']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }
