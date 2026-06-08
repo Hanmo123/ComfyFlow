@@ -2,6 +2,7 @@
 import { Check, FileText, FolderOpen, Play, RotateCw, Save, X } from 'lucide-vue-next'
 
 const store = useAppDesignerStore()
+const runSheetOpen = ref(false)
 
 const taskStatusLabel = computed(() => {
   const labels = {
@@ -75,7 +76,7 @@ onMounted(() => {
         type="button"
         class="absolute right-4 top-4 z-30 bg-blue-600 text-white hover:bg-blue-700"
         :disabled="store.running.value || store.saving.value"
-        @click="store.runApp"
+        @click="runSheetOpen = true"
       >
         <Play class="size-4" />
         运行
@@ -124,6 +125,8 @@ onMounted(() => {
       >
         {{ store.error.value }}
       </div>
+
+      <AppRunSheet v-model:open="runSheetOpen" />
     </div>
   </main>
 </template>

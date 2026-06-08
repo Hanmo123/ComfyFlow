@@ -211,4 +211,64 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['destroy']>>>
     }
   }
+  'tasks.tasks.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/tasks'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['index']>>>
+    }
+  }
+  'tasks.tasks.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/tasks/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['show']>>>
+    }
+  }
+  'tasks.tasks.retry_node': {
+    methods: ["POST"]
+    pattern: '/api/v1/tasks/:id/nodes/:nodeId/retry'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { id: ParamValue; nodeId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>>
+    }
+  }
+  'comfy.comfy.upload_image': {
+    methods: ["POST"]
+    pattern: '/api/v1/comfy/images'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/comfy_controller').default['uploadImage']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/comfy_controller').default['uploadImage']>>>
+    }
+  }
+  'media.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/media/:hash'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { hash: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['show']>>>
+    }
+  }
 }

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  APP_VARIABLE_TYPE_COLORS,
+  APP_VARIABLE_TYPE_LABELS,
+  APP_VARIABLE_TYPES,
+} from '@/lib/app'
 import type { InputFieldDefinition, WorkflowParameter } from '@/lib/workflow'
 
 const props = defineProps<{
@@ -17,30 +22,43 @@ const displayValue = computed(() => {
   if (typeof props.value === 'object') return JSON.stringify(props.value)
   return String(props.value)
 })
+
+function typeLabel(type: string) {
+  return isKnownType(type) ? APP_VARIABLE_TYPE_LABELS[type] : type
+}
+
+function typeClass(type: string) {
+  return isKnownType(type) ? APP_VARIABLE_TYPE_COLORS[type] : APP_VARIABLE_TYPE_COLORS.UNKNOWN
+}
+
+function isKnownType(type: string): type is (typeof APP_VARIABLE_TYPES)[number] {
+  return APP_VARIABLE_TYPES.includes(type as (typeof APP_VARIABLE_TYPES)[number])
+}
 </script>
 
 <template>
   <div
-    class="rounded-md border p-2 text-xs"
-    :class="variable ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white'"
-    :style="{ backgroundColor: variable ? '#eef2ff' : '#ffffff' }"
+    class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md px-1.5 py-1.5 text-xs"
+    :class="variable ? 'bg-slate-50' : 'bg-white'"
   >
-    <div class="flex items-center justify-between gap-2">
-      <span class="font-medium text-slate-700">{{ field }}</span>
-      <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{{ definition.type }}</span>
+    <Badge class="border-0" :class="typeClass(definition.type)">
+      {{ typeLabel(definition.type) }}
+    </Badge>
+    <div class="min-w-0">
+      <div class="truncate text-sm font-medium text-slate-700">{{ field }}</div>
+      <div class="truncate text-slate-500" :title="displayValue">{{ displayValue }}</div>
     </div>
-    <div class="mt-1 truncate text-slate-500" :title="displayValue">{{ displayValue }}</div>
     <Button
       v-if="definition.promotable"
-      variant="secondary"
+      :variant="variable ? 'default' : 'secondary'"
       size="sm"
-      class="nodrag nopan mt-2 h-auto px-2 py-1 text-[11px]"
-      :class="variable ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+      class="nodrag nopan h-7 min-w-0 max-w-28 justify-start px-2 text-xs"
+      :class="variable ? '' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-950'"
       type="button"
       @pointerdown.stop
       @click.stop="emit('toggle')"
     >
-      {{ variable ? `参数：$${variable.name}` : '设为工作流参数' }}
+      <span class="min-w-0 truncate">{{ variable ? `$${variable.name}` : '设为参数' }}</span>
     </Button>
   </div>
 </template>

@@ -8,6 +8,7 @@ import WorkflowRepository from '#repositories/workflow_repository'
 import { Exception } from '@adonisjs/core/exceptions'
 import { DateTime } from 'luxon'
 import ComfyService from './comfy_service.js'
+import MediaAssetService from './media_asset_service.js'
 
 export default class AppTaskService {
   private static queue = Promise.resolve()
@@ -16,7 +17,8 @@ export default class AppTaskService {
     private appRepository = new AppRepository(),
     private taskRepository = new AppTaskRepository(),
     private workflowRepository = new WorkflowRepository(),
-    private comfyService = new ComfyService()
+    private comfyService = new ComfyService(),
+    private mediaAssetService = new MediaAssetService()
   ) {}
 
   async run(appId: number, inputs: Record<string, unknown> = {}) {
@@ -38,6 +40,14 @@ export default class AppTaskService {
     return task
   }
 
+  async list() {
+    return this.taskRepository.list()
+  }
+
+  async showById(taskId: number) {
+    return this.taskRepository.findOrFail(taskId)
+  }
+
   async show(appId: number, taskId: number) {
     return this.taskRepository.findForAppOrFail(appId, taskId)
   }
@@ -54,6 +64,32 @@ export default class AppTaskService {
       waitingNodeId: null,
       nodeRuns: task.nodeRuns,
       error: null,
+    })
+    this.enqueue(task.id)
+    return task
+  }
+
+  async retryNode(taskId: number, nodeId: string) {
+    const task = await this.taskRepository.findOrFail(taskId)
+    if (task.status === 'queued' || task.status === 'running') {
+      throw new Exception('任务正在执行，不能发起重试', { status: 422, code: 'E_TASK_BUSY' })
+    }
+
+    const node = task.appSnapshot.graph.nodes.find((item) => item.id === nodeId)
+    if (!node) throw new Exception('任务节点不存在', { status: 404, code: 'E_TASK_NODE_NOT_FOUND' })
+    if (node.type !== 'workflow_run') {
+      throw new Exception('只有工作流运行节点支持重试', { status: 422, code: 'E_TASK_NODE_NOT_RETRYABLE' })
+    }
+
+    const resetNodeIds = collectDownstreamNodeIds(task.appSnapshot.graph.nodes, task.appSnapshot.graph.edges, nodeId)
+    task.nodeRuns = task.nodeRuns.filter((nodeRun) => !resetNodeIds.has(nodeRun.nodeId))
+
+    await this.taskRepository.update(task, {
+      status: 'queued',
+      waitingNodeId: null,
+      error: null,
+      nodeRuns: task.nodeRuns,
+      completedAt: null,
     })
     this.enqueue(task.id)
     return task
@@ -129,7 +165,7 @@ export default class AppTaskService {
       if (node.type === 'output_text' || node.type === 'output_image') {
         const varKey = node.data.varKey
         markNodeRun(task, node.id, 'running')
-        if (varKey) task.outputs[varKey] = task.variables[varKey]
+        if (varKey) task.outputs[varKey] = mergeOutputValue(node.type, task.outputs[varKey], task.variables[varKey])
         markNodeRun(task, node.id, 'completed', { outputs: varKey ? { [varKey]: task.outputs[varKey] } : {} })
         await this.persistProgress(task)
       }
@@ -153,13 +189,29 @@ export default class AppTaskService {
     await this.persistProgress(task)
 
     const prompt = buildWorkflowPrompt(workflow, inputs)
-    const workflowOutputs = await this.comfyService.runWorkflow(prompt, workflow.results)
+    const workflowOutputs = await this.localizeWorkflowOutputs(
+      await this.comfyService.runWorkflow(prompt, workflow.results)
+    )
     for (const [resultKey, varKey] of Object.entries(node.data.outputAssignments ?? {})) {
       if (varKey) task.variables[varKey] = workflowOutputs[resultKey]
     }
 
     markNodeRun(task, node.id, 'completed', { outputs: workflowOutputs })
     await this.persistProgress(task)
+  }
+
+  private async localizeWorkflowOutputs(outputs: Record<string, unknown>) {
+    const localized: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(outputs)) {
+      localized[key] = await this.localizeOutputValue(value)
+    }
+    return localized
+  }
+
+  private async localizeOutputValue(value: unknown): Promise<unknown> {
+    if (Array.isArray(value)) return Promise.all(value.map((item) => this.localizeOutputValue(item)))
+    if (!isComfyImageReference(value)) return value
+    return this.mediaAssetService.saveComfyImage(value)
   }
 
   private async persistProgress(task: AppTask) {
@@ -208,9 +260,22 @@ function buildWorkflowPrompt(workflow: Workflow, inputs: Record<string, unknown>
   for (const parameter of workflow.parameters) {
     const rawNode = prompt[parameter.nodeId]
     if (!isPromptNode(rawNode)) continue
-    rawNode.inputs[parameter.field] = inputs[parameter.key]
+    rawNode.inputs[parameter.field] = normalizePromptInput(parameter.type, inputs[parameter.key])
   }
   return prompt
+}
+
+function normalizePromptInput(type: string, value: unknown) {
+  if (type !== 'IMAGE') return value
+  if (Array.isArray(value)) return normalizePromptInput(type, value[0])
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+  const image = value as Record<string, unknown>
+  if (typeof image.filename !== 'string') return typeof image.name === 'string' ? image.name : value
+
+  const subfolder = typeof image.subfolder === 'string' ? image.subfolder.replace(/^\/+|\/+$/g, '') : ''
+  const filePath = subfolder ? `${subfolder}/${image.filename}` : image.filename
+  const imageType = typeof image.type === 'string' ? image.type : 'input'
+  return imageType === 'input' ? filePath : `${filePath} [${imageType}]`
 }
 
 function topologicalSort(nodes: AppGraphNode[], edges: { source: string; target: string }[]) {
@@ -239,6 +304,29 @@ function topologicalSort(nodes: AppGraphNode[], edges: { source: string; target:
   return result
 }
 
+function collectDownstreamNodeIds(nodes: AppGraphNode[], edges: { source: string; target: string }[], nodeId: string) {
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  const outgoing = new Map<string, string[]>()
+  for (const edge of edges) outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge.target])
+
+  const result = new Set<string>()
+  const queue = [nodeId]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (!nodeIds.has(current) || result.has(current)) continue
+    result.add(current)
+    queue.push(...(outgoing.get(current) ?? []))
+  }
+  return result
+}
+
+function mergeOutputValue(nodeType: AppGraphNode['type'], previous: unknown, next: unknown) {
+  if (nodeType !== 'output_image') return next
+  const previousItems = Array.isArray(previous) ? previous : previous === undefined || previous === null ? [] : [previous]
+  const nextItems = Array.isArray(next) ? next : next === undefined || next === null ? [] : [next]
+  return [...previousItems, ...nextItems]
+}
+
 function markNodeRun(
   task: AppTask,
   nodeId: string,
@@ -265,6 +353,16 @@ function nodeRunStatus(task: AppTask, nodeId: string) {
 
 function isPromptNode(value: unknown): value is { inputs: Record<string, unknown> } {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'inputs' in value)
+}
+
+function isComfyImageReference(value: unknown): value is { filename: string; subfolder?: string; type?: string; url: string } {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      typeof (value as Record<string, unknown>).filename === 'string' &&
+      typeof (value as Record<string, unknown>).url === 'string'
+  )
 }
 
 function isEmptyValue(value: unknown) {

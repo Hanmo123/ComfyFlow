@@ -39,4 +39,19 @@ export interface ApiDefinition {
       destroy: typeof routes['apps.apps.destroy']
     }
   }
+  tasks: {
+    tasks: {
+      index: typeof routes['tasks.tasks.index']
+      show: typeof routes['tasks.tasks.show']
+      retryNode: typeof routes['tasks.tasks.retry_node']
+    }
+  }
+  comfy: {
+    comfy: {
+      uploadImage: typeof routes['comfy.comfy.upload_image']
+    }
+  }
+  media: {
+    show: typeof routes['media.show']
+  }
 }

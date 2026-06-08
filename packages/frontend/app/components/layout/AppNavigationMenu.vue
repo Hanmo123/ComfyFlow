@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { LayoutGrid, Menu, Workflow } from 'lucide-vue-next'
+import { ClipboardList, LayoutGrid, Menu, Workflow } from 'lucide-vue-next'
 
 const route = useRoute()
 
 const items = [
   { label: '应用编排', to: '/', icon: LayoutGrid },
   { label: '工作流管理', to: '/workflows', icon: Workflow },
+  { label: '任务列表', to: '/tasks', icon: ClipboardList },
 ]
 
 function selectRoute(to: string) {

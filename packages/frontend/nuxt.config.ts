@@ -10,15 +10,18 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: [
+        "@lucide/vue",
         "@vue-flow/background",
         "@vue-flow/controls",
         "@vue-flow/core",
         "@vue-flow/minimap",
+        "@vueuse/core",
         "class-variance-authority",
         "clsx",
         "lucide-vue-next",
         "reka-ui",
         "tailwind-merge",
+        "vue-sonner",
       ],
     },
   },

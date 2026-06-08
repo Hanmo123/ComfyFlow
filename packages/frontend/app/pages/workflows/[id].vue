@@ -110,8 +110,8 @@ async function deleteActiveWorkflow() {
 
 function applyDetail(detail: WorkflowDetailResponse) {
   activeDetail.value = detail
-  parameters.value = structuredClone(detail.workflow.parameters ?? [])
-  results.value = structuredClone(detail.workflow.results ?? [])
+  parameters.value = clonePlain(detail.workflow.parameters ?? [])
+  results.value = clonePlain(detail.workflow.results ?? [])
 }
 
 function toggleInput(nodeId: string, field: string) {
@@ -214,6 +214,10 @@ function normalizeVariableName(value: string) {
   return value.trim().replace(/^\$+/, '').trim()
 }
 
+function clonePlain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
 function workflowTitle(workflow: WorkflowRecord) {
   return workflow.name || `未命名工作流 #${workflow.id}`
 }
@@ -261,9 +265,9 @@ async function withLoading(action: () => Promise<void>, message: string) {
           <ArrowLeft class="size-4" />
           返回列表
         </Button>
-        <div v-if="activeWorkflow" class="pointer-events-auto hidden max-w-80 rounded-md border bg-white px-3 py-2 text-sm sm:block">
-          <div class="truncate font-medium">{{ workflowTitle(activeWorkflow) }}</div>
-          <div class="mt-0.5 text-xs text-slate-500">#{{ activeWorkflow.id }} · {{ activeWorkflow.status }}</div>
+        <div v-if="activeWorkflow" class="pointer-events-auto hidden min-w-0 max-w-96 items-baseline gap-2 rounded-md border bg-white px-3 py-2 text-sm sm:flex">
+          <div class="min-w-0 truncate font-medium">{{ workflowTitle(activeWorkflow) }}</div>
+          <div class="shrink-0 whitespace-nowrap text-xs text-slate-500">#{{ activeWorkflow.id }} · {{ activeWorkflow.status }}</div>
         </div>
       </div>
 

@@ -1,5 +1,18 @@
 import type { AppRecord, AppSavePayload, AppTaskRecord } from '@/lib/app'
 
+export interface ComfyUploadedImage {
+  id: number
+  hash: string
+  name: string
+  filename: string
+  subfolder: string
+  type: string
+  url: string
+  localUrl: string
+  originalName: string
+  size: number
+}
+
 const API_BASE = 'http://localhost:3333/api/v1'
 
 export function useAppApi() {
@@ -30,6 +43,24 @@ export function useAppApi() {
       body: { inputs },
     })
 
+  const listTasks = () => $fetch<AppTaskRecord[]>(`${API_BASE}/tasks`)
+
+  const getTask = (taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}`)
+
+  const retryTaskNode = (taskId: number, nodeId: string) =>
+    $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/nodes/${nodeId}/retry`, {
+      method: 'POST',
+    })
+
+  const uploadComfyImage = (file: File) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    return $fetch<ComfyUploadedImage>(`${API_BASE}/comfy/images`, {
+      method: 'POST',
+      body: formData,
+    })
+  }
+
   const getAppTask = (appId: number, taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/apps/${appId}/runs/${taskId}`)
 
   const resumeAppTask = (appId: number, taskId: number) =>
@@ -37,5 +68,18 @@ export function useAppApi() {
       method: 'POST',
     })
 
-  return { listApps, createApp, getApp, saveApp, deleteApp, runApp, getAppTask, resumeAppTask }
+  return {
+    listApps,
+    createApp,
+    getApp,
+    saveApp,
+    deleteApp,
+    runApp,
+    listTasks,
+    getTask,
+    retryTaskNode,
+    uploadComfyImage,
+    getAppTask,
+    resumeAppTask,
+  }
 }

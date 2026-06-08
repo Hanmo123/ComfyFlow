@@ -6,7 +6,10 @@
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
   Apps: () => import('#controllers/apps_controller'),
+  Comfy: () => import('#controllers/comfy_controller'),
   NewAccount: () => import('#controllers/new_account_controller'),
   Profile: () => import('#controllers/profile_controller'),
+  Tasks: () => import('#controllers/tasks_controller'),
   Workflows: () => import('#controllers/workflows_controller'),
+  MediaAssets: () => import('#controllers/media_assets_controller'),
 }

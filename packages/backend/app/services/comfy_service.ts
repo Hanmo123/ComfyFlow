@@ -1,5 +1,21 @@
 import type { WorkflowResult } from '#models/workflow'
 import { Exception } from '@adonisjs/core/exceptions'
+import { readFile } from 'node:fs/promises'
+
+interface UploadableImage {
+  clientName: string
+  tmpPath?: string
+  type?: string
+  subtype?: string
+  isValid?: boolean
+}
+
+interface ComfyUploadImageResponse {
+  name?: string
+  filename?: string
+  subfolder?: string
+  type?: string
+}
 
 interface PromptResponse {
   prompt_id?: string
@@ -13,6 +29,43 @@ interface ComfyHistoryItem {
 
 export default class ComfyService {
   private baseUrl = (process.env.COMFY_BASE_URL ?? 'http://127.0.0.1:8188').replace(/\/+$/, '')
+
+  async uploadImage(file: UploadableImage) {
+    if (!file.tmpPath || file.isValid === false) {
+      throw new Exception('上传图片无效', { status: 422, code: 'E_INVALID_IMAGE_UPLOAD' })
+    }
+
+    const buffer = await readFile(file.tmpPath)
+    const contentType = file.type && file.subtype ? `${file.type}/${file.subtype}` : 'application/octet-stream'
+    const formData = new FormData()
+    formData.append('image', new Blob([new Uint8Array(buffer)], { type: contentType }), file.clientName)
+    formData.append('type', 'input')
+    formData.append('overwrite', 'true')
+
+    const response = await fetch(`${this.baseUrl}/upload/image`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const body = (await response.json().catch(() => ({}))) as ComfyUploadImageResponse
+    const name = body.name ?? body.filename
+    if (!response.ok || !name) {
+      throw new Exception(`ComfyUI 上传图片失败：${response.statusText}`, {
+        status: 502,
+        code: 'E_COMFY_UPLOAD_IMAGE_FAILED',
+      })
+    }
+
+    const type = body.type ?? 'input'
+    const params = new URLSearchParams({ filename: name, subfolder: body.subfolder ?? '', type })
+    return {
+      name,
+      filename: name,
+      subfolder: body.subfolder ?? '',
+      type,
+      url: `${this.baseUrl}/view?${params.toString()}`,
+    }
+  }
 
   async runWorkflow(prompt: Record<string, unknown>, results: WorkflowResult[]) {
     const promptId = await this.queuePrompt(prompt)

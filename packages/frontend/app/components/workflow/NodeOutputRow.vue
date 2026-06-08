@@ -1,36 +1,55 @@
 <script setup lang="ts">
+import {
+  APP_VARIABLE_TYPE_COLORS,
+  APP_VARIABLE_TYPE_LABELS,
+  APP_VARIABLE_TYPES,
+} from '@/lib/app'
 import type { OutputSlotDefinition, WorkflowResult } from '@/lib/workflow'
 
-defineProps<{
+const props = defineProps<{
   slotIndex: number
   definition: OutputSlotDefinition
   variable?: WorkflowResult
 }>()
 
 const emit = defineEmits<{ toggle: [] }>()
+
+function typeLabel(type: string) {
+  return isKnownType(type) ? APP_VARIABLE_TYPE_LABELS[type] : type
+}
+
+function typeClass(type: string) {
+  return isKnownType(type) ? APP_VARIABLE_TYPE_COLORS[type] : APP_VARIABLE_TYPE_COLORS.UNKNOWN
+}
+
+function isKnownType(type: string): type is (typeof APP_VARIABLE_TYPES)[number] {
+  return APP_VARIABLE_TYPES.includes(type as (typeof APP_VARIABLE_TYPES)[number])
+}
 </script>
 
 <template>
   <div
-    class="rounded-md border border-dashed p-2 text-xs"
-    :class="variable ? 'border-emerald-300 bg-emerald-50' : 'border-slate-300 bg-slate-50'"
-    :style="{ backgroundColor: variable ? '#ecfdf5' : '#f8fafc' }"
+    class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md px-1.5 py-1.5 text-xs"
+    :class="variable ? 'bg-slate-50' : 'bg-white'"
   >
-    <div class="flex items-center justify-between gap-2">
-      <span class="font-medium text-slate-700">{{ slotIndex }} · {{ definition.name }}</span>
-      <span class="rounded bg-white px-1.5 py-0.5 text-[10px] text-slate-500">{{ definition.type }}</span>
+    <Badge class="border-0" :class="typeClass(props.definition.type)">
+      {{ typeLabel(props.definition.type) }}
+    </Badge>
+    <div class="min-w-0">
+      <div class="truncate text-sm font-medium text-slate-700">{{ props.definition.name }}</div>
+      <div class="truncate text-slate-500">插槽 {{ props.slotIndex }}</div>
     </div>
     <Button
-      v-if="definition.exposable"
-      variant="secondary"
+      v-if="props.definition.exposable"
+      :variant="props.variable ? 'default' : 'secondary'"
       size="sm"
-      class="nodrag nopan mt-2 h-auto px-2 py-1 text-[11px]"
-      :class="variable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+      class="nodrag nopan h-7 min-w-0 max-w-28 justify-start px-2 text-xs"
+      :class="props.variable ? '' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-950'"
       type="button"
       @pointerdown.stop
       @click.stop="emit('toggle')"
     >
-      {{ variable ? `结果：$${variable.name}` : '设为工作流结果' }}
+      <span class="min-w-0 truncate">{{ props.variable ? `$${props.variable.name}` : '设为结果' }}</span>
     </Button>
   </div>
 </template>

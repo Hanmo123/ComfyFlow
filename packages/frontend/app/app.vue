@@ -2,4 +2,5 @@
   <nuxt-layout>
     <nuxt-page />
   </nuxt-layout>
+  <Sonner />
 </template>

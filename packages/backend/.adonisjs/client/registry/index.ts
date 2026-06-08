@@ -108,6 +108,36 @@ const routes = {
     tokens: [{"old":"/api/v1/apps/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['apps.apps.destroy']['types'],
   },
+  'tasks.tasks.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/tasks',
+    tokens: [{"old":"/api/v1/tasks","type":0,"val":"api","end":""},{"old":"/api/v1/tasks","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks","type":0,"val":"tasks","end":""}],
+    types: placeholder as Registry['tasks.tasks.index']['types'],
+  },
+  'tasks.tasks.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/tasks/:id',
+    tokens: [{"old":"/api/v1/tasks/:id","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['tasks.tasks.show']['types'],
+  },
+  'tasks.tasks.retry_node': {
+    methods: ["POST"],
+    pattern: '/api/v1/tasks/:id/nodes/:nodeId/retry',
+    tokens: [{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"nodes","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"nodeId","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"retry","end":""}],
+    types: placeholder as Registry['tasks.tasks.retry_node']['types'],
+  },
+  'comfy.comfy.upload_image': {
+    methods: ["POST"],
+    pattern: '/api/v1/comfy/images',
+    tokens: [{"old":"/api/v1/comfy/images","type":0,"val":"api","end":""},{"old":"/api/v1/comfy/images","type":0,"val":"v1","end":""},{"old":"/api/v1/comfy/images","type":0,"val":"comfy","end":""},{"old":"/api/v1/comfy/images","type":0,"val":"images","end":""}],
+    types: placeholder as Registry['comfy.comfy.upload_image']['types'],
+  },
+  'media.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/media/:hash',
+    tokens: [{"old":"/api/v1/media/:hash","type":0,"val":"api","end":""},{"old":"/api/v1/media/:hash","type":0,"val":"v1","end":""},{"old":"/api/v1/media/:hash","type":0,"val":"media","end":""},{"old":"/api/v1/media/:hash","type":1,"val":"hash","end":""}],
+    types: placeholder as Registry['media.show']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

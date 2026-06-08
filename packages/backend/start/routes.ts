@@ -13,6 +13,9 @@ import { controllers } from '#generated/controllers'
 
 const WorkflowsController = () => import('#controllers/workflows_controller')
 const AppsController = () => import('#controllers/apps_controller')
+const TasksController = () => import('#controllers/tasks_controller')
+const ComfyController = () => import('#controllers/comfy_controller')
+const MediaAssetsController = () => import('#controllers/media_assets_controller')
 
 router.get('/', () => {
   return { hello: 'world' }
@@ -61,5 +64,23 @@ router
       })
       .prefix('apps')
       .as('apps')
+
+    router
+      .group(() => {
+        router.get('/', [TasksController, 'index'])
+        router.get(':id', [TasksController, 'show'])
+        router.post(':id/nodes/:nodeId/retry', [TasksController, 'retryNode'])
+      })
+      .prefix('tasks')
+      .as('tasks')
+
+    router
+      .group(() => {
+        router.post('images', [ComfyController, 'uploadImage'])
+      })
+      .prefix('comfy')
+      .as('comfy')
+
+    router.get('media/:hash', [MediaAssetsController, 'show']).as('media.show')
   })
   .prefix('/api/v1')

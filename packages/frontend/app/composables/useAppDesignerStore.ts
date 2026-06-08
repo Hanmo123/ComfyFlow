@@ -49,9 +49,9 @@ export function useAppDesignerStore() {
   }
 
   function applyApp(app: AppRecord) {
-    activeApp.value = structuredClone(app)
-    appVariables.value = structuredClone(app.variables ?? [])
-    appGraph.value = normalizeAppGraph(structuredClone(app.graph ?? createDefaultGraph()), appVariables.value)
+    activeApp.value = clonePlain(app)
+    appVariables.value = clonePlain(app.variables ?? [])
+    appGraph.value = normalizeAppGraph(clonePlain(app.graph ?? createDefaultGraph()), appVariables.value)
     selectedAppNodeId.value = appGraph.value.nodes[0]?.id ?? null
   }
 
@@ -233,20 +233,17 @@ export function useAppDesignerStore() {
     }
   }
 
-  async function runApp() {
+  async function runApp(inputs: Record<string, unknown>) {
     if (!activeApp.value || running.value) return
 
     await saveApp()
     if (!activeApp.value || activeApp.value.id <= 0 || error.value) return
 
-    const inputs = collectRunInputs()
-    if (!inputs) return
-
     try {
       running.value = true
       error.value = ''
       latestTask.value = await appApi.runApp(activeApp.value.id, inputs)
-      await pollLatestTask()
+      return latestTask.value
     } catch (runError) {
       error.value = runError instanceof Error ? runError.message : '运行应用失败'
     } finally {
@@ -274,21 +271,6 @@ export function useAppDesignerStore() {
       await sleep(1200)
       latestTask.value = await appApi.getAppTask(activeApp.value.id, latestTask.value.id)
     }
-  }
-
-  function collectRunInputs() {
-    const inputs: Record<string, unknown> = {}
-    for (const variable of userInputVariables.value) {
-      const defaultValue = stringifyInputValue(variable.default)
-      const rawValue = window.prompt(`请输入 ${variable.name || variable.key}`, defaultValue)
-      if (rawValue === null) return null
-      if (variable.required && rawValue === '') {
-        error.value = `应用输入 $${variable.key} 不能为空`
-        return null
-      }
-      inputs[variable.key] = parseInputValue(rawValue, variable.type)
-    }
-    return inputs
   }
 
   function workflowOf(node: AppGraphNode) {
@@ -400,17 +382,8 @@ function appTimestamp(app: AppRecord) {
   return new Date(app.updatedAt ?? app.createdAt).getTime()
 }
 
-function stringifyInputValue(value: unknown) {
-  if (value === undefined || value === null) return ''
-  if (typeof value === 'string') return value
-  return JSON.stringify(value)
-}
-
-function parseInputValue(value: string, type: string) {
-  if (type === 'INT') return Number.parseInt(value, 10)
-  if (type === 'FLOAT') return Number.parseFloat(value)
-  if (type === 'BOOL') return value === 'true' || value === '1' || value === '是'
-  return value
+function clonePlain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
 function isAppVariableType(type: string | undefined): type is AppVariable['type'] {

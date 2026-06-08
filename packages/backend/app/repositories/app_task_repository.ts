@@ -24,6 +24,10 @@ export interface UpdateAppTaskPayload {
 }
 
 export default class AppTaskRepository {
+  async list() {
+    return AppTask.query().orderBy('created_at', 'desc')
+  }
+
   async create(payload: CreateAppTaskPayload) {
     return AppTask.create({
       appId: payload.appId,

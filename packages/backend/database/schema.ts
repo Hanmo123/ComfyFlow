@@ -86,6 +86,39 @@ export class AuthAccessTokenSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class MediaAssetSchema extends BaseModel {
+  static $columns = ['comfyFilename', 'comfyName', 'comfySubfolder', 'comfyType', 'comfyUrl', 'createdAt', 'extension', 'hash', 'id', 'localPath', 'mimeType', 'originalName', 'size', 'updatedAt'] as const
+  $columns = MediaAssetSchema.$columns
+  @column()
+  declare comfyFilename: string
+  @column()
+  declare comfyName: string
+  @column()
+  declare comfySubfolder: string
+  @column()
+  declare comfyType: string
+  @column()
+  declare comfyUrl: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare extension: string | null
+  @column()
+  declare hash: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare localPath: string
+  @column()
+  declare mimeType: string | null
+  @column()
+  declare originalName: string
+  @column()
+  declare size: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
   $columns = UserSchema.$columns
