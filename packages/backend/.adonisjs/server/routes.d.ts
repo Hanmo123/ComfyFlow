@@ -15,6 +15,9 @@ export type ScannedRoutes = {
     'workflows.workflows.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.index': { paramsTuple?: []; params?: {} }
     'apps.apps.store': { paramsTuple?: []; params?: {} }
+    'apps.apps.run': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
+    'apps.apps.resume_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -24,6 +27,7 @@ export type ScannedRoutes = {
     'workflows.workflows.index': { paramsTuple?: []; params?: {} }
     'workflows.workflows.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.index': { paramsTuple?: []; params?: {} }
+    'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   HEAD: {
@@ -31,6 +35,7 @@ export type ScannedRoutes = {
     'workflows.workflows.index': { paramsTuple?: []; params?: {} }
     'workflows.workflows.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.index': { paramsTuple?: []; params?: {} }
+    'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   POST: {
@@ -39,6 +44,8 @@ export type ScannedRoutes = {
     'profile.access_tokens.destroy': { paramsTuple?: []; params?: {} }
     'workflows.workflows.upload': { paramsTuple?: []; params?: {} }
     'apps.apps.store': { paramsTuple?: []; params?: {} }
+    'apps.apps.run': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'apps.apps.resume_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
   }
   PUT: {
     'workflows.workflows.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

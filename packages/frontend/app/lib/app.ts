@@ -1,112 +1,281 @@
-export type AppStatus = 'draft' | 'published'
-export type AppVariableSource = 'user_input' | 'computed'
-export type AppNodeType = 'input_collect' | 'output_collect' | 'manual_gate' | 'workflow_run'
+export type AppStatus = "draft" | "published";
+export type AppVariableSource = "user_input" | "computed";
+export type AppNodeType =
+  | "input_collect"
+  | "output_text"
+  | "output_image"
+  | "manual_gate"
+  | "workflow_run";
 
 export const APP_VARIABLE_TYPES = [
-  'STRING',
-  'INT',
-  'FLOAT',
-  'BOOL',
-  'IMAGE',
-  'LATENT',
-  'MODEL',
-  'CLIP',
-  'VAE',
-  'CONDITIONING',
-  'CONTROL_NET',
-  'UNKNOWN',
-] as const
+  "STRING",
+  "INT",
+  "FLOAT",
+  "BOOL",
+  "IMAGE",
+  "LATENT",
+  "MODEL",
+  "CLIP",
+  "VAE",
+  "CONDITIONING",
+  "CONTROL_NET",
+  "UNKNOWN",
+] as const;
+
+export const APP_VARIABLE_TYPE_COLORS: Record<
+  (typeof APP_VARIABLE_TYPES)[number],
+  string
+> = {
+  STRING: "bg-blue-500",
+  INT: "bg-green-500",
+  FLOAT: "bg-indigo-500",
+  BOOL: "bg-yellow-500 text-black",
+  IMAGE: "bg-purple-500",
+  LATENT: "bg-pink-500",
+  MODEL: "bg-red-500",
+  CLIP: "bg-orange-500",
+  VAE: "bg-teal-500",
+  CONDITIONING: "bg-cyan-500 text-black",
+  CONTROL_NET: "bg-rose-500",
+  UNKNOWN: "bg-gray-500",
+};
+
+export const APP_VARIABLE_TYPE_LABELS: Record<
+  (typeof APP_VARIABLE_TYPES)[number],
+  string
+> = {
+  STRING: "字符串",
+  INT: "整数",
+  FLOAT: "浮点数",
+  BOOL: "布尔值",
+  IMAGE: "图片",
+  LATENT: "Latent",
+  MODEL: "Model",
+  CLIP: "CLIP",
+  VAE: "VAE",
+  CONDITIONING: "Conditioning",
+  CONTROL_NET: "ControlNet",
+  UNKNOWN: "未知",
+};
 
 export interface AppVariable {
-  key: string
-  name: string
-  type: string
-  source: AppVariableSource
-  required?: boolean
-  default?: unknown
+  key: string;
+  name: string;
+  type: (typeof APP_VARIABLE_TYPES)[number];
+  source: AppVariableSource;
+  required?: boolean;
+  default?: unknown;
 }
 
 export interface AppEdge {
-  id: string
-  source: string
-  target: string
+  id: string;
+  source: string;
+  target: string;
 }
 
 export interface VariableBinding {
-  kind: 'literal' | 'variable'
-  literal?: unknown
-  varKey?: string
+  kind: "literal" | "variable";
+  literal?: unknown;
+  varKey?: string;
 }
 
-export interface BaseAppNode<TType extends AppNodeType, TData extends Record<string, unknown>> {
-  id: string
-  type: TType
-  position: { x: number; y: number }
-  data: TData
+export interface BaseAppNode<
+  TType extends AppNodeType,
+  TData extends Record<string, unknown>,
+> {
+  id: string;
+  type: TType;
+  position: { x: number; y: number };
+  data: TData;
 }
 
-export type InputCollectNode = BaseAppNode<'input_collect', Record<string, never>>
-export type OutputCollectNode = BaseAppNode<'output_collect', { displayVars: string[] }>
+export type InputCollectNode = BaseAppNode<
+  "input_collect",
+  Record<string, never>
+>;
+export type OutputTextNode = BaseAppNode<
+  "output_text",
+  { varKey: string | null }
+>;
+export type OutputImageNode = BaseAppNode<
+  "output_image",
+  { varKey: string | null }
+>;
 export type ManualGateNode = BaseAppNode<
-  'manual_gate',
+  "manual_gate",
   { title: string; description?: string; displayVars: string[] }
->
+>;
 export type WorkflowRunNode = BaseAppNode<
-  'workflow_run',
+  "workflow_run",
   {
-    workflowId: number | null
-    inputBindings: Record<string, VariableBinding>
-    outputAssignments: Record<string, string | null>
+    workflowId: number | null;
+    inputBindings: Record<string, VariableBinding>;
+    outputAssignments: Record<string, string | null>;
   }
->
+>;
 
-export type AppGraphNode = InputCollectNode | OutputCollectNode | ManualGateNode | WorkflowRunNode
+export type AppGraphNode =
+  | InputCollectNode
+  | OutputTextNode
+  | OutputImageNode
+  | ManualGateNode
+  | WorkflowRunNode;
 
 export interface AppGraph {
-  nodes: AppGraphNode[]
-  edges: AppEdge[]
+  nodes: AppGraphNode[];
+  edges: AppEdge[];
 }
 
 export interface AppRecord {
-  id: number
-  name: string
-  description: string | null
-  status: AppStatus
-  variables: AppVariable[]
-  graph: AppGraph
-  createdAt: string
-  updatedAt: string | null
+  id: number;
+  name: string;
+  description: string | null;
+  status: AppStatus;
+  variables: AppVariable[];
+  graph: AppGraph;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
 export interface AppSavePayload {
-  name: string
-  description?: string | null
-  status?: AppStatus
-  variables: AppVariable[]
-  graph: AppGraph
+  name: string;
+  description?: string | null;
+  status?: AppStatus;
+  variables: AppVariable[];
+  graph: AppGraph;
+}
+
+export type AppTaskStatus =
+  | "queued"
+  | "running"
+  | "waiting"
+  | "completed"
+  | "failed";
+export type AppTaskNodeStatus =
+  | "queued"
+  | "running"
+  | "waiting"
+  | "completed"
+  | "failed"
+  | "skipped";
+
+export interface AppTaskNodeRun {
+  nodeId: string;
+  type: AppNodeType;
+  status: AppTaskNodeStatus;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+  inputs?: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
+}
+
+export interface AppTaskRecord {
+  id: number;
+  appId: number;
+  status: AppTaskStatus;
+  inputs: Record<string, unknown>;
+  variables: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  appSnapshot: { id: number; name: string; variables: AppVariable[]; graph: AppGraph };
+  nodeRuns: AppTaskNodeRun[];
+  waitingNodeId: string | null;
+  error: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export function isCompatibleVariableType(actual: string, expected: string) {
+  return actual === 'UNKNOWN' || expected === 'UNKNOWN' || actual === expected
 }
 
 export function createDefaultGraph(): AppGraph {
   return {
     nodes: [
-      { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
       {
-        id: 'output',
-        type: 'output_collect',
-        position: { x: 720, y: 0 },
-        data: { displayVars: [] },
+        id: "input",
+        type: "input_collect",
+        position: { x: 0, y: 0 },
+        data: {},
       },
     ],
-    edges: [{ id: 'input-output', source: 'input', target: 'output' }],
+    edges: [],
+  };
+}
+
+type LegacyOutputCollectNode = {
+  id: string;
+  type: "output_collect";
+  position: { x: number; y: number };
+  data: { displayVars: string[] };
+};
+type LegacyGraphNode = AppGraphNode | LegacyOutputCollectNode;
+
+export function normalizeAppGraph(
+  graph: AppGraph | null | undefined,
+  variables: AppVariable[] = [],
+): AppGraph {
+  const sourceGraph = graph ?? createDefaultGraph();
+  const variableByKey = new Map(
+    variables.map((variable) => [variable.key, variable]),
+  );
+  const legacyOutputIds = new Map<string, string[]>();
+  const nodes: AppGraphNode[] = [];
+
+  for (const node of (sourceGraph.nodes ?? []) as LegacyGraphNode[]) {
+    if (node.type !== "output_collect") {
+      nodes.push(node);
+      continue;
+    }
+
+    const displayVars = node.data.displayVars ?? [];
+    legacyOutputIds.set(
+      node.id,
+      displayVars.map((_, index) =>
+        index === 0 ? node.id : `${node.id}-${index + 1}`,
+      ),
+    );
+    for (const [index, varKey] of displayVars.entries()) {
+      const variable = variableByKey.get(varKey);
+      nodes.push({
+        id: index === 0 ? node.id : `${node.id}-${index + 1}`,
+        type: variable?.type === "IMAGE" ? "output_image" : "output_text",
+        position: { x: node.position.x, y: node.position.y + index * 120 },
+        data: { varKey },
+      });
+    }
   }
+
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const edges: AppEdge[] = [];
+  const edgeIds = new Set<string>();
+  for (const edge of sourceGraph.edges ?? []) {
+    const sourceIds = legacyOutputIds.get(edge.source) ?? [edge.source];
+    const targetIds = legacyOutputIds.get(edge.target) ?? [edge.target];
+    for (const source of sourceIds) {
+      for (const target of targetIds) {
+        if (!nodeIds.has(source) || !nodeIds.has(target) || source === target)
+          continue;
+        const id = `${source}-${target}`;
+        if (edgeIds.has(id)) continue;
+        edgeIds.add(id);
+        edges.push({ id, source, target });
+      }
+    }
+  }
+
+  return { nodes, edges };
 }
 
 export function nodeTypeLabel(type: AppNodeType) {
   const labels: Record<AppNodeType, string> = {
-    input_collect: '输入收集',
-    output_collect: '输出收集',
-    manual_gate: '人工卡点',
-    workflow_run: '工作流运行',
-  }
-  return labels[type]
+    input_collect: "变量定义",
+    output_text: "输出文本",
+    output_image: "输出图片",
+    manual_gate: "人工卡点",
+    workflow_run: "工作流运行",
+  };
+  return labels[type];
 }

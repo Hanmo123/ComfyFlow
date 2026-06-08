@@ -31,5 +31,10 @@ export function useWorkflowApi() {
       body: { ...payload, status: 'saved' },
     })
 
-  return { listWorkflows, uploadWorkflow, getWorkflow, saveWorkflow }
+  const deleteWorkflow = (id: number) =>
+    $fetch<void>(`${API_BASE}/workflows/${id}`, {
+      method: 'DELETE',
+    })
+
+  return { listWorkflows, uploadWorkflow, getWorkflow, saveWorkflow, deleteWorkflow }
 }

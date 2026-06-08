@@ -20,7 +20,11 @@ const displayValue = computed(() => {
 </script>
 
 <template>
-  <div class="rounded-md border border-slate-200 bg-white p-2 text-xs">
+  <div
+    class="rounded-md border p-2 text-xs"
+    :class="variable ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white'"
+    :style="{ backgroundColor: variable ? '#eef2ff' : '#ffffff' }"
+  >
     <div class="flex items-center justify-between gap-2">
       <span class="font-medium text-slate-700">{{ field }}</span>
       <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{{ definition.type }}</span>
@@ -30,10 +34,11 @@ const displayValue = computed(() => {
       v-if="definition.promotable"
       variant="secondary"
       size="sm"
-      class="mt-2 h-auto px-2 py-1 text-[11px]"
+      class="nodrag nopan mt-2 h-auto px-2 py-1 text-[11px]"
       :class="variable ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
       type="button"
-      @click="emit('toggle')"
+      @pointerdown.stop
+      @click.stop="emit('toggle')"
     >
       {{ variable ? `参数：$${variable.name}` : '设为工作流参数' }}
     </Button>

@@ -31,6 +31,9 @@ export interface ApiDefinition {
     apps: {
       index: typeof routes['apps.apps.index']
       store: typeof routes['apps.apps.store']
+      run: typeof routes['apps.apps.run']
+      showTask: typeof routes['apps.apps.show_task']
+      resumeTask: typeof routes['apps.apps.resume_task']
       show: typeof routes['apps.apps.show']
       update: typeof routes['apps.apps.update']
       destroy: typeof routes['apps.apps.destroy']

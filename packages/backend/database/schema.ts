@@ -7,6 +7,60 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class AppTaskSchema extends BaseModel {
+  static $columns = ['appId', 'appSnapshot', 'completedAt', 'createdAt', 'error', 'id', 'inputs', 'nodeRuns', 'outputs', 'startedAt', 'status', 'updatedAt', 'variables', 'waitingNodeId'] as const
+  $columns = AppTaskSchema.$columns
+  @column()
+  declare appId: number
+  @column()
+  declare appSnapshot: any
+  @column.dateTime()
+  declare completedAt: DateTime | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare error: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare inputs: any
+  @column()
+  declare nodeRuns: any
+  @column()
+  declare outputs: any
+  @column.dateTime()
+  declare startedAt: DateTime | null
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare variables: any
+  @column()
+  declare waitingNodeId: string | null
+}
+
+export class AppSchema extends BaseModel {
+  static $columns = ['createdAt', 'description', 'graph', 'id', 'name', 'status', 'updatedAt', 'variables'] as const
+  $columns = AppSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string | null
+  @column()
+  declare graph: any
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare variables: any
+}
+
 export class AuthAccessTokenSchema extends BaseModel {
   static $columns = ['abilities', 'createdAt', 'expiresAt', 'hash', 'id', 'lastUsedAt', 'name', 'tokenableId', 'type', 'updatedAt'] as const
   $columns = AuthAccessTokenSchema.$columns
@@ -68,25 +122,4 @@ export class WorkflowSchema extends BaseModel {
   declare status: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
-}
-
-export class AppSchema extends BaseModel {
-  static $columns = ['createdAt', 'description', 'graph', 'id', 'name', 'status', 'updatedAt', 'variables'] as const
-  $columns = AppSchema.$columns
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: DateTime
-  @column()
-  declare description: string | null
-  @column()
-  declare graph: any
-  @column({ isPrimary: true })
-  declare id: number
-  @column()
-  declare name: string
-  @column()
-  declare status: string
-  @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: DateTime | null
-  @column()
-  declare variables: any
 }

@@ -30,7 +30,7 @@ function outputVariable(slotIndex: number) {
 </script>
 
 <template>
-  <div class="w-72 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-lg">
+  <div class="w-72 overflow-hidden rounded-lg border border-slate-300 bg-white">
     <Handle type="target" :position="Position.Left" class="!bg-slate-500" />
 
     <div class="border-b px-3 py-2" :style="{ borderTop: `4px solid ${data.definition.color || '#64748b'}` }">

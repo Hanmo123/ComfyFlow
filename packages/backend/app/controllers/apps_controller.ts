@@ -1,9 +1,11 @@
 import AppService from '#services/app_service'
-import { createAppValidator, updateAppValidator } from '#validators/app'
+import AppTaskService from '#services/app_task_service'
+import { createAppValidator, runAppValidator, updateAppValidator } from '#validators/app'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class AppsController {
   private service = new AppService()
+  private taskService = new AppTaskService()
 
   async index() {
     return this.service.list()
@@ -23,8 +25,26 @@ export default class AppsController {
     return this.service.update(Number(params.id), payload)
   }
 
+  async run({ params, request }: HttpContext) {
+    const payload = await request.validateUsing(runAppValidator)
+    return this.taskService.run(Number(params.id), normalizeInputs(payload.inputs))
+  }
+
+  async showTask({ params }: HttpContext) {
+    return this.taskService.show(Number(params.id), Number(params.taskId))
+  }
+
+  async resumeTask({ params }: HttpContext) {
+    return this.taskService.resume(Number(params.id), Number(params.taskId))
+  }
+
   async destroy({ params, response }: HttpContext) {
     await this.service.delete(Number(params.id))
     return response.noContent()
   }
+}
+
+function normalizeInputs(inputs: unknown) {
+  if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) return {}
+  return inputs as Record<string, unknown>
 }

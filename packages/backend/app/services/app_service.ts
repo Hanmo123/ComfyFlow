@@ -15,6 +15,9 @@ export default class AppService {
 
   async create(payload: CreateAppPayload) {
     const normalizedPayload = this.normalizePayload(payload)
+    if (normalizedPayload.graph) {
+      normalizedPayload.graph = normalizeGraph(normalizedPayload.graph, normalizedPayload.variables ?? [])
+    }
     await this.validatePayload(normalizedPayload)
     return this.repository.create(normalizedPayload)
   }
@@ -31,10 +34,10 @@ export default class AppService {
       description: normalizedPayload.description ?? app.description,
       status: normalizedPayload.status ?? app.status,
       variables: normalizedPayload.variables ?? app.variables,
-      graph: normalizedPayload.graph ?? app.graph,
+      graph: normalizeGraph(normalizedPayload.graph ?? app.graph, normalizedPayload.variables ?? app.variables),
     }
     await this.validatePayload(nextPayload)
-    return this.repository.update(app, normalizedPayload)
+    return this.repository.update(app, { ...normalizedPayload, graph: nextPayload.graph })
   }
 
   async delete(id: number) {
@@ -86,10 +89,7 @@ export default class AppService {
     const variableKeys = new Set(variables.map((variable) => variable.key))
 
     if (nodes.filter((node) => node.type === 'input_collect').length !== 1) {
-      throw invalidApp('应用必须有且仅有一个输入收集节点')
-    }
-    if (nodes.filter((node) => node.type === 'output_collect').length !== 1) {
-      throw invalidApp('应用必须有且仅有一个输出收集节点')
+      throw invalidApp('应用必须有且仅有一个变量定义节点')
     }
 
     for (const edge of edges) {
@@ -106,12 +106,11 @@ export default class AppService {
 
   private ensureEndpointRules(nodes: AppGraphNode[], edges: AppGraph['edges']) {
     const inputNode = nodes.find((node) => node.type === 'input_collect')!
-    const outputNode = nodes.find((node) => node.type === 'output_collect')!
     if (edges.some((edge) => edge.target === inputNode.id)) {
-      throw invalidApp('输入收集节点不能有入边')
+      throw invalidApp('变量定义节点不能有入边')
     }
-    if (edges.some((edge) => edge.source === outputNode.id)) {
-      throw invalidApp('输出收集节点不能有出边')
+    if (edges.some((edge) => isOutputNode(nodes.find((node) => node.id === edge.source)))) {
+      throw invalidApp('输出节点不能有出边')
     }
   }
 
@@ -147,12 +146,26 @@ export default class AppService {
     const readableVariables = await this.buildReadableVariablesByNode(nodes, variables, edges)
 
     for (const node of nodes) {
-      if (node.type === 'output_collect' || node.type === 'manual_gate') {
+      if (node.type === 'manual_gate') {
         for (const varKey of node.data.displayVars ?? []) {
           if (!variableKeys.has(varKey)) throw invalidApp(`节点 ${node.id} 引用了不存在的应用变量`)
           if (!readableVariables.get(node.id)?.has(varKey)) {
             throw invalidApp(`节点 ${node.id} 引用了尚未在上游赋值的应用变量 $${varKey}`)
           }
+        }
+      }
+
+      if (isOutputNode(node)) {
+        const varKey = node.data.varKey
+        if (!varKey) continue
+        if (!variableKeys.has(varKey)) throw invalidApp(`节点 ${node.id} 引用了不存在的应用变量`)
+        if (!readableVariables.get(node.id)?.has(varKey)) {
+          throw invalidApp(`节点 ${node.id} 引用了尚未在上游赋值的应用变量 $${varKey}`)
+        }
+        const variable = variables.find((item) => item.key === varKey)
+        const expectedType = node.type === 'output_image' ? 'IMAGE' : 'STRING'
+        if (variable && !isCompatibleVariableType(variable.type, expectedType)) {
+          throw invalidApp(`节点 ${node.id} 的输出变量类型应为 ${expectedType}`)
         }
       }
 
@@ -228,6 +241,67 @@ export default class AppService {
     }
     return result
   }
+}
+
+type LegacyOutputCollectNode = {
+  id: string
+  type: 'output_collect'
+  position: { x: number; y: number }
+  data: { displayVars: string[] }
+}
+type LegacyGraphNode = AppGraphNode | LegacyOutputCollectNode
+
+function normalizeGraph(graph: AppGraph, variables: AppVariable[]): AppGraph {
+  const variableByKey = new Map(variables.map((variable) => [variable.key, variable]))
+  const legacyOutputIds = new Map<string, string[]>()
+  const nodes: AppGraphNode[] = []
+
+  for (const node of (graph.nodes ?? []) as LegacyGraphNode[]) {
+    if (node.type !== 'output_collect') {
+      nodes.push(node)
+      continue
+    }
+
+    const displayVars = node.data.displayVars ?? []
+    const outputIds = displayVars.map((_, index) => (index === 0 ? node.id : `${node.id}-${index + 1}`))
+    legacyOutputIds.set(node.id, outputIds)
+    for (const [index, varKey] of displayVars.entries()) {
+      const variable = variableByKey.get(varKey)
+      nodes.push({
+        id: outputIds[index],
+        type: variable?.type === 'IMAGE' ? 'output_image' : 'output_text',
+        position: { x: node.position.x, y: node.position.y + index * 120 },
+        data: { varKey },
+      })
+    }
+  }
+
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  const edges: AppGraph['edges'] = []
+  const edgeIds = new Set<string>()
+  for (const edge of graph.edges ?? []) {
+    const sourceIds = legacyOutputIds.get(edge.source) ?? [edge.source]
+    const targetIds = legacyOutputIds.get(edge.target) ?? [edge.target]
+    for (const source of sourceIds) {
+      for (const target of targetIds) {
+        if (!nodeIds.has(source) || !nodeIds.has(target) || source === target) continue
+        const id = `${source}-${target}`
+        if (edgeIds.has(id)) continue
+        edgeIds.add(id)
+        edges.push({ id, source, target })
+      }
+    }
+  }
+
+  return { nodes, edges }
+}
+
+function isOutputNode(node: AppGraphNode | undefined): node is Extract<AppGraphNode, { type: 'output_text' | 'output_image' }> {
+  return node?.type === 'output_text' || node?.type === 'output_image'
+}
+
+function isCompatibleVariableType(actual: string, expected: string) {
+  return actual === 'UNKNOWN' || expected === 'UNKNOWN' || actual === expected
 }
 
 function normalizeKey(value: string) {

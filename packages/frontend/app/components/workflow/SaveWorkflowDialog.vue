@@ -14,7 +14,7 @@ watch(
 
 <template>
   <div v-if="open" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4">
-    <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+    <div class="w-full max-w-md rounded-lg border bg-white p-5">
       <div class="text-lg font-semibold">保存工作流</div>
       <p class="mt-1 text-sm text-slate-500">输入工作流名称，当前输入/输出变量配置将一起保存。</p>
       <input
@@ -32,7 +32,7 @@ watch(
           :disabled="!name.trim() || saving"
           @click="emit('save', name.trim())"
         >
-          {{ saving ? '保存中...' : '保存' }}
+          保存
         </Button>
       </div>
     </div>

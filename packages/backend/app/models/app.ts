@@ -3,7 +3,12 @@ import { DateTime } from 'luxon'
 
 export type AppStatus = 'draft' | 'published'
 export type AppVariableSource = 'user_input' | 'computed'
-export type AppNodeType = 'input_collect' | 'output_collect' | 'manual_gate' | 'workflow_run'
+export type AppNodeType =
+  | 'input_collect'
+  | 'output_text'
+  | 'output_image'
+  | 'manual_gate'
+  | 'workflow_run'
 
 export interface AppVariable {
   key: string
@@ -34,7 +39,8 @@ export interface BaseAppNode<TType extends AppNodeType, TData extends Record<str
 }
 
 export type InputCollectNode = BaseAppNode<'input_collect', Record<string, never>>
-export type OutputCollectNode = BaseAppNode<'output_collect', { displayVars: string[] }>
+export type OutputTextNode = BaseAppNode<'output_text', { varKey: string | null }>
+export type OutputImageNode = BaseAppNode<'output_image', { varKey: string | null }>
 export type ManualGateNode = BaseAppNode<
   'manual_gate',
   { title: string; description?: string; displayVars: string[] }
@@ -48,7 +54,12 @@ export type WorkflowRunNode = BaseAppNode<
   }
 >
 
-export type AppGraphNode = InputCollectNode | OutputCollectNode | ManualGateNode | WorkflowRunNode
+export type AppGraphNode =
+  | InputCollectNode
+  | OutputTextNode
+  | OutputImageNode
+  | ManualGateNode
+  | WorkflowRunNode
 
 export interface AppGraph {
   nodes: AppGraphNode[]

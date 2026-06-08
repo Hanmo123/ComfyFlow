@@ -24,16 +24,14 @@ const emit = defineEmits<{
       <div
         v-for="item in results"
         :key="item.key"
-        class="border rounded-md p-2"
+        class="rounded-md border bg-emerald-50 p-2"
+        :class="duplicateNames.includes(item.name) ? 'border-red-300' : 'border-emerald-200'"
+        :style="{ backgroundColor: duplicateNames.includes(item.name) ? '#fef2f2' : '#ecfdf5' }"
       >
         <div class="flex justify-between gap-2">
           <div
             class="flex min-w-0 flex-1 items-center rounded-sm border bg-white text-sm"
-            :class="
-              duplicateNames.includes(item.name)
-                ? 'border-red-300'
-                : 'border-emerald-200'
-            "
+            :class="duplicateNames.includes(item.name) ? 'border-red-300' : 'border-emerald-200'"
           >
             <span class="border-r px-2 py-1 text-emerald-600">$</span>
             <input

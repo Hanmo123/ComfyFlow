@@ -72,6 +72,24 @@ const routes = {
     tokens: [{"old":"/api/v1/apps","type":0,"val":"api","end":""},{"old":"/api/v1/apps","type":0,"val":"v1","end":""},{"old":"/api/v1/apps","type":0,"val":"apps","end":""}],
     types: placeholder as Registry['apps.apps.store']['types'],
   },
+  'apps.apps.run': {
+    methods: ["POST"],
+    pattern: '/api/v1/apps/:id/runs',
+    tokens: [{"old":"/api/v1/apps/:id/runs","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id/runs","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id/runs","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id/runs","type":1,"val":"id","end":""},{"old":"/api/v1/apps/:id/runs","type":0,"val":"runs","end":""}],
+    types: placeholder as Registry['apps.apps.run']['types'],
+  },
+  'apps.apps.show_task': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/apps/:id/runs/:taskId',
+    tokens: [{"old":"/api/v1/apps/:id/runs/:taskId","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id/runs/:taskId","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id/runs/:taskId","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id/runs/:taskId","type":1,"val":"id","end":""},{"old":"/api/v1/apps/:id/runs/:taskId","type":0,"val":"runs","end":""},{"old":"/api/v1/apps/:id/runs/:taskId","type":1,"val":"taskId","end":""}],
+    types: placeholder as Registry['apps.apps.show_task']['types'],
+  },
+  'apps.apps.resume_task': {
+    methods: ["POST"],
+    pattern: '/api/v1/apps/:id/runs/:taskId/resume',
+    tokens: [{"old":"/api/v1/apps/:id/runs/:taskId/resume","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id/runs/:taskId/resume","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id/runs/:taskId/resume","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id/runs/:taskId/resume","type":1,"val":"id","end":""},{"old":"/api/v1/apps/:id/runs/:taskId/resume","type":0,"val":"runs","end":""},{"old":"/api/v1/apps/:id/runs/:taskId/resume","type":1,"val":"taskId","end":""},{"old":"/api/v1/apps/:id/runs/:taskId/resume","type":0,"val":"resume","end":""}],
+    types: placeholder as Registry['apps.apps.resume_task']['types'],
+  },
   'apps.apps.show': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/apps/:id',

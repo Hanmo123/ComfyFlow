@@ -21,15 +21,17 @@ const emit = defineEmits<{
       尚未设置工作流参数
     </div>
     <div v-else class="flex flex-col gap-2">
-      <div v-for="item in parameters" :key="item.key" class="border rounded-md p-2">
+      <div
+        v-for="item in parameters"
+        :key="item.key"
+        class="rounded-md border bg-indigo-50 p-2"
+        :class="duplicateNames.includes(item.name) ? 'border-red-300' : 'border-indigo-200'"
+        :style="{ backgroundColor: duplicateNames.includes(item.name) ? '#fef2f2' : '#eef2ff' }"
+      >
         <div class="flex justify-between gap-2">
           <div
             class="flex min-w-0 flex-1 items-center rounded-sm border bg-white text-sm"
-            :class="
-              duplicateNames.includes(item.name)
-                ? 'border-red-300'
-                : 'border-indigo-200'
-            "
+            :class="duplicateNames.includes(item.name) ? 'border-red-300' : 'border-indigo-200'"
           >
             <span class="border-r px-2 py-1 text-indigo-600">$</span>
             <input

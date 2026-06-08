@@ -1,4 +1,4 @@
-import type { AppRecord, AppSavePayload } from '@/lib/app'
+import type { AppRecord, AppSavePayload, AppTaskRecord } from '@/lib/app'
 
 const API_BASE = 'http://localhost:3333/api/v1'
 
@@ -24,5 +24,18 @@ export function useAppApi() {
       method: 'DELETE',
     })
 
-  return { listApps, createApp, getApp, saveApp, deleteApp }
+  const runApp = (id: number, inputs: Record<string, unknown>) =>
+    $fetch<AppTaskRecord>(`${API_BASE}/apps/${id}/runs`, {
+      method: 'POST',
+      body: { inputs },
+    })
+
+  const getAppTask = (appId: number, taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/apps/${appId}/runs/${taskId}`)
+
+  const resumeAppTask = (appId: number, taskId: number) =>
+    $fetch<AppTaskRecord>(`${API_BASE}/apps/${appId}/runs/${taskId}/resume`, {
+      method: 'POST',
+    })
+
+  return { listApps, createApp, getApp, saveApp, deleteApp, runApp, getAppTask, resumeAppTask }
 }

@@ -48,15 +48,7 @@ export default class AppRepository {
 
 export function defaultGraph(): AppGraph {
   return {
-    nodes: [
-      { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
-      {
-        id: 'output',
-        type: 'output_collect',
-        position: { x: 720, y: 0 },
-        data: { displayVars: [] },
-      },
-    ],
-    edges: [{ id: 'input-output', source: 'input', target: 'output' }],
+    nodes: [{ id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} }],
+    edges: [],
   }
 }

@@ -52,6 +52,9 @@ router
       .group(() => {
         router.get('/', [AppsController, 'index'])
         router.post('/', [AppsController, 'store'])
+        router.post(':id/runs', [AppsController, 'run'])
+        router.get(':id/runs/:taskId', [AppsController, 'showTask'])
+        router.post(':id/runs/:taskId/resume', [AppsController, 'resumeTask'])
         router.get(':id', [AppsController, 'show'])
         router.put(':id', [AppsController, 'update'])
         router.delete(':id', [AppsController, 'destroy'])

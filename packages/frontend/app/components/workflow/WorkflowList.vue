@@ -18,7 +18,7 @@ const emit = defineEmits<{ select: [id: number] }>();
       v-for="workflow in workflows"
       :key="workflow.id"
       variant="outline"
-      class="shadow-none mb-2 h-auto w-full justify-start rounded-lg p-3 text-left hover:border-slate-400 hover:bg-slate-50"
+      class="mb-2 h-auto w-full justify-start rounded-lg p-3 text-left hover:border-slate-400 hover:bg-slate-50"
       :class="
         activeId === workflow.id
           ? 'border-slate-950 bg-slate-50'

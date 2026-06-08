@@ -18,6 +18,7 @@
 
 代码规范：
 - 前端应遵循组件拆分“应拆尽拆”
+- Nuxt组件放在子目录下会带目录前缀自动导入，例如`components/layout/AppNavigationMenu.vue`应使用`<LayoutAppNavigationMenu />`；如果不确定自动导入名，必须显式`import`后再使用，禁止凭文件名猜组件标签
 - 后端遵循Controller-Service-Repository三层架构，Controller只处理请求和响应，Service处理业务逻辑，Repository负责数据持久化
 
 设计规范：

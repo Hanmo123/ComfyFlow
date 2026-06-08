@@ -15,3 +15,7 @@ export const updateAppValidator = vine.create({
   variables: vine.array(vine.any()).optional(),
   graph: vine.any().optional(),
 })
+
+export const runAppValidator = vine.create({
+  inputs: vine.any().optional(),
+})

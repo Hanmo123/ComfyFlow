@@ -139,6 +139,42 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'apps.apps.run': {
+    methods: ["POST"]
+    pattern: '/api/v1/apps/:id/runs'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/app').runAppValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/app').runAppValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['run']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['run']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'apps.apps.show_task': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/apps/:id/runs/:taskId'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { id: ParamValue; taskId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['showTask']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['showTask']>>>
+    }
+  }
+  'apps.apps.resume_task': {
+    methods: ["POST"]
+    pattern: '/api/v1/apps/:id/runs/:taskId/resume'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { id: ParamValue; taskId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['resumeTask']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['resumeTask']>>>
+    }
+  }
   'apps.apps.show': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/apps/:id'
