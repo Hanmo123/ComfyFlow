@@ -27,6 +27,7 @@ export type ScannedRoutes = {
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
+    'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
@@ -40,6 +41,7 @@ export type ScannedRoutes = {
     'taskGroups.task_groups.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
   HEAD: {
@@ -52,6 +54,7 @@ export type ScannedRoutes = {
     'taskGroups.task_groups.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
   POST: {

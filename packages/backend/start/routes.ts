@@ -86,6 +86,7 @@ router
 
     router
       .group(() => {
+        router.get('loras', [ComfyController, 'listLoras'])
         router.post('images', [ComfyController, 'uploadImage'])
       })
       .prefix('comfy')

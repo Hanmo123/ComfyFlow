@@ -4,7 +4,12 @@ import { Exception } from '@adonisjs/core/exceptions'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class ComfyController {
+  private comfyService = new ComfyService()
   private mediaAssetService = new MediaAssetService(undefined, new ComfyService())
+
+  async listLoras({ request }: HttpContext) {
+    return this.comfyService.listLoras({ refresh: isTruthyQuery(request.input('refresh')) })
+  }
 
   async uploadImage({ request }: HttpContext) {
     const image = request.file('image', {
@@ -15,4 +20,8 @@ export default class ComfyController {
 
     return this.mediaAssetService.saveImage(image)
   }
+}
+
+function isTruthyQuery(value: unknown) {
+  return value === true || value === 'true' || value === '1'
 }

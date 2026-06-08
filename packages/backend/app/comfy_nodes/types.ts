@@ -6,6 +6,7 @@ export type ComfyType =
   | 'SEED'
   | 'COMBO'
   | 'MODEL_NAME'
+  | 'LORA_NAME'
   | 'IMAGE'
   | 'LATENT'
   | 'MASK'

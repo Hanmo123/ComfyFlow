@@ -283,6 +283,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>>
     }
   }
+  'comfy.comfy.list_loras': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/comfy/loras'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/comfy_controller').default['listLoras']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/comfy_controller').default['listLoras']>>>
+    }
+  }
   'comfy.comfy.upload_image': {
     methods: ["POST"]
     pattern: '/api/v1/comfy/images'

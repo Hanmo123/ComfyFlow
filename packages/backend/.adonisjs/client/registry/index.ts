@@ -144,6 +144,12 @@ const routes = {
     tokens: [{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"nodes","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"nodeId","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"retry","end":""}],
     types: placeholder as Registry['tasks.tasks.retry_node']['types'],
   },
+  'comfy.comfy.list_loras': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/comfy/loras',
+    tokens: [{"old":"/api/v1/comfy/loras","type":0,"val":"api","end":""},{"old":"/api/v1/comfy/loras","type":0,"val":"v1","end":""},{"old":"/api/v1/comfy/loras","type":0,"val":"comfy","end":""},{"old":"/api/v1/comfy/loras","type":0,"val":"loras","end":""}],
+    types: placeholder as Registry['comfy.comfy.list_loras']['types'],
+  },
   'comfy.comfy.upload_image': {
     methods: ["POST"],
     pattern: '/api/v1/comfy/images',

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { AppVariable } from '@/lib/app'
 
@@ -17,15 +18,25 @@ const appApi = useAppApi()
 
 const textValues = ref<Record<string, string>>({})
 const fileValues = ref<Record<string, File | null>>({})
+const loraOptions = ref<string[]>([])
+const loraCacheExpiresAt = ref(0)
+const lorasLoading = ref(false)
 const submitting = ref(false)
+const hasLoraNameInputs = computed(() => store.userInputVariables.value.some((variable) => variable.type === 'LORA_NAME'))
+const EMPTY_LORA_VALUE = '__empty_lora__'
 
 watch(
   () => props.open,
   (open) => {
     if (!open) return
     resetForm()
+    if (hasLoraNameInputs.value) void loadLoras()
   },
 )
+
+watch(hasLoraNameInputs, (hasInputs) => {
+  if (props.open && hasInputs) void loadLoras()
+})
 
 function resetForm() {
   const nextTextValues: Record<string, string> = {}
@@ -85,6 +96,23 @@ async function buildInputs() {
   return inputs
 }
 
+async function loadLoras(refresh = false) {
+  if (!hasLoraNameInputs.value || lorasLoading.value) return
+  if (!refresh && loraCacheExpiresAt.value > Date.now()) return
+
+  try {
+    lorasLoading.value = true
+    const response = await appApi.listComfyLoras(refresh)
+    loraOptions.value = response.items
+    loraCacheExpiresAt.value = Date.parse(response.expiresAt)
+    if (refresh) toast.success('LoRA 列表已刷新')
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : '加载 LoRA 列表失败')
+  } finally {
+    lorasLoading.value = false
+  }
+}
+
 function validateInputs() {
   for (const variable of store.userInputVariables.value) {
     if (!variable.required) continue
@@ -101,6 +129,21 @@ function validateInputs() {
 function setFile(variable: AppVariable, event: Event) {
   const input = event.target as HTMLInputElement
   fileValues.value[variable.key] = input.files?.[0] ?? null
+}
+
+function loraOptionsFor(variable: AppVariable) {
+  const current = textValues.value[variable.key]
+  if (current && !loraOptions.value.includes(current)) return [current, ...loraOptions.value]
+  return loraOptions.value
+}
+
+function inputSelectValue(variable: AppVariable) {
+  return textValues.value[variable.key] || undefined
+}
+
+function updateTextSelectValue(variable: AppVariable, value: unknown) {
+  const nextValue = String(value ?? '')
+  textValues.value[variable.key] = nextValue === EMPTY_LORA_VALUE ? '' : nextValue
 }
 
 function stringifyInputValue(value: unknown) {
@@ -151,15 +194,51 @@ function isEmptyValue(value: unknown) {
             :step="variable.type === 'FLOAT' ? 'any' : '1'"
           />
 
-          <select
+          <Select
             v-else-if="variable.type === 'BOOL'"
-            :id="`run-input-${variable.key}`"
             v-model="textValues[variable.key]"
-            class="h-9 w-full rounded-md border bg-white px-3 text-sm outline-none focus:border-slate-500"
           >
-            <option value="true">是</option>
-            <option value="false">否</option>
-          </select>
+            <SelectTrigger :id="`run-input-${variable.key}`">
+              <SelectValue placeholder="选择布尔值" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">是</SelectItem>
+              <SelectItem value="false">否</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div v-else-if="variable.type === 'LORA_NAME'" class="flex gap-2">
+            <Select
+              :model-value="inputSelectValue(variable)"
+              :disabled="lorasLoading"
+              @update:model-value="updateTextSelectValue(variable, $event)"
+            >
+              <SelectTrigger :id="`run-input-${variable.key}`" class="min-w-0 flex-1">
+                <SelectValue :placeholder="lorasLoading ? '加载 LoRA 列表...' : '选择 LoRA'" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem :value="EMPTY_LORA_VALUE">不选择 LoRA</SelectItem>
+                <SelectItem v-if="loraOptionsFor(variable).length === 0" value="__no_loras__" disabled>
+                  暂无 LoRA
+                </SelectItem>
+                <SelectItem v-for="name in loraOptionsFor(variable)" :key="name" :value="name">
+                  {{ name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              class="size-9 shrink-0"
+              :disabled="lorasLoading"
+              title="刷新 LoRA 列表"
+              aria-label="刷新 LoRA 列表"
+              @click="loadLoras(true)"
+            >
+              <RefreshCw class="size-4" :class="lorasLoading ? 'animate-spin' : ''" />
+            </Button>
+          </div>
 
           <Input
             v-else-if="variable.type === 'IMAGE'"

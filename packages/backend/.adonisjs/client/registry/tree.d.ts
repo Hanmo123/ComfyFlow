@@ -55,6 +55,7 @@ export interface ApiDefinition {
   }
   comfy: {
     comfy: {
+      listLoras: typeof routes['comfy.comfy.list_loras']
       uploadImage: typeof routes['comfy.comfy.upload_image']
     }
   }

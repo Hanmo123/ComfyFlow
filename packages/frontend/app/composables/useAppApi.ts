@@ -13,6 +13,13 @@ export interface ComfyUploadedImage {
   size: number
 }
 
+export interface ComfyLoraListResponse {
+  items: string[]
+  cached: boolean
+  fetchedAt: string
+  expiresAt: string
+}
+
 const API_BASE = 'http://localhost:3333/api/v1'
 
 export function useAppApi() {
@@ -78,6 +85,11 @@ export function useAppApi() {
     })
   }
 
+  const listComfyLoras = (refresh = false) =>
+    $fetch<ComfyLoraListResponse>(`${API_BASE}/comfy/loras`, {
+      query: refresh ? { refresh: true } : undefined,
+    })
+
   const getAppTask = (appId: number, taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/apps/${appId}/runs/${taskId}`)
 
   const resumeAppTask = (appId: number, taskId: number) =>
@@ -99,6 +111,7 @@ export function useAppApi() {
     retryTask,
     retryTaskNode,
     uploadComfyImage,
+    listComfyLoras,
     getAppTask,
     resumeAppTask,
   }

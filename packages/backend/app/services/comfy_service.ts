@@ -27,7 +27,17 @@ interface ComfyHistoryItem {
   outputs?: Record<string, Record<string, unknown>>
 }
 
+interface ComfyLoraCache {
+  items: string[]
+  fetchedAt: number
+  expiresAt: number
+}
+
+const LORA_CACHE_TTL_MS = 10 * 60 * 1000
+
 export default class ComfyService {
+  private static loraCache: ComfyLoraCache | null = null
+
   private baseUrl = (process.env.COMFY_BASE_URL ?? 'http://127.0.0.1:8188').replace(/\/+$/, '')
 
   async uploadImage(file: UploadableImage) {
@@ -71,6 +81,43 @@ export default class ComfyService {
     const promptId = await this.queuePrompt(prompt)
     const history = await this.waitForHistory(promptId)
     return extractWorkflowResults(history.outputs ?? {}, results, this.baseUrl)
+  }
+
+  async listLoras(options: { refresh?: boolean } = {}) {
+    const now = Date.now()
+    const cache = ComfyService.loraCache
+    if (!options.refresh && cache && cache.expiresAt > now) {
+      return formatLoraListResponse(cache, true)
+    }
+
+    const items = await this.fetchLoraNames()
+    const nextCache = { items, fetchedAt: now, expiresAt: now + LORA_CACHE_TTL_MS }
+    ComfyService.loraCache = nextCache
+    return formatLoraListResponse(nextCache, false)
+  }
+
+  private async fetchLoraNames() {
+    const modelList = normalizeLoraNames(await this.tryFetchJson('/models/loras'))
+    if (modelList) return modelList
+
+    const modelOnlyInfo = await this.tryFetchJson('/object_info/LoraLoaderModelOnly')
+    const modelOnlyList = extractLoraNamesFromObjectInfo(modelOnlyInfo, 'LoraLoaderModelOnly')
+    if (modelOnlyList) return modelOnlyList
+
+    const loraLoaderInfo = await this.tryFetchJson('/object_info/LoraLoader')
+    const loraLoaderList = extractLoraNamesFromObjectInfo(loraLoaderInfo, 'LoraLoader')
+    if (loraLoaderList) return loraLoaderList
+
+    throw new Exception('ComfyUI 获取 LoRA 列表失败', {
+      status: 502,
+      code: 'E_COMFY_LORAS_FAILED',
+    })
+  }
+
+  private async tryFetchJson(path: string) {
+    const response = await fetch(`${this.baseUrl}${path}`)
+    if (!response.ok) return null
+    return response.json().catch(() => null)
   }
 
   private async queuePrompt(prompt: Record<string, unknown>) {
@@ -150,6 +197,46 @@ function formatComfyError(error: unknown) {
   if (typeof error === 'string') return error
   if (typeof error === 'object' && 'message' in error) return String((error as { message?: unknown }).message)
   return JSON.stringify(error)
+}
+
+function normalizeLoraNames(value: unknown): string[] | null {
+  if (Array.isArray(value)) return uniqueStrings(value)
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  for (const key of ['items', 'models', 'loras', 'files']) {
+    const names = normalizeLoraNames(record[key])
+    if (names) return names
+  }
+  return null
+}
+
+function extractLoraNamesFromObjectInfo(value: unknown, classType: string) {
+  if (!value || typeof value !== 'object') return null
+  const nodeInfo = (value as Record<string, unknown>)[classType]
+  if (!nodeInfo || typeof nodeInfo !== 'object') return null
+
+  const input = (nodeInfo as Record<string, unknown>).input
+  if (!input || typeof input !== 'object') return null
+  const required = (input as Record<string, unknown>).required
+  if (!required || typeof required !== 'object') return null
+  const loraName = (required as Record<string, unknown>).lora_name
+  if (!Array.isArray(loraName)) return null
+
+  return normalizeLoraNames(loraName[0])
+}
+
+function uniqueStrings(value: unknown[]) {
+  return [...new Set(value.filter((item): item is string => typeof item === 'string'))].sort()
+}
+
+function formatLoraListResponse(cache: ComfyLoraCache, cached: boolean) {
+  return {
+    items: cache.items,
+    cached,
+    fetchedAt: new Date(cache.fetchedAt).toISOString(),
+    expiresAt: new Date(cache.expiresAt).toISOString(),
+  }
 }
 
 function sleep(ms: number) {

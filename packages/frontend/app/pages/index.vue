@@ -12,6 +12,7 @@ const loadingTaskGroups = ref(false)
 const creatingTaskGroup = ref(false)
 
 const selectedTaskGroup = computed(() => taskGroups.value.find((group) => group.id === selectedTaskGroupId.value) ?? null)
+const selectedTaskGroupSelectValue = computed(() => selectedTaskGroupId.value === null ? undefined : String(selectedTaskGroupId.value))
 
 const taskStatusLabel = computed(() => {
   const labels = {
@@ -62,6 +63,11 @@ async function createTaskGroup() {
   } finally {
     creatingTaskGroup.value = false
   }
+}
+
+function updateSelectedTaskGroup(value: unknown) {
+  const nextId = Number(value)
+  selectedTaskGroupId.value = Number.isFinite(nextId) ? nextId : null
 }
 
 onMounted(async () => {
@@ -120,18 +126,23 @@ onMounted(async () => {
       </div>
 
       <div class="absolute right-4 top-4 z-30 flex items-center gap-2">
-        <select
-          v-model.number="selectedTaskGroupId"
-          class="h-9 w-44 rounded-md border bg-white px-3 text-sm outline-none focus:border-slate-500 disabled:cursor-not-allowed disabled:opacity-60"
+        <Select
+          :model-value="selectedTaskGroupSelectValue"
           :disabled="loadingTaskGroups || store.running.value"
-          aria-label="任务分组"
+          @update:model-value="updateSelectedTaskGroup"
         >
-          <option v-if="loadingTaskGroups" disabled :value="null">加载分组中...</option>
-          <option v-else disabled :value="null">请选择任务分组</option>
-          <option v-for="group in taskGroups" :key="group.id" :value="group.id">
-            {{ group.name }}
-          </option>
-        </select>
+          <SelectTrigger class="w-44 bg-white" aria-label="任务分组">
+            <SelectValue :placeholder="loadingTaskGroups ? '加载分组中...' : '请选择任务分组'" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-if="taskGroups.length === 0" value="__no_task_groups__" disabled>
+              暂无任务分组
+            </SelectItem>
+            <SelectItem v-for="group in taskGroups" :key="group.id" :value="String(group.id)">
+              {{ group.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           type="button"
           variant="outline"

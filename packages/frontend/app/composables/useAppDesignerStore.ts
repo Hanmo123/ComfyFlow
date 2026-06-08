@@ -108,6 +108,40 @@ export function useAppDesignerStore() {
     }
   }
 
+  function addWorkflowInputVariable(
+    nodeId: string,
+    parameterKey: string,
+    parameter: { name: string; type: string; default?: unknown }
+  ) {
+    const node = appGraph.value.nodes.find((item) => item.id === nodeId)
+    if (node?.type !== 'workflow_run') return
+
+    const variableType = isAppVariableType(parameter.type) ? parameter.type : APP_VARIABLE_TYPES[0]
+
+    const existingBinding = node.data.inputBindings[parameterKey]
+    if (existingBinding?.kind === 'variable' && existingBinding.varKey) {
+      const existingVariable = appVariables.value.find((item) => item.key === existingBinding.varKey)
+      if (existingVariable) {
+        existingVariable.type = variableType
+        if (parameter.default !== undefined) existingVariable.default = parameter.default
+      }
+      return
+    }
+
+    const variableKey = addAppVariable('user_input', {
+      key: parameterKey,
+      name: parameter.name || parameterKey,
+      type: variableType,
+    })
+    const variable = appVariables.value.find((item) => item.key === variableKey)
+    if (variable && parameter.default !== undefined) variable.default = parameter.default
+
+    node.data.inputBindings = {
+      ...node.data.inputBindings,
+      [parameterKey]: { kind: 'variable', varKey: variableKey },
+    }
+  }
+
   function updateAppVariable(key: string, patch: Partial<AppVariable>) {
     const variable = appVariables.value.find((item) => item.key === key)
     if (!variable) return
@@ -366,6 +400,7 @@ export function useAppDesignerStore() {
     updateWorkflowId,
     updateInputBinding,
     updateOutputAssignment,
+    addWorkflowInputVariable,
     addWorkflowOutputVariable,
     saveApp,
     runApp,

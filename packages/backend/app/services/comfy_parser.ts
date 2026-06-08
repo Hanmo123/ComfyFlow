@@ -1,7 +1,6 @@
 import {
   createFallbackDefinition,
   getNodeDefinition,
-  getNodeDefinitions,
   isConnectionValue,
 } from '#comfy_nodes/index'
 import type { NodeDefinition } from '#comfy_nodes/index'
@@ -75,7 +74,7 @@ export function parseComfyApiJson(rawJson: Record<string, unknown>): ParsedComfy
 
   return {
     graph: { nodes: positionedNodes, edges },
-    nodeDefinitions: getNodeDefinitions(Object.keys(nodeDefinitions)),
+    nodeDefinitions,
   }
 }
 
