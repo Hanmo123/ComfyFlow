@@ -33,10 +33,10 @@ export default class Workflow extends BaseModel {
   @column({ prepare: stringifyJson, consume: parseJson })
   declare rawJson: Record<string, unknown>
 
-  @column({ prepare: stringifyJson, consume: parseJson })
+  @column({ prepare: stringifyJsonArray, consume: parseJsonArray })
   declare parameters: WorkflowParameter[]
 
-  @column({ prepare: stringifyJson, consume: parseJson })
+  @column({ prepare: stringifyJsonArray, consume: parseJsonArray })
   declare results: WorkflowResult[]
 
   @column.dateTime({ autoCreate: true })
@@ -53,4 +53,13 @@ function stringifyJson(value: unknown) {
 function parseJson(value: unknown) {
   if (typeof value !== 'string') return value
   return JSON.parse(value)
+}
+
+function stringifyJsonArray(value: unknown) {
+  return JSON.stringify(Array.isArray(value) ? value : [])
+}
+
+function parseJsonArray(value: unknown) {
+  const parsed = parseJson(value)
+  return Array.isArray(parsed) ? parsed : []
 }

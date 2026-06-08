@@ -39,7 +39,11 @@ export default class WorkflowRepository {
   }
 
   async update(workflow: Workflow, payload: UpdateWorkflowPayload) {
-    workflow.merge(payload)
+    const updatePayload = Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== undefined)
+    ) as UpdateWorkflowPayload
+
+    workflow.merge(updatePayload)
     await workflow.save()
     return workflow
   }
