@@ -207,6 +207,14 @@ export function useAppDesignerStore() {
 
   async function saveApp() {
     if (!activeApp.value || saving.value) return
+    if (activeApp.value.id <= 0) {
+      const defaultName = activeApp.value.name.trim() === '未命名应用' ? '' : activeApp.value.name
+      const nextName = window.prompt('请输入应用名称', defaultName)
+      if (nextName === null) return
+
+      activeApp.value.name = nextName.trim()
+    }
+
     const validationError = validateAppDraft()
     if (validationError) {
       error.value = validationError

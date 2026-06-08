@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { Check, FileText, FolderOpen, Play, Plus, RotateCw, Save, X } from 'lucide-vue-next'
+import { Check, FolderOpen, LayoutGrid, Play, Plus, RotateCw, Save, X } from 'lucide-vue-next'
 import type { TaskGroupRecord } from '@/lib/app'
 
 const store = useAppDesignerStore()
@@ -81,11 +81,15 @@ onMounted(async () => {
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="outline" type="button">
-              <FileText class="size-4" />
-              文件
+              <LayoutGrid class="size-4" />
+              应用
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" class="w-64">
+          <DropdownMenuContent align="start" class="w-40">
+            <DropdownMenuItem @select="store.createDraftApp">
+              <Plus class="size-4" />
+              新建
+            </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <FolderOpen class="size-4" />
