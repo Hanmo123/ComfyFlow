@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, Workflow } from 'lucide-vue-next'
+import { MoreVertical, Pencil, Plus, Trash2, Workflow } from 'lucide-vue-next'
 import type { WorkflowRecord } from '@/lib/workflow'
 
 const workflowApi = useWorkflowApi()
@@ -7,6 +7,10 @@ const workflowApi = useWorkflowApi()
 const fileInput = ref<HTMLInputElement | null>(null)
 const workflows = ref<WorkflowRecord[]>([])
 const uploading = ref(false)
+const renaming = ref(false)
+const renameDialogOpen = ref(false)
+const renamingWorkflow = ref<WorkflowRecord | null>(null)
+const deletingId = ref<number | null>(null)
 const error = ref('')
 
 onMounted(() => {
@@ -49,6 +53,44 @@ function workflowTitle(workflow: WorkflowRecord) {
   return workflow.name || `未命名工作流 #${workflow.id}`
 }
 
+function openRenameDialog(workflow: WorkflowRecord) {
+  renamingWorkflow.value = workflow
+  renameDialogOpen.value = true
+}
+
+async function renameWorkflow(name: string) {
+  if (!renamingWorkflow.value || renaming.value) return
+
+  try {
+    renaming.value = true
+    error.value = ''
+    const detail = await workflowApi.renameWorkflow(renamingWorkflow.value.id, name)
+    workflows.value = workflows.value.map((item) => (item.id === detail.workflow.id ? detail.workflow : item))
+    renameDialogOpen.value = false
+    renamingWorkflow.value = null
+  } catch (renameError) {
+    error.value = renameError instanceof Error ? renameError.message : '重命名工作流失败'
+  } finally {
+    renaming.value = false
+  }
+}
+
+async function deleteWorkflow(workflow: WorkflowRecord) {
+  const confirmed = window.confirm(`确定删除 ${workflowTitle(workflow)}？`)
+  if (!confirmed) return
+
+  try {
+    deletingId.value = workflow.id
+    error.value = ''
+    await workflowApi.deleteWorkflow(workflow.id)
+    workflows.value = workflows.value.filter((item) => item.id !== workflow.id)
+  } catch (deleteError) {
+    error.value = deleteError instanceof Error ? deleteError.message : '删除工作流失败'
+  } finally {
+    deletingId.value = null
+  }
+}
+
 function formatDate(value: string | null) {
   if (!value) return '尚未更新'
   return new Date(value).toLocaleString('zh-CN', {
@@ -68,7 +110,6 @@ function formatDate(value: string | null) {
         <LayoutAppNavigationMenu />
         <div class="min-w-0 flex-1">
           <h1 class="truncate text-xl font-semibold">工作流管理</h1>
-          <p class="mt-1 text-sm text-slate-500">上传 ComfyUI API JSON，配置可暴露的输入参数和输出结果。</p>
         </div>
         <input ref="fileInput" class="hidden" type="file" accept="application/json,.json" @change="onFileChange" />
         <Button type="button" :disabled="uploading" @click="fileInput?.click()">
@@ -93,22 +134,35 @@ function formatDate(value: string | null) {
         </div>
 
         <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <NuxtLink
+          <article
             v-for="workflow in workflows"
             :key="workflow.id"
-            :to="`/workflows/${workflow.id}`"
             class="group rounded-xl border bg-white p-4 transition hover:border-slate-400 hover:bg-slate-50"
           >
             <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
+              <NuxtLink :to="`/workflows/${workflow.id}`" class="min-w-0 flex-1">
                 <div class="truncate text-base font-semibold text-slate-950">{{ workflowTitle(workflow) }}</div>
                 <div class="mt-1 text-xs text-slate-500">#{{ workflow.id }} · {{ workflow.status }}</div>
-              </div>
-              <div class="rounded-md bg-slate-100 p-2 text-slate-500 group-hover:bg-white">
-                <Workflow class="size-5" />
-              </div>
+              </NuxtLink>
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon" type="button" :disabled="deletingId === workflow.id" aria-label="工作流操作">
+                    <MoreVertical class="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" class="w-36">
+                  <DropdownMenuItem @select="openRenameDialog(workflow)">
+                    <Pencil class="size-4" />
+                    重命名
+                  </DropdownMenuItem>
+                  <DropdownMenuItem class="text-red-600 focus:text-red-600" @select="deleteWorkflow(workflow)">
+                    <Trash2 class="size-4" />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <div class="mt-5 grid grid-cols-2 gap-2 text-sm">
+            <NuxtLink :to="`/workflows/${workflow.id}`" class="mt-5 grid grid-cols-2 gap-2 text-sm">
               <div class="rounded-lg border bg-white px-3 py-2">
                 <div class="text-lg font-semibold">{{ workflow.parameters.length }}</div>
                 <div class="text-xs text-slate-500">参数</div>
@@ -117,15 +171,26 @@ function formatDate(value: string | null) {
                 <div class="text-lg font-semibold">{{ workflow.results.length }}</div>
                 <div class="text-xs text-slate-500">结果</div>
               </div>
-            </div>
-            <div class="mt-4 truncate text-xs text-slate-500">更新于 {{ formatDate(workflow.updatedAt ?? workflow.createdAt) }}</div>
-          </NuxtLink>
+            </NuxtLink>
+            <NuxtLink :to="`/workflows/${workflow.id}`" class="mt-4 block truncate text-xs text-slate-500">更新于 {{ formatDate(workflow.updatedAt ?? workflow.createdAt) }}</NuxtLink>
+          </article>
         </div>
       </section>
 
       <div v-if="error" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
         {{ error }}
       </div>
+
+      <WorkflowSaveWorkflowDialog
+        :open="renameDialogOpen"
+        :initial-name="renamingWorkflow?.name || ''"
+        :saving="renaming"
+        title="重命名工作流"
+        description="输入新的工作流名称。"
+        submit-label="重命名"
+        @close="renameDialogOpen = false"
+        @save="renameWorkflow"
+      />
     </div>
   </main>
 </template>

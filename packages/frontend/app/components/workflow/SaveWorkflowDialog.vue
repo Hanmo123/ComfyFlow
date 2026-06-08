@@ -1,5 +1,19 @@
 <script setup lang="ts">
-const props = defineProps<{ open: boolean; initialName?: string | null; saving?: boolean }>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    initialName?: string | null
+    saving?: boolean
+    title?: string
+    description?: string
+    submitLabel?: string
+  }>(),
+  {
+    title: '保存工作流',
+    description: '输入工作流名称，当前输入/输出变量配置将一起保存。',
+    submitLabel: '保存',
+  }
+)
 const emit = defineEmits<{ close: []; save: [name: string] }>()
 
 const name = ref('')
@@ -15,8 +29,8 @@ watch(
 <template>
   <div v-if="open" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4">
     <div class="w-full max-w-md rounded-lg border bg-white p-5">
-      <div class="text-lg font-semibold">保存工作流</div>
-      <p class="mt-1 text-sm text-slate-500">输入工作流名称，当前输入/输出变量配置将一起保存。</p>
+      <div class="text-lg font-semibold">{{ title }}</div>
+      <p class="mt-1 text-sm text-slate-500">{{ description }}</p>
       <input
         v-model="name"
         class="mt-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
@@ -32,7 +46,7 @@ watch(
           :disabled="!name.trim() || saving"
           @click="emit('save', name.trim())"
         >
-          保存
+          {{ submitLabel }}
         </Button>
       </div>
     </div>

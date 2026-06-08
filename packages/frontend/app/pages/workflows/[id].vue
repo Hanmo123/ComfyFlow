@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Save, Settings2, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Pencil, Save, Settings2, Trash2 } from 'lucide-vue-next'
 import type {
   InputFieldDefinition,
   OutputSlotDefinition,
@@ -18,6 +18,7 @@ const results = ref<WorkflowResult[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const saveDialogOpen = ref(false)
+const saveDialogMode = ref<'save' | 'rename'>('save')
 const panelOpen = ref(true)
 const error = ref('')
 
@@ -75,8 +76,12 @@ async function quickSaveWorkflow() {
     return
   }
 
-  const name = defaultWorkflowName(activeWorkflow.value)
-  await saveWorkflow(name)
+  if (!activeWorkflow.value.name) {
+    openSaveDialog()
+    return
+  }
+
+  await saveWorkflow(activeWorkflow.value.name)
 }
 
 function openSaveDialog() {
@@ -94,7 +99,45 @@ function openSaveDialog() {
   }
 
   error.value = ''
+  saveDialogMode.value = 'save'
   saveDialogOpen.value = true
+}
+
+function openRenameDialog() {
+  if (saving.value) return
+  if (!activeWorkflow.value) {
+    error.value = '工作流尚未加载完成'
+    return
+  }
+
+  error.value = ''
+  saveDialogMode.value = 'rename'
+  saveDialogOpen.value = true
+}
+
+async function submitWorkflowDialog(name: string) {
+  if (saveDialogMode.value === 'rename') {
+    await renameWorkflow(name)
+    return
+  }
+
+  await saveWorkflow(name)
+}
+
+async function renameWorkflow(name: string) {
+  if (!activeWorkflow.value || saving.value) return
+
+  try {
+    saving.value = true
+    error.value = ''
+    const detail = await workflowApi.renameWorkflow(activeWorkflow.value.id, name)
+    applyDetail(detail)
+    saveDialogOpen.value = false
+  } catch (renameError) {
+    error.value = renameError instanceof Error ? renameError.message : '重命名工作流失败'
+  } finally {
+    saving.value = false
+  }
 }
 
 async function deleteActiveWorkflow() {
@@ -222,11 +265,6 @@ function workflowTitle(workflow: WorkflowRecord) {
   return workflow.name || `未命名工作流 #${workflow.id}`
 }
 
-function defaultWorkflowName(workflow: WorkflowRecord | null | undefined) {
-  if (!workflow) return ''
-  return workflow.name || `工作流 #${workflow.id}`
-}
-
 async function withLoading(action: () => Promise<void>, message: string) {
   try {
     loading.value = true
@@ -268,6 +306,9 @@ async function withLoading(action: () => Promise<void>, message: string) {
         <div v-if="activeWorkflow" class="pointer-events-auto hidden min-w-0 max-w-96 items-baseline gap-2 rounded-md border bg-white px-3 py-2 text-sm sm:flex">
           <div class="min-w-0 truncate font-medium">{{ workflowTitle(activeWorkflow) }}</div>
           <div class="shrink-0 whitespace-nowrap text-xs text-slate-500">#{{ activeWorkflow.id }} · {{ activeWorkflow.status }}</div>
+          <Button variant="ghost" size="icon" type="button" :disabled="saving" aria-label="重命名工作流" @click="openRenameDialog">
+            <Pencil class="size-3.5" />
+          </Button>
         </div>
       </div>
 
@@ -313,10 +354,13 @@ async function withLoading(action: () => Promise<void>, message: string) {
 
       <WorkflowSaveWorkflowDialog
         :open="saveDialogOpen"
-        :initial-name="defaultWorkflowName(activeWorkflow)"
+        :initial-name="activeWorkflow?.name || ''"
         :saving="saving"
+        :title="saveDialogMode === 'rename' ? '重命名工作流' : '保存工作流'"
+        :description="saveDialogMode === 'rename' ? '输入新的工作流名称。' : '输入工作流名称，当前输入/输出变量配置将一起保存。'"
+        :submit-label="saveDialogMode === 'rename' ? '重命名' : '保存'"
         @close="saveDialogOpen = false"
-        @save="saveWorkflow"
+        @save="submitWorkflowDialog"
       />
     </div>
   </main>
