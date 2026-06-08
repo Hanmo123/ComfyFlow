@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { VueFlow, type Connection, type Edge, type Node } from '@vue-flow/core'
+import { VueFlow, type Connection, type Edge, type Node, type VueFlowStore } from '@vue-flow/core'
 import { CirclePause, Image, Type, Workflow } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -10,6 +10,9 @@ const props = defineProps<{
 
 const store = useAppDesignerStore()
 const controlsStyle = computed(() => ({ left: `${props.controlsOffsetLeft ?? 0}px` }))
+const fitViewOptions = { padding: 0.2, minZoom: 0.1, maxZoom: 1 }
+let flowInstance: VueFlowStore | null = null
+let fitFrame: number | null = null
 
 const flowNodes = computed<Node[]>(() =>
   store.appGraph.value.nodes.map((node) => ({
@@ -36,6 +39,31 @@ function onConnect(connection: Connection) {
 function onNodeDragStop(event: { node: Node }) {
   store.moveAppNode(event.node.id, event.node.position)
 }
+
+function onFlowInit(instance: VueFlowStore) {
+  flowInstance = instance
+  scheduleFitView()
+}
+
+function scheduleFitView() {
+  if (!flowInstance || flowNodes.value.length === 0) return
+  if (fitFrame !== null) cancelAnimationFrame(fitFrame)
+  fitFrame = requestAnimationFrame(() => {
+    fitFrame = null
+    void flowInstance?.fitView(fitViewOptions)
+  })
+}
+
+watch(
+  () => store.activeApp.value?.id,
+  () => {
+    void nextTick(scheduleFitView)
+  },
+)
+
+onBeforeUnmount(() => {
+  if (fitFrame !== null) cancelAnimationFrame(fitFrame)
+})
 </script>
 
 <template>
@@ -47,6 +75,10 @@ function onNodeDragStop(event: { node: Node }) {
             :nodes="flowNodes"
             :edges="flowEdges"
             fit-view-on-init
+            :min-zoom="0.1"
+            :max-zoom="1"
+            @init="onFlowInit"
+            @nodes-initialized="scheduleFitView"
             @connect="onConnect"
             @node-drag-stop="onNodeDragStop"
           >

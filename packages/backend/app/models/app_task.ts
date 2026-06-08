@@ -3,7 +3,13 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export type AppTaskStatus = 'queued' | 'running' | 'waiting' | 'completed' | 'failed'
-export type AppTaskNodeStatus = 'queued' | 'running' | 'waiting' | 'completed' | 'failed' | 'skipped'
+export type AppTaskNodeStatus =
+  | 'queued'
+  | 'running'
+  | 'waiting'
+  | 'completed'
+  | 'failed'
+  | 'skipped'
 
 export interface AppTaskSnapshot {
   id: number
@@ -29,6 +35,9 @@ export default class AppTask extends BaseModel {
 
   @column()
   declare appId: number
+
+  @column()
+  declare taskGroupId: number | null
 
   @column()
   declare status: AppTaskStatus

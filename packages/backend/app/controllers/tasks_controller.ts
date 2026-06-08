@@ -4,8 +4,9 @@ import type { HttpContext } from '@adonisjs/core/http'
 export default class TasksController {
   private taskService = new AppTaskService()
 
-  async index() {
-    return this.taskService.list()
+  async index({ request }: HttpContext) {
+    const groupId = Number(request.qs().groupId)
+    return this.taskService.list(Number.isFinite(groupId) && groupId > 0 ? groupId : undefined)
   }
 
   async show({ params }: HttpContext) {

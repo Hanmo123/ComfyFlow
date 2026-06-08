@@ -13,6 +13,7 @@ import { controllers } from '#generated/controllers'
 
 const WorkflowsController = () => import('#controllers/workflows_controller')
 const AppsController = () => import('#controllers/apps_controller')
+const TaskGroupsController = () => import('#controllers/task_groups_controller')
 const TasksController = () => import('#controllers/tasks_controller')
 const ComfyController = () => import('#controllers/comfy_controller')
 const MediaAssetsController = () => import('#controllers/media_assets_controller')
@@ -64,6 +65,14 @@ router
       })
       .prefix('apps')
       .as('apps')
+
+    router
+      .group(() => {
+        router.get('/', [TaskGroupsController, 'index'])
+        router.post('/', [TaskGroupsController, 'store'])
+      })
+      .prefix('task-groups')
+      .as('taskGroups')
 
     router
       .group(() => {

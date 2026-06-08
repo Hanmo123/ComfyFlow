@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { Check, FileText, FolderOpen, Play, RotateCw, Save, X } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { Check, FileText, FolderOpen, Play, Plus, RotateCw, Save, X } from 'lucide-vue-next'
+import type { TaskGroupRecord } from '@/lib/app'
 
 const store = useAppDesignerStore()
+const appApi = useAppApi()
 const runSheetOpen = ref(false)
+const taskGroups = ref<TaskGroupRecord[]>([])
+const selectedTaskGroupId = ref<number | null>(null)
+const loadingTaskGroups = ref(false)
+const creatingTaskGroup = ref(false)
+
+const selectedTaskGroup = computed(() => taskGroups.value.find((group) => group.id === selectedTaskGroupId.value) ?? null)
 
 const taskStatusLabel = computed(() => {
   const labels = {
@@ -22,8 +31,42 @@ function formatTaskValue(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
 
-onMounted(() => {
+async function loadTaskGroups() {
+  try {
+    loadingTaskGroups.value = true
+    taskGroups.value = await appApi.listTaskGroups()
+    if (!selectedTaskGroupId.value || !taskGroups.value.some((group) => group.id === selectedTaskGroupId.value)) {
+      selectedTaskGroupId.value = taskGroups.value[0]?.id ?? null
+    }
+  } catch (error) {
+    selectedTaskGroupId.value = null
+    toast.error(error instanceof Error ? error.message : '加载任务分组失败')
+  } finally {
+    loadingTaskGroups.value = false
+  }
+}
+
+async function createTaskGroup() {
+  if (creatingTaskGroup.value) return
+  const name = window.prompt('请输入新任务分组名称')?.trim()
+  if (!name) return
+
+  try {
+    creatingTaskGroup.value = true
+    const group = await appApi.createTaskGroup(name)
+    taskGroups.value = [...taskGroups.value, group].sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id)
+    selectedTaskGroupId.value = group.id
+    toast.success('任务分组已创建')
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : '创建任务分组失败')
+  } finally {
+    creatingTaskGroup.value = false
+  }
+}
+
+onMounted(async () => {
   store.initialize()
+  await loadTaskGroups()
 })
 </script>
 
@@ -72,15 +115,39 @@ onMounted(() => {
         </DropdownMenu>
       </div>
 
-      <Button
-        type="button"
-        class="absolute right-4 top-4 z-30 bg-blue-600 text-white hover:bg-blue-700"
-        :disabled="store.running.value || store.saving.value"
-        @click="runSheetOpen = true"
-      >
-        <Play class="size-4" />
-        运行
-      </Button>
+      <div class="absolute right-4 top-4 z-30 flex items-center gap-2">
+        <select
+          v-model.number="selectedTaskGroupId"
+          class="h-9 w-44 rounded-md border bg-white px-3 text-sm outline-none focus:border-slate-500 disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="loadingTaskGroups || store.running.value"
+          aria-label="任务分组"
+        >
+          <option v-if="loadingTaskGroups" disabled :value="null">加载分组中...</option>
+          <option v-else disabled :value="null">请选择任务分组</option>
+          <option v-for="group in taskGroups" :key="group.id" :value="group.id">
+            {{ group.name }}
+          </option>
+        </select>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          :disabled="creatingTaskGroup || store.running.value"
+          aria-label="新建任务分组"
+          @click="createTaskGroup"
+        >
+          <Plus class="size-4" />
+        </Button>
+        <Button
+          type="button"
+          class="bg-blue-600 text-white hover:bg-blue-700"
+          :disabled="store.running.value || store.saving.value || !selectedTaskGroupId"
+          @click="runSheetOpen = true"
+        >
+          <Play class="size-4" />
+          运行
+        </Button>
+      </div>
 
       <div
         v-if="store.latestTask.value"
@@ -126,7 +193,11 @@ onMounted(() => {
         {{ store.error.value }}
       </div>
 
-      <AppRunSheet v-model:open="runSheetOpen" />
+      <AppRunSheet
+        v-model:open="runSheetOpen"
+        :task-group-id="selectedTaskGroupId"
+        :task-group-name="selectedTaskGroup?.name"
+      />
     </div>
   </main>
 </template>

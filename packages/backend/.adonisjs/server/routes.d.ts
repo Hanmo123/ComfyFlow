@@ -21,6 +21,8 @@ export type ScannedRoutes = {
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'taskGroups.task_groups.index': { paramsTuple?: []; params?: {} }
+    'taskGroups.task_groups.store': { paramsTuple?: []; params?: {} }
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
@@ -34,6 +36,7 @@ export type ScannedRoutes = {
     'apps.apps.index': { paramsTuple?: []; params?: {} }
     'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'taskGroups.task_groups.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
@@ -45,6 +48,7 @@ export type ScannedRoutes = {
     'apps.apps.index': { paramsTuple?: []; params?: {} }
     'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'taskGroups.task_groups.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
@@ -57,6 +61,7 @@ export type ScannedRoutes = {
     'apps.apps.store': { paramsTuple?: []; params?: {} }
     'apps.apps.run': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.resume_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
+    'taskGroups.task_groups.store': { paramsTuple?: []; params?: {} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
   }

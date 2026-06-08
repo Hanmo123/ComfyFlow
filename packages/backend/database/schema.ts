@@ -8,7 +8,7 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class AppTaskSchema extends BaseModel {
-  static $columns = ['appId', 'appSnapshot', 'completedAt', 'createdAt', 'error', 'id', 'inputs', 'nodeRuns', 'outputs', 'startedAt', 'status', 'updatedAt', 'variables', 'waitingNodeId'] as const
+  static $columns = ['appId', 'appSnapshot', 'completedAt', 'createdAt', 'error', 'id', 'inputs', 'nodeRuns', 'outputs', 'startedAt', 'status', 'taskGroupId', 'updatedAt', 'variables', 'waitingNodeId'] as const
   $columns = AppTaskSchema.$columns
   @column()
   declare appId: number
@@ -32,6 +32,8 @@ export class AppTaskSchema extends BaseModel {
   declare startedAt: DateTime | null
   @column()
   declare status: string
+  @column()
+  declare taskGroupId: number | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
@@ -115,6 +117,21 @@ export class MediaAssetSchema extends BaseModel {
   declare originalName: string
   @column()
   declare size: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class TaskGroupSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'name', 'sortOrder', 'updatedAt'] as const
+  $columns = TaskGroupSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare sortOrder: number
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

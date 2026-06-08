@@ -211,6 +211,30 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['destroy']>>>
     }
   }
+  'taskGroups.task_groups.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/task-groups'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/task_groups_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/task_groups_controller').default['index']>>>
+    }
+  }
+  'taskGroups.task_groups.store': {
+    methods: ["POST"]
+    pattern: '/api/v1/task-groups'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/task_group').createTaskGroupValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/task_group').createTaskGroupValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/task_groups_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/task_groups_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'tasks.tasks.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/tasks'

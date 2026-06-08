@@ -17,5 +17,6 @@ export const updateAppValidator = vine.create({
 })
 
 export const runAppValidator = vine.create({
+  taskGroupId: vine.number(),
   inputs: vine.any().optional(),
 })

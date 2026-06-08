@@ -27,7 +27,11 @@ export default class AppsController {
 
   async run({ params, request }: HttpContext) {
     const payload = await request.validateUsing(runAppValidator)
-    return this.taskService.run(Number(params.id), normalizeInputs(payload.inputs))
+    return this.taskService.run(
+      Number(params.id),
+      payload.taskGroupId,
+      normalizeInputs(payload.inputs)
+    )
   }
 
   async showTask({ params }: HttpContext) {

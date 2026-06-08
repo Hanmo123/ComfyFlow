@@ -3,10 +3,11 @@ import AppTask, {
   type AppTaskSnapshot,
   type AppTaskStatus,
 } from '#models/app_task'
-import { DateTime } from 'luxon'
+import type { DateTime } from 'luxon'
 
 export interface CreateAppTaskPayload {
   appId: number
+  taskGroupId: number
   inputs: Record<string, unknown>
   variables: Record<string, unknown>
   appSnapshot: AppTaskSnapshot
@@ -24,13 +25,16 @@ export interface UpdateAppTaskPayload {
 }
 
 export default class AppTaskRepository {
-  async list() {
-    return AppTask.query().orderBy('created_at', 'desc')
+  async list(taskGroupId?: number) {
+    const query = AppTask.query().orderBy('created_at', 'desc')
+    if (taskGroupId) query.where('task_group_id', taskGroupId)
+    return query
   }
 
   async create(payload: CreateAppTaskPayload) {
     return AppTask.create({
       appId: payload.appId,
+      taskGroupId: payload.taskGroupId,
       status: 'queued',
       inputs: payload.inputs,
       variables: payload.variables,

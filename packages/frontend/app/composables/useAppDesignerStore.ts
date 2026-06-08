@@ -233,7 +233,7 @@ export function useAppDesignerStore() {
     }
   }
 
-  async function runApp(inputs: Record<string, unknown>) {
+  async function runApp(inputs: Record<string, unknown>, taskGroupId: number) {
     if (!activeApp.value || running.value) return
 
     await saveApp()
@@ -242,7 +242,7 @@ export function useAppDesignerStore() {
     try {
       running.value = true
       error.value = ''
-      latestTask.value = await appApi.runApp(activeApp.value.id, inputs)
+      latestTask.value = await appApi.runApp(activeApp.value.id, taskGroupId, inputs)
       return latestTask.value
     } catch (runError) {
       error.value = runError instanceof Error ? runError.message : '运行应用失败'

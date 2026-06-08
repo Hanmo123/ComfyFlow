@@ -39,6 +39,12 @@ export interface ApiDefinition {
       destroy: typeof routes['apps.apps.destroy']
     }
   }
+  taskGroups: {
+    taskGroups: {
+      index: typeof routes['taskGroups.task_groups.index']
+      store: typeof routes['taskGroups.task_groups.store']
+    }
+  }
   tasks: {
     tasks: {
       index: typeof routes['tasks.tasks.index']

@@ -173,6 +173,7 @@ export interface AppTaskNodeRun {
 export interface AppTaskRecord {
   id: number;
   appId: number;
+  taskGroupId: number | null;
   status: AppTaskStatus;
   inputs: Record<string, unknown>;
   variables: Record<string, unknown>;
@@ -183,6 +184,14 @@ export interface AppTaskRecord {
   error: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface TaskGroupRecord {
+  id: number;
+  name: string;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string | null;
 }

@@ -1,4 +1,4 @@
-import type { AppRecord, AppSavePayload, AppTaskRecord } from '@/lib/app'
+import type { AppRecord, AppSavePayload, AppTaskRecord, TaskGroupRecord } from '@/lib/app'
 
 export interface ComfyUploadedImage {
   id: number
@@ -37,13 +37,24 @@ export function useAppApi() {
       method: 'DELETE',
     })
 
-  const runApp = (id: number, inputs: Record<string, unknown>) =>
+  const runApp = (id: number, taskGroupId: number, inputs: Record<string, unknown>) =>
     $fetch<AppTaskRecord>(`${API_BASE}/apps/${id}/runs`, {
       method: 'POST',
-      body: { inputs },
+      body: { taskGroupId, inputs },
     })
 
-  const listTasks = () => $fetch<AppTaskRecord[]>(`${API_BASE}/tasks`)
+  const listTaskGroups = () => $fetch<TaskGroupRecord[]>(`${API_BASE}/task-groups`)
+
+  const createTaskGroup = (name: string) =>
+    $fetch<TaskGroupRecord>(`${API_BASE}/task-groups`, {
+      method: 'POST',
+      body: { name },
+    })
+
+  const listTasks = (groupId?: number) =>
+    $fetch<AppTaskRecord[]>(`${API_BASE}/tasks`, {
+      query: groupId ? { groupId } : undefined,
+    })
 
   const getTask = (taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}`)
 
@@ -75,6 +86,8 @@ export function useAppApi() {
     saveApp,
     deleteApp,
     runApp,
+    listTaskGroups,
+    createTaskGroup,
     listTasks,
     getTask,
     retryTaskNode,

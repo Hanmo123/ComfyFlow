@@ -108,6 +108,18 @@ const routes = {
     tokens: [{"old":"/api/v1/apps/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['apps.apps.destroy']['types'],
   },
+  'taskGroups.task_groups.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/task-groups',
+    tokens: [{"old":"/api/v1/task-groups","type":0,"val":"api","end":""},{"old":"/api/v1/task-groups","type":0,"val":"v1","end":""},{"old":"/api/v1/task-groups","type":0,"val":"task-groups","end":""}],
+    types: placeholder as Registry['taskGroups.task_groups.index']['types'],
+  },
+  'taskGroups.task_groups.store': {
+    methods: ["POST"],
+    pattern: '/api/v1/task-groups',
+    tokens: [{"old":"/api/v1/task-groups","type":0,"val":"api","end":""},{"old":"/api/v1/task-groups","type":0,"val":"v1","end":""},{"old":"/api/v1/task-groups","type":0,"val":"task-groups","end":""}],
+    types: placeholder as Registry['taskGroups.task_groups.store']['types'],
+  },
   'tasks.tasks.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/tasks',

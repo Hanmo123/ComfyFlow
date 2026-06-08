@@ -5,6 +5,7 @@ import type Workflow from '#models/workflow'
 import AppRepository from '#repositories/app_repository'
 import AppTaskRepository from '#repositories/app_task_repository'
 import WorkflowRepository from '#repositories/workflow_repository'
+import TaskGroupService from '#services/task_group_service'
 import { Exception } from '@adonisjs/core/exceptions'
 import { DateTime } from 'luxon'
 import ComfyService from './comfy_service.js'
@@ -17,15 +18,18 @@ export default class AppTaskService {
     private appRepository = new AppRepository(),
     private taskRepository = new AppTaskRepository(),
     private workflowRepository = new WorkflowRepository(),
+    private taskGroupService = new TaskGroupService(),
     private comfyService = new ComfyService(),
     private mediaAssetService = new MediaAssetService()
   ) {}
 
-  async run(appId: number, inputs: Record<string, unknown> = {}) {
+  async run(appId: number, taskGroupId: number, inputs: Record<string, unknown> = {}) {
+    await this.taskGroupService.ensureExists(taskGroupId)
     const app = await this.appRepository.findOrFail(appId)
     const variables = buildInitialVariables(app.variables, inputs)
     const task = await this.taskRepository.create({
       appId: app.id,
+      taskGroupId,
       inputs,
       variables,
       appSnapshot: {
@@ -40,8 +44,8 @@ export default class AppTaskService {
     return task
   }
 
-  async list() {
-    return this.taskRepository.list()
+  async list(taskGroupId?: number) {
+    return this.taskRepository.list(taskGroupId)
   }
 
   async showById(taskId: number) {

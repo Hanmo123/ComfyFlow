@@ -4,6 +4,8 @@ import type { AppVariable } from '@/lib/app'
 
 const props = defineProps<{
   open: boolean
+  taskGroupId: number | null
+  taskGroupName?: string
 }>()
 
 const emit = defineEmits<{
@@ -20,7 +22,8 @@ const submitting = ref(false)
 watch(
   () => props.open,
   (open) => {
-    if (open) resetForm()
+    if (!open) return
+    resetForm()
   },
 )
 
@@ -38,6 +41,11 @@ function resetForm() {
 async function submitRun() {
   if (submitting.value || store.running.value) return
 
+  if (!props.taskGroupId) {
+    toast.error('请选择任务分组')
+    return
+  }
+
   const validationError = validateInputs()
   if (validationError) {
     toast.error(validationError)
@@ -47,7 +55,7 @@ async function submitRun() {
   try {
     submitting.value = true
     const inputs = await buildInputs()
-    const task = await store.runApp(inputs)
+    const task = await store.runApp(inputs, props.taskGroupId)
     if (!task) {
       if (store.error.value) toast.error(store.error.value)
       return
@@ -55,7 +63,7 @@ async function submitRun() {
 
     toast.success(`任务 #${task.id} 已提交`)
     emit('update:open', false)
-    await navigateTo(`/tasks?taskId=${task.id}`)
+    await navigateTo(`/tasks?groupId=${props.taskGroupId}&taskId=${task.id}`)
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '运行应用失败')
   } finally {
@@ -119,7 +127,9 @@ function isEmptyValue(value: unknown) {
     <SheetContent class="w-full overflow-y-auto sm:max-w-md">
       <SheetHeader>
         <SheetTitle>运行应用</SheetTitle>
-        <SheetDescription>填写本次任务的用户输入参数。</SheetDescription>
+        <SheetDescription>
+          填写本次任务的用户输入参数。任务将提交到「{{ props.taskGroupName || '未选择分组' }}」。
+        </SheetDescription>
       </SheetHeader>
 
       <form class="flex flex-1 flex-col gap-5" @submit.prevent="submitRun">
@@ -171,7 +181,7 @@ function isEmptyValue(value: unknown) {
           <Button type="button" variant="outline" :disabled="submitting || store.running.value" @click="emit('update:open', false)">
             取消
           </Button>
-          <Button type="submit" :disabled="submitting || store.running.value">
+          <Button type="submit" :disabled="submitting || store.running.value || !props.taskGroupId">
             提交运行
           </Button>
         </SheetFooter>
