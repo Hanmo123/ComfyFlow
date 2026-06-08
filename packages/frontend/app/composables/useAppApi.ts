@@ -58,6 +58,12 @@ export function useAppApi() {
 
   const getTask = (taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}`)
 
+  const retryTask = (taskId: number, inputs?: Record<string, unknown>) =>
+    $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/retry`, {
+      method: 'POST',
+      body: inputs === undefined ? undefined : { inputs },
+    })
+
   const retryTaskNode = (taskId: number, nodeId: string) =>
     $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/nodes/${nodeId}/retry`, {
       method: 'POST',
@@ -90,6 +96,7 @@ export function useAppApi() {
     createTaskGroup,
     listTasks,
     getTask,
+    retryTask,
     retryTaskNode,
     uploadComfyImage,
     getAppTask,

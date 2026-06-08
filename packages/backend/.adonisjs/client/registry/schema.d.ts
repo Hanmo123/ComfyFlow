@@ -259,6 +259,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['show']>>>
     }
   }
+  'tasks.tasks.retry': {
+    methods: ["POST"]
+    pattern: '/api/v1/tasks/:id/retry'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/task').retryTaskValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/task').retryTaskValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retry']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retry']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'tasks.tasks.retry_node': {
     methods: ["POST"]
     pattern: '/api/v1/tasks/:id/nodes/:nodeId/retry'

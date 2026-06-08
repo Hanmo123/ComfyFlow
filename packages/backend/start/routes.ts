@@ -78,6 +78,7 @@ router
       .group(() => {
         router.get('/', [TasksController, 'index'])
         router.get(':id', [TasksController, 'show'])
+        router.post(':id/retry', [TasksController, 'retry'])
         router.post(':id/nodes/:nodeId/retry', [TasksController, 'retryNode'])
       })
       .prefix('tasks')

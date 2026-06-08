@@ -132,6 +132,12 @@ const routes = {
     tokens: [{"old":"/api/v1/tasks/:id","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['tasks.tasks.show']['types'],
   },
+  'tasks.tasks.retry': {
+    methods: ["POST"],
+    pattern: '/api/v1/tasks/:id/retry',
+    tokens: [{"old":"/api/v1/tasks/:id/retry","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/retry","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/retry","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/retry","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/retry","type":0,"val":"retry","end":""}],
+    types: placeholder as Registry['tasks.tasks.retry']['types'],
+  },
   'tasks.tasks.retry_node': {
     methods: ["POST"],
     pattern: '/api/v1/tasks/:id/nodes/:nodeId/retry',

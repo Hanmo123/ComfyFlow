@@ -49,6 +49,7 @@ export interface ApiDefinition {
     tasks: {
       index: typeof routes['tasks.tasks.index']
       show: typeof routes['tasks.tasks.show']
+      retry: typeof routes['tasks.tasks.retry']
       retryNode: typeof routes['tasks.tasks.retry_node']
     }
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { ArrowLeft, FolderOpen, Image, LayoutGrid } from 'lucide-vue-next'
+import { ArrowLeft, FolderOpen, Image, LayoutGrid, RotateCw } from 'lucide-vue-next'
 import TaskFlowGraph from '@/components/task/TaskFlowGraph.vue'
 import TaskOutputImages from '@/components/task/TaskOutputImages.vue'
 import type { AppTaskRecord, TaskGroupRecord } from '@/lib/app'
@@ -15,12 +15,14 @@ const selectedGroupId = ref<number | null>(null)
 const selectedTaskId = ref<number | null>(null)
 const showingGroupPicker = ref(false)
 const error = ref('')
+const retryingTask = ref(false)
 const retryingNodeId = ref<string | null>(null)
 const resumingNodeId = ref<string | null>(null)
 let pollTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const selectedGroup = computed(() => taskGroups.value.find((group) => group.id === selectedGroupId.value) ?? null)
 const selectedTask = computed(() => tasks.value.find((task) => task.id === selectedTaskId.value) ?? null)
+const selectedTaskBusy = computed(() => Boolean(selectedTask.value && ['queued', 'running'].includes(selectedTask.value.status)))
 
 onMounted(async () => {
   await initializePage()
@@ -128,6 +130,21 @@ async function retryNode(nodeId: string) {
     toast.error(retryError instanceof Error ? retryError.message : '重试节点失败')
   } finally {
     retryingNodeId.value = null
+  }
+}
+
+async function retryTask() {
+  if (!selectedTask.value || retryingTask.value || selectedTaskBusy.value) return
+  try {
+    retryingTask.value = true
+    const updated = await appApi.retryTask(selectedTask.value.id)
+    upsertTask(updated)
+    toast.success('任务已重新提交')
+    startPolling()
+  } catch (retryError) {
+    toast.error(retryError instanceof Error ? retryError.message : '重试任务失败')
+  } finally {
+    retryingTask.value = false
   }
 }
 
@@ -259,6 +276,16 @@ function statusLabel(status: AppTaskRecord['status']) {
               <template v-else>{{ error || '暂无任务' }}</template>
             </div>
           </div>
+          <Button
+            v-if="selectedTask && !showingGroupPicker"
+            type="button"
+            variant="outline"
+            :disabled="retryingTask || selectedTaskBusy"
+            @click="retryTask"
+          >
+            <RotateCw class="size-4" :class="retryingTask ? 'animate-spin' : ''" />
+            重试
+          </Button>
           <Button v-if="!showingGroupPicker" type="button" variant="outline" @click="openGroupPicker">
             <ArrowLeft class="size-4" />
             返回分组

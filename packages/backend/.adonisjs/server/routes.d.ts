@@ -25,6 +25,7 @@ export type ScannedRoutes = {
     'taskGroups.task_groups.store': { paramsTuple?: []; params?: {} }
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
@@ -62,6 +63,7 @@ export type ScannedRoutes = {
     'apps.apps.run': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.resume_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'taskGroups.task_groups.store': { paramsTuple?: []; params?: {} }
+    'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
   }
