@@ -175,6 +175,9 @@ export function useAppDesignerStore() {
         if (node.data.outputValue === key) node.data.outputValue = null
         if (node.data.outputSourceIndex === key) node.data.outputSourceIndex = null
       }
+      if (node.type === 'conditional') {
+        if (node.data.conditionVarKey === key) node.data.conditionVarKey = null
+      }
     }
   }
 
@@ -379,6 +382,9 @@ export function useAppDesignerStore() {
         if (node.data.outputValue === oldKey) node.data.outputValue = newKey
         if (node.data.outputSourceIndex === oldKey) node.data.outputSourceIndex = newKey
       }
+      if (node.type === 'conditional') {
+        if (node.data.conditionVarKey === oldKey) node.data.conditionVarKey = newKey
+      }
     }
   }
 
@@ -429,6 +435,7 @@ function createNodeData(type: AppNodeType) {
   if (type === 'workflow_run') return { workflowId: null, inputBindings: {}, outputAssignments: {} }
   if (type === 'output_text' || type === 'output_image') return { varKey: null }
   if (type === 'coalesce') return { inputs: [{ varKey: null }], outputValue: null, outputSourceIndex: null }
+  if (type === 'conditional') return { conditionVarKey: null }
   return {}
 }
 

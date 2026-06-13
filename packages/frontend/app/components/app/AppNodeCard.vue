@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
-import { CirclePause, FileInput, GitMerge, Image, Trash2, Type, Workflow } from 'lucide-vue-next'
+import { CirclePause, FileInput, GitMerge, GitBranch, Image, Trash2, Type, Workflow } from 'lucide-vue-next'
 import { nodeTypeLabel, type AppGraphNode } from '@/lib/app'
 
 const props = defineProps<{
@@ -16,6 +16,7 @@ const nodeIcons = {
   manual_gate: CirclePause,
   workflow_run: Workflow,
   coalesce: GitMerge,
+  conditional: GitBranch,
 } as const
 </script>
 
@@ -56,6 +57,7 @@ const nodeIcons = {
       <AppManualGateNode v-else-if="props.node.type === 'manual_gate'" :node="props.node" />
       <AppWorkflowRunNode v-else-if="props.node.type === 'workflow_run'" :node="props.node" />
       <AppCoalesceNode v-else-if="props.node.type === 'coalesce'" :node="props.node" />
+      <AppConditionalNode v-else-if="props.node.type === 'conditional'" :node="props.node" />
     </div>
 
     <Handle type="source" :position="Position.Right" class="!bg-slate-500" />

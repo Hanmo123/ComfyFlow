@@ -2,7 +2,7 @@
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { VueFlow, type Connection, type Edge, type Node, type VueFlowStore } from '@vue-flow/core'
-import { CirclePause, GitMerge, Image, Type, Workflow } from 'lucide-vue-next'
+import { CirclePause, GitBranch, GitMerge, Image, Type, Workflow } from 'lucide-vue-next'
 
 const props = defineProps<{
   controlsOffsetLeft?: number
@@ -100,6 +100,10 @@ onBeforeUnmount(() => {
         <ContextMenuItem @select="store.addAppNode('coalesce')">
           <GitMerge class="mr-2 size-4" />
           取非空值
+        </ContextMenuItem>
+        <ContextMenuItem @select="store.addAppNode('conditional')">
+          <GitBranch class="mr-2 size-4" />
+          条件执行
         </ContextMenuItem>
         <ContextMenuItem @select="store.addAppNode('manual_gate')">
           <CirclePause class="mr-2 size-4" />

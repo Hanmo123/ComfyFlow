@@ -174,7 +174,7 @@ export default class AppTaskService {
     const parents = buildParentMap(task.appSnapshot.graph.edges)
     for (const node of orderedNodes) {
       const status = nodeRunStatus(task, node.id)
-      if (status === 'completed' || status === 'waiting') continue
+      if (status === 'completed' || status === 'waiting' || status === 'skipped') continue
       if (!areParentsCompleted(task, node.id, parents)) continue
 
       if (node.type === 'input_collect') {
@@ -251,6 +251,46 @@ export default class AppTaskService {
             sourceIndex: foundIndex,
           },
         })
+        await this.persistProgress(task)
+        continue
+      }
+
+      if (node.type === 'conditional') {
+        markNodeRun(task, node.id, 'running')
+        const conditionValue = node.data.conditionVarKey
+          ? task.variables[node.data.conditionVarKey]
+          : false
+        const conditionMet = Boolean(conditionValue)
+
+        markNodeRun(task, node.id, 'completed', {
+          inputs: { condition: conditionValue },
+          outputs: { conditionMet },
+        })
+
+        if (!conditionMet) {
+          const downstreamNodeIds = collectDownstreamNodeIds(
+            task.appSnapshot.graph.nodes,
+            task.appSnapshot.graph.edges,
+            node.id
+          )
+          for (const downstreamId of downstreamNodeIds) {
+            if (downstreamId === node.id) continue
+            const existingRun = task.nodeRuns.find((run) => run.nodeId === downstreamId)
+            if (!existingRun) {
+              const downstreamNode = task.appSnapshot.graph.nodes.find((n) => n.id === downstreamId)
+              if (downstreamNode) {
+                task.nodeRuns.push({
+                  nodeId: downstreamId,
+                  type: downstreamNode.type,
+                  status: 'skipped',
+                })
+              }
+            } else if (existingRun.status !== 'completed') {
+              existingRun.status = 'skipped'
+            }
+          }
+        }
+
         await this.persistProgress(task)
         continue
       }
@@ -532,9 +572,10 @@ function buildParentMap(edges: { source: string; target: string }[]) {
 }
 
 function areParentsCompleted(task: AppTask, nodeId: string, parents: Map<string, string[]>) {
-  return (parents.get(nodeId) ?? []).every(
-    (parentId) => nodeRunStatus(task, parentId) === 'completed'
-  )
+  return (parents.get(nodeId) ?? []).every((parentId) => {
+    const status = nodeRunStatus(task, parentId)
+    return status === 'completed' || status === 'skipped'
+  })
 }
 
 function collectDownstreamNodeIds(

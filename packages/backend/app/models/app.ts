@@ -10,6 +10,7 @@ export type AppNodeType =
   | 'manual_gate'
   | 'workflow_run'
   | 'coalesce'
+  | 'conditional'
 
 export interface AppVariable {
   key: string
@@ -62,6 +63,12 @@ export type CoalesceNode = BaseAppNode<
     outputSourceIndex: string | null
   }
 >
+export type ConditionalNode = BaseAppNode<
+  'conditional',
+  {
+    conditionVarKey: string | null
+  }
+>
 
 export type AppGraphNode =
   | InputCollectNode
@@ -70,6 +77,7 @@ export type AppGraphNode =
   | ManualGateNode
   | WorkflowRunNode
   | CoalesceNode
+  | ConditionalNode
 
 export interface AppGraph {
   nodes: AppGraphNode[]

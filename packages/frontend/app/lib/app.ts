@@ -6,7 +6,8 @@ export type AppNodeType =
   | "output_image"
   | "manual_gate"
   | "workflow_run"
-  | "coalesce";
+  | "coalesce"
+  | "conditional";
 
 export interface LoraItem {
   name: string;
@@ -146,6 +147,12 @@ export type CoalesceNode = BaseAppNode<
     outputSourceIndex: string | null;
   }
 >;
+export type ConditionalNode = BaseAppNode<
+  "conditional",
+  {
+    conditionVarKey: string | null;
+  }
+>;
 
 export type AppGraphNode =
   | InputCollectNode
@@ -153,7 +160,8 @@ export type AppGraphNode =
   | OutputImageNode
   | ManualGateNode
   | WorkflowRunNode
-  | CoalesceNode;
+  | CoalesceNode
+  | ConditionalNode;
 
 export interface AppGraph {
   nodes: AppGraphNode[];
@@ -320,6 +328,7 @@ export function nodeTypeLabel(type: AppNodeType) {
     manual_gate: "人工卡点",
     workflow_run: "工作流运行",
     coalesce: "取非空值",
+    conditional: "条件执行",
   };
   return labels[type];
 }
