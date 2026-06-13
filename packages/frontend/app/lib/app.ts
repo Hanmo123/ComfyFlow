@@ -7,6 +7,12 @@ export type AppNodeType =
   | "manual_gate"
   | "workflow_run";
 
+export interface LoraItem {
+  name: string;
+  strength_model: number;
+  strength_clip?: number;
+}
+
 export const APP_VARIABLE_TYPES = [
   "STRING",
   "INT",
@@ -14,6 +20,7 @@ export const APP_VARIABLE_TYPES = [
   "BOOL",
   "IMAGE",
   "LORA_NAME",
+  "LORA_LIST",
   "LATENT",
   "MODEL",
   "CLIP",
@@ -33,6 +40,7 @@ export const APP_VARIABLE_TYPE_COLORS: Record<
   BOOL: "bg-yellow-500 text-black",
   IMAGE: "bg-purple-500",
   LORA_NAME: "bg-fuchsia-500",
+  LORA_LIST: "bg-fuchsia-600",
   LATENT: "bg-pink-500",
   MODEL: "bg-red-500",
   CLIP: "bg-orange-500",
@@ -52,6 +60,7 @@ export const APP_VARIABLE_TYPE_LABELS: Record<
   BOOL: "布尔值",
   IMAGE: "图片",
   LORA_NAME: "LoRA",
+  LORA_LIST: "LoRA列表",
   LATENT: "Latent",
   MODEL: "Model",
   CLIP: "CLIP",

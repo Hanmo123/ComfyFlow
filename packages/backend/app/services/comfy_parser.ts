@@ -3,7 +3,7 @@ import {
   getNodeDefinition,
   isConnectionValue,
 } from '#comfy_nodes/index'
-import type { NodeDefinition } from '#comfy_nodes/index'
+import type { NodeDefinition, LoraItem } from '#comfy_nodes/index'
 
 export interface ParsedWorkflowNode {
   id: string
@@ -41,15 +41,27 @@ export function parseComfyApiJson(rawJson: Record<string, unknown>): ParsedComfy
     RawComfyNode,
   ][]
 
+  // 检测并合并串联的 LoraLoader 节点
+  const { mergedEntries, nodesToRemove, nodeRedirects } = mergeChainedLoraLoaders(entries)
+
   const edges: ParsedWorkflowEdge[] = []
-  const nodes = entries.map(([id, rawNode]) => {
+  const nodes = mergedEntries.map(([id, rawNode]) => {
     const inputs = rawNode.inputs ?? {}
 
     for (const [field, value] of Object.entries(inputs)) {
       if (isConnectionValue(value)) {
+        let fromId = String(value[0])
+        
+        // 如果连接到被删除的节点，重定向到替代节点
+        if (nodesToRemove.has(fromId)) {
+          const redirectTo = nodeRedirects.get(fromId)
+          if (!redirectTo) continue // 没有重定向目标，跳过
+          fromId = redirectTo
+        }
+        
         edges.push({
-          id: `${value[0]}:${value[1]}->${id}:${field}`,
-          from: String(value[0]),
+          id: `${fromId}:${value[1]}->${id}:${field}`,
+          from: fromId,
           fromSlot: value[1],
           to: id,
           toField: field,
@@ -66,7 +78,7 @@ export function parseComfyApiJson(rawJson: Record<string, unknown>): ParsedComfy
   })
 
   const positionedNodes = applyLayeredLayout(nodes, edges)
-  const nodeDefinitions = entries.reduce<Record<string, NodeDefinition>>((result, [, rawNode]) => {
+  const nodeDefinitions = mergedEntries.reduce<Record<string, NodeDefinition>>((result, [, rawNode]) => {
     const classType = rawNode.class_type!
     result[classType] = getNodeDefinition(classType) ?? createFallbackDefinition(classType, rawNode.inputs)
     return result
@@ -85,6 +97,164 @@ function isRawComfyNode(value: unknown): value is RawComfyNode {
       !Array.isArray(value) &&
       typeof (value as RawComfyNode).class_type === 'string'
   )
+}
+
+function isLoraLoaderNode(classType: string): boolean {
+  return classType === 'LoraLoader' || classType === 'LoraLoaderModelOnly'
+}
+
+function mergeChainedLoraLoaders(
+  entries: [string, RawComfyNode][]
+): { mergedEntries: [string, RawComfyNode][]; nodesToRemove: Set<string>; nodeRedirects: Map<string, string> } {
+  const nodeMap = new Map(entries)
+  const nodesToRemove = new Set<string>()
+  const nodeRedirects = new Map<string, string>() // 被删除的节点ID -> 替代节点ID
+  const processed = new Set<string>()
+
+  // 构建节点连接关系
+  const childrenMap = new Map<string, Set<string>>() // nodeId -> Set<下游节点ID>
+  const parentMap = new Map<string, Map<string, [string, number]>>() // nodeId -> { field -> [parentId, slot] }
+
+  for (const [id, node] of entries) {
+    const inputs = node.inputs ?? {}
+    const parents = new Map<string, [string, number]>()
+
+    for (const [field, value] of Object.entries(inputs)) {
+      if (isConnectionValue(value)) {
+        const parentId = String(value[0])
+        const slot = value[1]
+        parents.set(field, [parentId, slot])
+
+        if (!childrenMap.has(parentId)) {
+          childrenMap.set(parentId, new Set())
+        }
+        childrenMap.get(parentId)!.add(id)
+      }
+    }
+
+    parentMap.set(id, parents)
+  }
+
+  // 查找 Lora 链的起点（第一个 Lora 节点）
+  for (const [id, node] of entries) {
+    if (processed.has(id) || nodesToRemove.has(id)) continue
+    if (!isLoraLoaderNode(node.class_type!)) continue
+
+    const chain = collectLoraChain(id, nodeMap, parentMap, childrenMap)
+    if (chain.length <= 1) continue
+
+    // 合并链
+    processed.add(id)
+    const firstNode = nodeMap.get(id)!
+    const hasClip = firstNode.class_type === 'LoraLoader'
+    const loraList: LoraItem[] = []
+
+    for (const chainNodeId of chain) {
+      const chainNode = nodeMap.get(chainNodeId)!
+      const inputs = chainNode.inputs ?? {}
+
+      const loraName = inputs.lora_name
+      const strengthModel = inputs.strength_model
+      const strengthClip = hasClip ? inputs.strength_clip : undefined
+
+      if (typeof loraName === 'string') {
+        loraList.push({
+          name: loraName,
+          strength_model: typeof strengthModel === 'number' ? strengthModel : 1.0,
+          strength_clip: typeof strengthClip === 'number' ? strengthClip : 1.0,
+        })
+      }
+
+      if (chainNodeId !== id) {
+        nodesToRemove.add(chainNodeId)
+        nodeRedirects.set(chainNodeId, id) // 将被删除的节点重定向到第一个节点
+        processed.add(chainNodeId)
+      }
+    }
+
+    // 更新第一个节点，添加 lora_list 字段
+    const firstInputs = { ...(firstNode.inputs ?? {}) }
+    firstInputs.lora_list = loraList
+
+    // 保留原始上游连接（model 和 clip）
+    const firstParents = parentMap.get(id)!
+    if (firstParents.has('model')) {
+      const [parentId, slot] = firstParents.get('model')!
+      firstInputs.model = [parentId, slot]
+    }
+    if (hasClip && firstParents.has('clip')) {
+      const [parentId, slot] = firstParents.get('clip')!
+      firstInputs.clip = [parentId, slot]
+    }
+
+    nodeMap.set(id, {
+      ...firstNode,
+      inputs: firstInputs,
+    })
+  }
+
+  // 过滤掉被删除的节点，并使用更新后的 nodeMap
+  const mergedEntries: [string, RawComfyNode][] = []
+  for (const [id] of entries) {
+    if (!nodesToRemove.has(id)) {
+      mergedEntries.push([id, nodeMap.get(id)!])
+    }
+  }
+
+  return { mergedEntries, nodesToRemove, nodeRedirects }
+}
+
+function collectLoraChain(
+  startId: string,
+  nodeMap: Map<string, RawComfyNode>,
+  parentMap: Map<string, Map<string, [string, number]>>,
+  childrenMap: Map<string, Set<string>>
+): string[] {
+  const chain: string[] = [startId]
+  let currentId = startId
+  const startNode = nodeMap.get(startId)!
+  const hasClip = startNode.class_type === 'LoraLoader'
+
+  while (true) {
+    const children = Array.from(childrenMap.get(currentId) ?? [])
+
+    // 查找唯一的 Lora 子节点
+    let loraChild: string | null = null
+    for (const childId of children) {
+      const childNode = nodeMap.get(childId)
+      if (!childNode || !isLoraLoaderNode(childNode.class_type!)) continue
+
+      const childParents = parentMap.get(childId)!
+      const modelParent = childParents.get('model')
+      const clipParent = hasClip ? childParents.get('clip') : null
+
+      // 检查是否直接连接到当前节点（注意 parentId 可能是字符串或数字）
+      const isModelConnected = modelParent && String(modelParent[0]) === currentId && modelParent[1] === 0
+      const isClipConnected = hasClip
+        ? clipParent && String(clipParent[0]) === currentId && clipParent[1] === 1
+        : true
+
+      if (isModelConnected && isClipConnected) {
+        // 确保这是唯一的 Lora 子节点
+        if (loraChild !== null) return chain // 有多个分支，停止
+        loraChild = childId
+      }
+    }
+
+    if (!loraChild) break
+
+    // 检查子节点是否只被当前节点连接（没有其他输入）
+    const childParents = parentMap.get(loraChild)!
+    const nonLoraInputs = Array.from(childParents.entries()).filter(
+      ([field]) => field !== 'model' && field !== 'clip'
+    )
+    if (nonLoraInputs.length > 0) break // 有其他输入，停止
+
+    chain.push(loraChild)
+    currentId = loraChild
+  }
+
+  return chain
 }
 
 function applyLayeredLayout(nodes: ParsedWorkflowNode[], edges: ParsedWorkflowEdge[]) {

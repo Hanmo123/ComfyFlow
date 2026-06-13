@@ -7,6 +7,7 @@ export type ComfyType =
   | 'COMBO'
   | 'MODEL_NAME'
   | 'LORA_NAME'
+  | 'LORA_LIST'
   | 'IMAGE'
   | 'LATENT'
   | 'MASK'
@@ -16,6 +17,12 @@ export type ComfyType =
   | 'CONDITIONING'
   | 'CONTROL_NET'
   | 'UNKNOWN'
+
+export interface LoraItem {
+  name: string
+  strength_model: number
+  strength_clip?: number
+}
 
 export type ComfyNodeCategory =
   | 'loader'

@@ -303,11 +303,11 @@ async function withLoading(action: () => Promise<void>, message: string) {
           <ArrowLeft class="size-4" />
           返回列表
         </Button>
-        <div v-if="activeWorkflow" class="pointer-events-auto hidden min-w-0 max-w-96 items-baseline gap-2 rounded-md border bg-white px-3 py-2 text-sm sm:flex">
-          <div class="min-w-0 truncate font-medium">{{ workflowTitle(activeWorkflow) }}</div>
-          <div class="shrink-0 whitespace-nowrap text-xs text-slate-500">#{{ activeWorkflow.id }} · {{ activeWorkflow.status }}</div>
-          <Button variant="ghost" size="icon" type="button" :disabled="saving" aria-label="重命名工作流" @click="openRenameDialog">
-            <Pencil class="size-3.5" />
+        <div v-if="activeWorkflow" class="pointer-events-auto hidden h-9 min-w-0 max-w-96 items-center gap-1.5 rounded-md border bg-white px-2.5 text-sm sm:flex">
+          <div class="min-w-0 truncate text-sm font-medium">{{ workflowTitle(activeWorkflow) }}</div>
+          <div class="shrink-0 whitespace-nowrap text-xs text-slate-500">#{{ activeWorkflow.id }} · {{ activeWorkflow.status === 'saved' ? '已保存' : activeWorkflow.status }}</div>
+          <Button variant="ghost" size="icon" type="button" :disabled="saving" aria-label="重命名工作流" class="size-6" @click="openRenameDialog">
+            <Pencil class="size-3" />
           </Button>
         </div>
       </div>

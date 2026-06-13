@@ -17,4 +17,4 @@ export {
   getNodeDefinitions,
   isConnectionValue,
 } from './registry.js'
-export type { ComfyType, InputFieldDefinition, NodeDefinition, OutputSlotDefinition } from './types.js'
+export type { ComfyType, InputFieldDefinition, NodeDefinition, OutputSlotDefinition, LoraItem } from './types.js'

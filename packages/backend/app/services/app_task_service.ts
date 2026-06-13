@@ -2,6 +2,7 @@ import type { AppGraphNode, VariableBinding, WorkflowRunNode } from '#models/app
 import type AppTask from '#models/app_task'
 import type { AppTaskNodeRun } from '#models/app_task'
 import type Workflow from '#models/workflow'
+import type { LoraItem } from '#comfy_nodes/types'
 import AppRepository from '#repositories/app_repository'
 import AppTaskRepository from '#repositories/app_task_repository'
 import WorkflowRepository from '#repositories/workflow_repository'
@@ -326,12 +327,116 @@ function resolveBinding(
 
 function buildWorkflowPrompt(workflow: Workflow, inputs: Record<string, unknown>) {
   const prompt = structuredClone(workflow.rawJson)
+  
+  // 收集需要扩展的 LORA_LIST 节点
+  const loraExpansions: Array<{
+    nodeId: string
+    classType: string
+    loraList: LoraItem[]
+    hasClip: boolean
+  }> = []
+  
   for (const parameter of workflow.parameters) {
     const rawNode = prompt[parameter.nodeId]
     if (!isPromptNode(rawNode)) continue
+    
+    // 检查是否是 LORA_LIST 参数
+    if (parameter.type === 'LORA_LIST' && parameter.field === 'lora_list') {
+      const loraList = inputs[parameter.key]
+      if (Array.isArray(loraList) && loraList.length > 0) {
+        loraExpansions.push({
+          nodeId: parameter.nodeId,
+          classType: rawNode.class_type,
+          loraList: loraList as LoraItem[],
+          hasClip: rawNode.class_type === 'LoraLoader',
+        })
+      } else if (Array.isArray(loraList) && loraList.length === 0) {
+        // 空列表：跳过该节点，直接连接上下游
+        // 将上游的 MODEL 和 CLIP 输出直接透传
+        // 这需要在后续处理连接关系
+      }
+      continue
+    }
+    
+    // 普通参数处理
     rawNode.inputs[parameter.field] = normalizePromptInput(parameter.type, inputs[parameter.key])
   }
+  
+  // 执行 Lora 节点扩展
+  for (const expansion of loraExpansions) {
+    expandLoraNode(prompt, expansion)
+  }
+  
   return prompt
+}
+
+function expandLoraNode(
+  prompt: Record<string, any>,
+  expansion: {
+    nodeId: string
+    classType: string
+    loraList: LoraItem[]
+    hasClip: boolean
+  }
+) {
+  const originalNode = prompt[expansion.nodeId]
+  if (!isPromptNode(originalNode)) return
+  
+  const { nodeId, classType, loraList, hasClip } = expansion
+  
+  // 保存原始上游连接
+  const originalModelInput = originalNode.inputs.model
+  const originalClipInput = hasClip ? originalNode.inputs.clip : undefined
+  
+  // 为每个 lora 创建一个新节点，按照串联方式连接
+  let currentModelOutput = originalModelInput
+  let currentClipOutput = originalClipInput
+  
+  for (let i = 0; i < loraList.length; i++) {
+    const lora = loraList[i]
+    const newNodeId = i === 0 ? nodeId : `${nodeId}_lora_${i}`
+    
+    if (hasClip) {
+      // LoraLoader 节点
+      prompt[newNodeId] = {
+        class_type: classType,
+        inputs: {
+          model: currentModelOutput,
+          clip: currentClipOutput,
+          lora_name: lora.name,
+          strength_model: lora.strength_model,
+          strength_clip: lora.strength_clip ?? 1.0,
+        },
+      }
+      currentModelOutput = [newNodeId, 0]
+      currentClipOutput = [newNodeId, 1]
+    } else {
+      // LoraLoaderModelOnly 节点
+      prompt[newNodeId] = {
+        class_type: classType,
+        inputs: {
+          model: currentModelOutput,
+          lora_name: lora.name,
+          strength_model: lora.strength_model,
+        },
+      }
+      currentModelOutput = [newNodeId, 0]
+    }
+  }
+  
+  // 更新所有引用原始节点输出的其他节点
+  for (const [otherNodeId, otherNode] of Object.entries(prompt)) {
+    if (!isPromptNode(otherNode)) continue
+    if (otherNodeId === nodeId || otherNodeId.startsWith(`${nodeId}_lora_`)) continue
+    
+    for (const [inputKey, inputValue] of Object.entries(otherNode.inputs)) {
+      if (Array.isArray(inputValue) && inputValue[0] === nodeId) {
+        // 替换为最后一个 lora 节点的输出
+        const lastNodeId = loraList.length > 1 ? `${nodeId}_lora_${loraList.length - 1}` : nodeId
+        otherNode.inputs[inputKey] = [lastNodeId, inputValue[1]]
+      }
+    }
+  }
 }
 
 function normalizePromptInput(type: string, value: unknown) {
@@ -445,7 +550,7 @@ function nodeRunStatus(task: AppTask, nodeId: string) {
   return task.nodeRuns.find((item) => item.nodeId === nodeId)?.status
 }
 
-function isPromptNode(value: unknown): value is { inputs: Record<string, unknown> } {
+function isPromptNode(value: unknown): value is { class_type: string; inputs: Record<string, unknown> } {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'inputs' in value)
 }
 

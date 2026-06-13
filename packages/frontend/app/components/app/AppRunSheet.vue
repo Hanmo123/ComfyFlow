@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { AppVariable } from '@/lib/app'
+import type { AppVariable, LoraItem } from '@/lib/app'
 
 const props = defineProps<{
   open: boolean
@@ -16,13 +16,18 @@ const emit = defineEmits<{
 const store = useAppDesignerStore()
 const appApi = useAppApi()
 
-const textValues = ref<Record<string, string>>({})
+const textValues = ref<Record<string, string>>()
 const fileValues = ref<Record<string, File | null>>({})
+const loraListValues = ref<Record<string, LoraItem[]>>({})
 const loraOptions = ref<string[]>([])
 const loraCacheExpiresAt = ref(0)
 const lorasLoading = ref(false)
 const submitting = ref(false)
-const hasLoraNameInputs = computed(() => store.userInputVariables.value.some((variable) => variable.type === 'LORA_NAME'))
+const hasLoraInputs = computed(() => 
+  store.userInputVariables.value.some((variable) => 
+    variable.type === 'LORA_NAME' || variable.type === 'LORA_LIST'
+  )
+)
 const EMPTY_LORA_VALUE = '__empty_lora__'
 
 watch(
@@ -30,23 +35,32 @@ watch(
   (open) => {
     if (!open) return
     resetForm()
-    if (hasLoraNameInputs.value) void loadLoras()
+    if (hasLoraInputs.value) void loadLoras()
   },
 )
 
-watch(hasLoraNameInputs, (hasInputs) => {
+watch(hasLoraInputs, (hasInputs) => {
   if (props.open && hasInputs) void loadLoras()
 })
 
 function resetForm() {
   const nextTextValues: Record<string, string> = {}
   const nextFileValues: Record<string, File | null> = {}
+  const nextLoraListValues: Record<string, LoraItem[]> = {}
   for (const variable of store.userInputVariables.value) {
-    nextTextValues[variable.key] = stringifyInputValue(variable.default)
-    if (variable.type === 'IMAGE') nextFileValues[variable.key] = null
+    if (variable.type === 'IMAGE') {
+      nextFileValues[variable.key] = null
+    } else if (variable.type === 'LORA_LIST') {
+      nextLoraListValues[variable.key] = Array.isArray(variable.default) 
+        ? (variable.default as LoraItem[]) 
+        : []
+    } else {
+      nextTextValues[variable.key] = stringifyInputValue(variable.default)
+    }
   }
   textValues.value = nextTextValues
   fileValues.value = nextFileValues
+  loraListValues.value = nextLoraListValues
 }
 
 async function submitRun() {
@@ -91,13 +105,18 @@ async function buildInputs() {
       continue
     }
 
+    if (variable.type === 'LORA_LIST') {
+      inputs[variable.key] = loraListValues.value[variable.key] || []
+      continue
+    }
+
     inputs[variable.key] = parseInputValue(textValues.value[variable.key] ?? '', variable.type)
   }
   return inputs
 }
 
 async function loadLoras(refresh = false) {
-  if (!hasLoraNameInputs.value || lorasLoading.value) return
+  if (!hasLoraInputs.value || lorasLoading.value) return
   if (!refresh && loraCacheExpiresAt.value > Date.now()) return
 
   try {
@@ -118,6 +137,14 @@ function validateInputs() {
     if (!variable.required) continue
     if (variable.type === 'IMAGE') {
       if (!fileValues.value[variable.key] && isEmptyValue(variable.default)) return `应用输入 $${variable.key} 不能为空`
+      continue
+    }
+
+    if (variable.type === 'LORA_LIST') {
+      const loraList = loraListValues.value[variable.key]
+      if (!loraList || loraList.length === 0) {
+        if (isEmptyValue(variable.default)) return `应用输入 $${variable.key} 不能为空`
+      }
       continue
     }
 
@@ -238,6 +265,28 @@ function isEmptyValue(value: unknown) {
             >
               <RefreshCw class="size-4" :class="lorasLoading ? 'animate-spin' : ''" />
             </Button>
+          </div>
+
+          <div v-else-if="variable.type === 'LORA_LIST'" class="space-y-2">
+            <div class="flex items-center justify-end">
+              <Button
+                variant="outline"
+                size="icon"
+                type="button"
+                class="size-7 shrink-0"
+                :disabled="lorasLoading"
+                title="刷新 LoRA 列表"
+                aria-label="刷新 LoRA 列表"
+                @click="loadLoras(true)"
+              >
+                <RefreshCw class="size-3.5" :class="lorasLoading ? 'animate-spin' : ''" />
+              </Button>
+            </div>
+            <AppLoraListEditor
+              v-model="loraListValues[variable.key]"
+              :lora-options="loraOptions"
+              :disabled="lorasLoading"
+            />
           </div>
 
           <Input
