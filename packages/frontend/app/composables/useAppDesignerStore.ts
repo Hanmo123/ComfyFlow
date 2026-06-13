@@ -48,11 +48,17 @@ export function useAppDesignerStore() {
     else createDraftApp()
   }
 
-  function applyApp(app: AppRecord) {
+  function applyApp(app: AppRecord, options: { preserveGraph?: boolean } = {}) {
+    const prevActiveAppId = activeApp.value?.id ?? 0
     activeApp.value = clonePlain(app)
     appVariables.value = clonePlain(app.variables ?? [])
-    appGraph.value = normalizeAppGraph(clonePlain(app.graph ?? createDefaultGraph()), appVariables.value)
-    selectedAppNodeId.value = appGraph.value.nodes[0]?.id ?? null
+    
+    if (!options.preserveGraph || prevActiveAppId !== app.id) {
+      appGraph.value = normalizeAppGraph(clonePlain(app.graph ?? createDefaultGraph()), appVariables.value)
+      selectedAppNodeId.value = appGraph.value.nodes[0]?.id ?? null
+    } else {
+      activeApp.value.graph = appGraph.value
+    }
   }
 
   function createDraftApp() {
@@ -276,7 +282,7 @@ export function useAppDesignerStore() {
         graph: appGraph.value,
       }
       const saved = activeApp.value.id > 0 ? await appApi.saveApp(activeApp.value.id, payload) : await appApi.createApp(payload)
-      applyApp(saved)
+      applyApp(saved, { preserveGraph: true })
       await refreshApps()
     } catch (saveError) {
       error.value = saveError instanceof Error ? saveError.message : '保存应用失败'

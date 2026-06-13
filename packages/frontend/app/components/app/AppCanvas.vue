@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { VueFlow, type Connection, type Edge, type Node, type VueFlowStore } from '@vue-flow/core'
+import { VueFlow, type Connection, type Edge, type EdgeChange, type Node, type NodeChange, type VueFlowStore } from '@vue-flow/core'
 import { CirclePause, GitBranch, GitMerge, Image, Type, Workflow } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -13,6 +13,7 @@ const controlsStyle = computed(() => ({ left: `${props.controlsOffsetLeft ?? 0}p
 const fitViewOptions = { padding: 0.2, minZoom: 0.1, maxZoom: 1 }
 let flowInstance: VueFlowStore | null = null
 let fitFrame: number | null = null
+let isApplyingStoreChanges = false
 
 const flowNodes = computed<Node[]>(() =>
   store.appGraph.value.nodes.map((node) => ({
@@ -40,6 +41,29 @@ function onNodeDragStop(event: { node: Node }) {
   store.moveAppNode(event.node.id, event.node.position)
 }
 
+function onNodesChange(changes: NodeChange[]) {
+  if (isApplyingStoreChanges) return
+
+  for (const change of changes) {
+    if (change.type === 'remove') {
+      store.removeAppNode(change.id)
+    }
+  }
+}
+
+function onEdgesChange(changes: EdgeChange[]) {
+  if (isApplyingStoreChanges) return
+
+  for (const change of changes) {
+    if (change.type === 'remove') {
+      const edgeToRemove = store.appGraph.value.edges.find((edge) => edge.id === change.id)
+      if (edgeToRemove) {
+        store.appGraph.value.edges = store.appGraph.value.edges.filter((edge) => edge.id !== change.id)
+      }
+    }
+  }
+}
+
 function onFlowInit(instance: VueFlowStore) {
   flowInstance = instance
   scheduleFitView()
@@ -53,6 +77,13 @@ function scheduleFitView() {
     void flowInstance?.fitView(fitViewOptions)
   })
 }
+
+watch([() => store.appGraph.value.nodes, () => store.appGraph.value.edges], () => {
+  isApplyingStoreChanges = true
+  nextTick(() => {
+    isApplyingStoreChanges = false
+  })
+})
 
 watch(
   () => store.activeApp.value?.id,
@@ -81,6 +112,8 @@ onBeforeUnmount(() => {
             @nodes-initialized="scheduleFitView"
             @connect="onConnect"
             @node-drag-stop="onNodeDragStop"
+            @nodes-change="onNodesChange"
+            @edges-change="onEdgesChange"
           >
             <template #node-app="nodeProps">
               <AppNodeCard :node="nodeProps.data.node" />
