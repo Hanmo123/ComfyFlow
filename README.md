@@ -2,6 +2,8 @@
 
 > 将 ComfyUI 工作流封装为可配置、可编排、可排队执行的应用流程管理系统
 
+![DEMO](./.github/assets/demo.webp)
+
 ## 项目简介
 
 ComfyFlow 是一个 ComfyUI 的外部流程控制系统，调用 ComfyUI API 来实现多工作流编排、参数配置、人工卡点和任务队列管理。
