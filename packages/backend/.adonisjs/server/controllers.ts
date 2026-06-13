@@ -5,6 +5,7 @@
 
 export const controllers = {
   AccessTokens: () => import('#controllers/access_tokens_controller'),
+  AppInputPresets: () => import('#controllers/app_input_presets_controller'),
   Apps: () => import('#controllers/apps_controller'),
   Comfy: () => import('#controllers/comfy_controller'),
   MediaAssets: () => import('#controllers/media_assets_controller'),

@@ -13,6 +13,18 @@ export interface LoraItem {
   strength_clip?: number;
 }
 
+export type PresetType = 'LORA_LIST' | 'STRING';
+
+export interface AppInputPreset {
+  id: number;
+  appId: number;
+  name: string;
+  type: PresetType;
+  value: unknown;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 export const APP_VARIABLE_TYPES = [
   "STRING",
   "INT",

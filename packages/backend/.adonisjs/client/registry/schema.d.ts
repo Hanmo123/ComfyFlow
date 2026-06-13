@@ -211,6 +211,54 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['destroy']>>>
     }
   }
+  'apps.app_input_presets.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/apps/:appId/presets'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { appId: ParamValue }
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/app_input_preset').listPresetsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'apps.app_input_presets.store': {
+    methods: ["POST"]
+    pattern: '/api/v1/apps/:appId/presets'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/app_input_preset').createPresetValidator)>>
+      paramsTuple: [ParamValue]
+      params: { appId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/app_input_preset').createPresetValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'apps.app_input_presets.update': {
+    methods: ["PUT"]
+    pattern: '/api/v1/apps/:appId/presets/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/app_input_preset').updatePresetValidator)>>
+      paramsTuple: [ParamValue, ParamValue]
+      params: { appId: ParamValue; id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/app_input_preset').updatePresetValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'apps.app_input_presets.destroy': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/apps/:appId/presets/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { appId: ParamValue; id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/app_input_presets_controller').default['destroy']>>>
+    }
+  }
   'taskGroups.task_groups.index': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/task-groups'

@@ -13,6 +13,7 @@ import { controllers } from '#generated/controllers'
 
 const WorkflowsController = () => import('#controllers/workflows_controller')
 const AppsController = () => import('#controllers/apps_controller')
+const AppInputPresetsController = () => import('#controllers/app_input_presets_controller')
 const TaskGroupsController = () => import('#controllers/task_groups_controller')
 const TasksController = () => import('#controllers/tasks_controller')
 const ComfyController = () => import('#controllers/comfy_controller')
@@ -62,6 +63,11 @@ router
         router.get(':id', [AppsController, 'show'])
         router.put(':id', [AppsController, 'update'])
         router.delete(':id', [AppsController, 'destroy'])
+
+        router.get(':appId/presets', [AppInputPresetsController, 'index'])
+        router.post(':appId/presets', [AppInputPresetsController, 'store'])
+        router.put(':appId/presets/:id', [AppInputPresetsController, 'update'])
+        router.delete(':appId/presets/:id', [AppInputPresetsController, 'destroy'])
       })
       .prefix('apps')
       .as('apps')

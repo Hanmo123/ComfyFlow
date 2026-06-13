@@ -7,6 +7,25 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class AppInputPresetSchema extends BaseModel {
+  static $columns = ['appId', 'createdAt', 'id', 'name', 'type', 'updatedAt', 'value'] as const
+  $columns = AppInputPresetSchema.$columns
+  @column()
+  declare appId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare type: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare value: string
+}
+
 export class AppTaskSchema extends BaseModel {
   static $columns = ['appId', 'appSnapshot', 'completedAt', 'createdAt', 'error', 'id', 'inputs', 'nodeRuns', 'outputs', 'startedAt', 'status', 'taskGroupId', 'updatedAt', 'variables', 'waitingNodeId'] as const
   $columns = AppTaskSchema.$columns

@@ -108,6 +108,30 @@ const routes = {
     tokens: [{"old":"/api/v1/apps/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['apps.apps.destroy']['types'],
   },
+  'apps.app_input_presets.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/apps/:appId/presets',
+    tokens: [{"old":"/api/v1/apps/:appId/presets","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:appId/presets","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:appId/presets","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:appId/presets","type":1,"val":"appId","end":""},{"old":"/api/v1/apps/:appId/presets","type":0,"val":"presets","end":""}],
+    types: placeholder as Registry['apps.app_input_presets.index']['types'],
+  },
+  'apps.app_input_presets.store': {
+    methods: ["POST"],
+    pattern: '/api/v1/apps/:appId/presets',
+    tokens: [{"old":"/api/v1/apps/:appId/presets","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:appId/presets","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:appId/presets","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:appId/presets","type":1,"val":"appId","end":""},{"old":"/api/v1/apps/:appId/presets","type":0,"val":"presets","end":""}],
+    types: placeholder as Registry['apps.app_input_presets.store']['types'],
+  },
+  'apps.app_input_presets.update': {
+    methods: ["PUT"],
+    pattern: '/api/v1/apps/:appId/presets/:id',
+    tokens: [{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":1,"val":"appId","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"presets","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['apps.app_input_presets.update']['types'],
+  },
+  'apps.app_input_presets.destroy': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/apps/:appId/presets/:id',
+    tokens: [{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":1,"val":"appId","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":0,"val":"presets","end":""},{"old":"/api/v1/apps/:appId/presets/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['apps.app_input_presets.destroy']['types'],
+  },
   'taskGroups.task_groups.index': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/task-groups',

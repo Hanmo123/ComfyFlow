@@ -38,6 +38,12 @@ export interface ApiDefinition {
       update: typeof routes['apps.apps.update']
       destroy: typeof routes['apps.apps.destroy']
     }
+    appInputPresets: {
+      index: typeof routes['apps.app_input_presets.index']
+      store: typeof routes['apps.app_input_presets.store']
+      update: typeof routes['apps.app_input_presets.update']
+      destroy: typeof routes['apps.app_input_presets.destroy']
+    }
   }
   taskGroups: {
     taskGroups: {

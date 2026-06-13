@@ -1,4 +1,4 @@
-import type { AppRecord, AppSavePayload, AppTaskRecord, TaskGroupRecord } from '@/lib/app'
+import type { AppRecord, AppSavePayload, AppTaskRecord, TaskGroupRecord, AppInputPreset, PresetType } from '@/lib/app'
 
 export interface ComfyUploadedImage {
   id: number
@@ -97,6 +97,28 @@ export function useAppApi() {
       method: 'POST',
     })
 
+  const listPresets = (appId: number, type?: PresetType) =>
+    $fetch<AppInputPreset[]>(`${API_BASE}/apps/${appId}/presets`, {
+      query: type ? { type } : undefined,
+    })
+
+  const createPreset = (appId: number, name: string, type: PresetType, value: unknown) =>
+    $fetch<AppInputPreset>(`${API_BASE}/apps/${appId}/presets`, {
+      method: 'POST',
+      body: { name, type, value },
+    })
+
+  const updatePreset = (appId: number, presetId: number, name?: string, value?: unknown) =>
+    $fetch<AppInputPreset>(`${API_BASE}/apps/${appId}/presets/${presetId}`, {
+      method: 'PUT',
+      body: { name, value },
+    })
+
+  const deletePreset = (appId: number, presetId: number) =>
+    $fetch<void>(`${API_BASE}/apps/${appId}/presets/${presetId}`, {
+      method: 'DELETE',
+    })
+
   return {
     listApps,
     createApp,
@@ -114,5 +136,9 @@ export function useAppApi() {
     listComfyLoras,
     getAppTask,
     resumeAppTask,
+    listPresets,
+    createPreset,
+    updatePreset,
+    deletePreset,
   }
 }

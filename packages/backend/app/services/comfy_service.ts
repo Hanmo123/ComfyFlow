@@ -115,9 +115,14 @@ export default class ComfyService {
   }
 
   private async tryFetchJson(path: string) {
-    const response = await fetch(`${this.baseUrl}${path}`)
-    if (!response.ok) return null
-    return response.json().catch(() => null)
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`)
+      if (!response.ok) return null
+      return response.json().catch(() => null)
+    } catch (error) {
+      // 网络错误或连接失败，返回 null
+      return null
+    }
   }
 
   private async queuePrompt(prompt: Record<string, unknown>) {
