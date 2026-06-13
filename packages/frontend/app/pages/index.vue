@@ -70,9 +70,23 @@ function updateSelectedTaskGroup(value: unknown) {
   selectedTaskGroupId.value = Number.isFinite(nextId) ? nextId : null
 }
 
+function handleKeyDown(event: KeyboardEvent) {
+  if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+    event.preventDefault()
+    if (!store.saving.value) {
+      store.saveApp()
+    }
+  }
+}
+
 onMounted(async () => {
   store.initialize()
   await loadTaskGroups()
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 

@@ -25,16 +25,34 @@ const flowNodes = computed<Node[]>(() =>
 )
 
 const flowEdges = computed<Edge[]>(() =>
-  store.appGraph.value.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    animated: true,
-  })),
+  store.appGraph.value.edges.map((edge) => {
+    const style: Record<string, string> = {}
+    if (edge.sourceHandle === 'true') {
+      style.stroke = '#22c55e'
+    } else if (edge.sourceHandle === 'false') {
+      style.stroke = '#ef4444'
+    }
+    return {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle,
+      animated: true,
+      style,
+    }
+  }),
 )
 
 function onConnect(connection: Connection) {
-  if (connection.source && connection.target) store.connectAppNodes(connection.source, connection.target)
+  if (connection.source && connection.target) {
+    store.connectAppNodes(
+      connection.source,
+      connection.target,
+      connection.sourceHandle ?? undefined,
+      connection.targetHandle ?? undefined,
+    )
+  }
 }
 
 function onNodeDragStop(event: { node: Node }) {

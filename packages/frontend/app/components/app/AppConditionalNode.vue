@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  APP_VARIABLE_TYPE_COLORS,
   APP_VARIABLE_TYPE_LABELS,
   APP_VARIABLE_TYPES,
   type ConditionalNode,
@@ -65,9 +64,10 @@ function updateConditionBinding(varKey: string) {
         {{ store.variableByKey.value.get(props.node.data.conditionVarKey)?.type }}
       </div>
     </div>
+    
     <div class="rounded border border-dashed bg-slate-50 px-2 py-2 text-xs text-slate-500">
-      条件为真时：执行后续节点<br />
-      条件为假时：跳过所有下游节点
+      从绿色出点连出的边：条件为真时执行<br />
+      从红色出点连出的边：条件为假时执行
     </div>
   </div>
 </template>

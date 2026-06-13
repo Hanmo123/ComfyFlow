@@ -205,10 +205,13 @@ export function useAppDesignerStore() {
     if (node) node.data = data as AppGraphNode['data']
   }
 
-  function connectAppNodes(source: string, target: string) {
+  function connectAppNodes(source: string, target: string, sourceHandle?: string, targetHandle?: string) {
     if (source === target) return
-    if (appGraph.value.edges.some((edge) => edge.source === source && edge.target === target)) return
-    appGraph.value.edges.push({ id: `${source}-${target}`, source, target })
+    const edgeId = sourceHandle || targetHandle 
+      ? `${source}-${sourceHandle || 'default'}-${target}-${targetHandle || 'default'}`
+      : `${source}-${target}`
+    if (appGraph.value.edges.some((edge) => edge.id === edgeId)) return
+    appGraph.value.edges.push({ id: edgeId, source, target, sourceHandle, targetHandle })
   }
 
   function moveAppNode(nodeId: string, position: { x: number; y: number }) {

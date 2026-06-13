@@ -60,6 +60,10 @@ const nodeIcons = {
       <AppConditionalNode v-else-if="props.node.type === 'conditional'" :node="props.node" />
     </div>
 
-    <Handle type="source" :position="Position.Right" class="!bg-slate-500" />
+    <template v-if="props.node.type === 'conditional'">
+      <Handle id="true" type="source" :position="Position.Right" :style="{ top: '33%' }" class="!bg-green-500" />
+      <Handle id="false" type="source" :position="Position.Right" :style="{ top: '67%' }" class="!bg-red-500" />
+    </template>
+    <Handle v-else type="source" :position="Position.Right" class="!bg-slate-500" />
   </div>
 </template>

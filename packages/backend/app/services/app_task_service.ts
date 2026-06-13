@@ -267,14 +267,22 @@ export default class AppTaskService {
           outputs: { conditionMet },
         })
 
-        if (!conditionMet) {
+        // 根据条件结果跳过对应分支的下游节点
+        const branchToSkip = conditionMet ? 'false' : 'true'
+        const edgesToSkip = task.appSnapshot.graph.edges.filter(
+          (edge) => edge.source === node.id && edge.sourceHandle === branchToSkip
+        )
+        
+        for (const edge of edgesToSkip) {
           const downstreamNodeIds = collectDownstreamNodeIds(
             task.appSnapshot.graph.nodes,
             task.appSnapshot.graph.edges,
-            node.id
+            edge.target
           )
+          // 将起始节点也加入跳过列表
+          downstreamNodeIds.add(edge.target)
+          
           for (const downstreamId of downstreamNodeIds) {
-            if (downstreamId === node.id) continue
             const existingRun = task.nodeRuns.find((run) => run.nodeId === downstreamId)
             if (!existingRun) {
               const downstreamNode = task.appSnapshot.graph.nodes.find((n) => n.id === downstreamId)
