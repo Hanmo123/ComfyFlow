@@ -168,6 +168,13 @@ export function useAppDesignerStore() {
           if (varKey === key) node.data.outputAssignments[resultKey] = null
         }
       }
+      if (node.type === 'coalesce') {
+        node.data.inputs = node.data.inputs.map((input) =>
+          input.varKey === key ? { varKey: null } : input
+        )
+        if (node.data.outputValue === key) node.data.outputValue = null
+        if (node.data.outputSourceIndex === key) node.data.outputSourceIndex = null
+      }
     }
   }
 
@@ -365,6 +372,13 @@ export function useAppDesignerStore() {
           if (varKey === oldKey) node.data.outputAssignments[resultKey] = newKey
         }
       }
+      if (node.type === 'coalesce') {
+        for (const input of node.data.inputs) {
+          if (input.varKey === oldKey) input.varKey = newKey
+        }
+        if (node.data.outputValue === oldKey) node.data.outputValue = newKey
+        if (node.data.outputSourceIndex === oldKey) node.data.outputSourceIndex = newKey
+      }
     }
   }
 
@@ -414,6 +428,7 @@ function createNodeData(type: AppNodeType) {
   if (type === 'manual_gate') return { title: '人工卡点', description: '', displayVars: [] }
   if (type === 'workflow_run') return { workflowId: null, inputBindings: {}, outputAssignments: {} }
   if (type === 'output_text' || type === 'output_image') return { varKey: null }
+  if (type === 'coalesce') return { inputs: [{ varKey: null }], outputValue: null, outputSourceIndex: null }
   return {}
 }
 

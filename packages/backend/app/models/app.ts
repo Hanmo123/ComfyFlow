@@ -9,6 +9,7 @@ export type AppNodeType =
   | 'output_image'
   | 'manual_gate'
   | 'workflow_run'
+  | 'coalesce'
 
 export interface AppVariable {
   key: string
@@ -53,6 +54,14 @@ export type WorkflowRunNode = BaseAppNode<
     outputAssignments: Record<string, string | null>
   }
 >
+export type CoalesceNode = BaseAppNode<
+  'coalesce',
+  {
+    inputs: Array<{ varKey: string | null }>
+    outputValue: string | null
+    outputSourceIndex: string | null
+  }
+>
 
 export type AppGraphNode =
   | InputCollectNode
@@ -60,6 +69,7 @@ export type AppGraphNode =
   | OutputImageNode
   | ManualGateNode
   | WorkflowRunNode
+  | CoalesceNode
 
 export interface AppGraph {
   nodes: AppGraphNode[]

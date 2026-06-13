@@ -209,6 +209,50 @@ export default class AppTaskService {
           outputs: varKey ? { [varKey]: task.outputs[varKey] } : {},
         })
         await this.persistProgress(task)
+        continue
+      }
+
+      if (node.type === 'coalesce') {
+        markNodeRun(task, node.id, 'running')
+        const inputs = node.data.inputs.map((input) =>
+          input.varKey ? task.variables[input.varKey] : undefined
+        )
+
+        let foundValue: unknown = undefined
+        let foundIndex = -1
+
+        for (let i = 0; i < inputs.length; i++) {
+          if (inputs[i]) {
+            foundValue = inputs[i]
+            foundIndex = i
+            break
+          }
+        }
+
+        if (foundIndex < 0) {
+          markNodeRun(task, node.id, 'failed', {
+            inputs: { inputs },
+            error: '所有输入都为空值',
+          })
+          throw new Exception('取非空值节点：所有输入都为空值', { status: 422 })
+        }
+
+        if (node.data.outputValue) {
+          task.variables[node.data.outputValue] = foundValue
+        }
+        if (node.data.outputSourceIndex) {
+          task.variables[node.data.outputSourceIndex] = foundIndex
+        }
+
+        markNodeRun(task, node.id, 'completed', {
+          inputs: { inputs },
+          outputs: {
+            value: foundValue,
+            sourceIndex: foundIndex,
+          },
+        })
+        await this.persistProgress(task)
+        continue
       }
     }
 

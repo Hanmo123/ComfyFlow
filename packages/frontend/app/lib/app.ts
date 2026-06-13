@@ -5,7 +5,8 @@ export type AppNodeType =
   | "output_text"
   | "output_image"
   | "manual_gate"
-  | "workflow_run";
+  | "workflow_run"
+  | "coalesce";
 
 export interface LoraItem {
   name: string;
@@ -137,13 +138,22 @@ export type WorkflowRunNode = BaseAppNode<
     outputAssignments: Record<string, string | null>;
   }
 >;
+export type CoalesceNode = BaseAppNode<
+  "coalesce",
+  {
+    inputs: Array<{ varKey: string | null }>;
+    outputValue: string | null;
+    outputSourceIndex: string | null;
+  }
+>;
 
 export type AppGraphNode =
   | InputCollectNode
   | OutputTextNode
   | OutputImageNode
   | ManualGateNode
-  | WorkflowRunNode;
+  | WorkflowRunNode
+  | CoalesceNode;
 
 export interface AppGraph {
   nodes: AppGraphNode[];
@@ -309,6 +319,7 @@ export function nodeTypeLabel(type: AppNodeType) {
     output_image: "输出图片",
     manual_gate: "人工卡点",
     workflow_run: "工作流运行",
+    coalesce: "取非空值",
   };
   return labels[type];
 }
