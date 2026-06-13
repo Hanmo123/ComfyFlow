@@ -33,6 +33,11 @@ export type ScannedRoutes = {
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
+    'library.library_assets.index': { paramsTuple?: []; params?: {} }
+    'library.library_assets.store': { paramsTuple?: []; params?: {} }
+    'library.library_assets.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'library.library_assets.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
   GET: {
@@ -47,6 +52,8 @@ export type ScannedRoutes = {
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
+    'library.library_assets.index': { paramsTuple?: []; params?: {} }
+    'library.library_assets.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
   HEAD: {
@@ -61,6 +68,8 @@ export type ScannedRoutes = {
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
+    'library.library_assets.index': { paramsTuple?: []; params?: {} }
+    'library.library_assets.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
   POST: {
@@ -76,16 +85,19 @@ export type ScannedRoutes = {
     'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
+    'library.library_assets.store': { paramsTuple?: []; params?: {} }
   }
   PUT: {
     'workflows.workflows.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.app_input_presets.update': { paramsTuple: [ParamValue,ParamValue]; params: {'appId': ParamValue,'id': ParamValue} }
+    'library.library_assets.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   DELETE: {
     'workflows.workflows.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.app_input_presets.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'appId': ParamValue,'id': ParamValue} }
+    'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

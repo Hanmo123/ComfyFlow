@@ -107,6 +107,25 @@ export class AuthAccessTokenSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class LibraryAssetSchema extends BaseModel {
+  static $columns = ['createdAt', 'description', 'displayName', 'id', 'mediaAssetId', 'tags', 'updatedAt'] as const
+  $columns = LibraryAssetSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string | null
+  @column()
+  declare displayName: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare mediaAssetId: number
+  @column()
+  declare tags: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class MediaAssetSchema extends BaseModel {
   static $columns = ['comfyFilename', 'comfyName', 'comfySubfolder', 'comfyType', 'comfyUrl', 'createdAt', 'extension', 'hash', 'id', 'localPath', 'mimeType', 'originalName', 'size', 'updatedAt'] as const
   $columns = MediaAssetSchema.$columns

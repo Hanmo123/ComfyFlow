@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { RefreshCw, Save, Loader2, Trash2 } from "lucide-vue-next";
+import { RefreshCw, Save, Loader2, Trash2, Images } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import type { AppVariable, LoraItem, AppInputPreset } from "@/lib/app";
+import type { LibraryAsset } from "~/lib/library";
 
 const props = defineProps<{
   open: boolean;
@@ -18,6 +19,7 @@ const appApi = useAppApi();
 
 const textValues = ref<Record<string, string>>({});
 const fileValues = ref<Record<string, File | null>>({});
+const libraryAssetValues = ref<Record<string, LibraryAsset | null>>({});
 const loraListValues = ref<Record<string, LoraItem[]>>({});
 const loraOptions = ref<string[]>([]);
 const loraCacheExpiresAt = ref(0);
@@ -36,6 +38,8 @@ const hasLoraInputs = computed(() =>
   ),
 );
 const EMPTY_LORA_VALUE = "__empty_lora__";
+const libraryPickerOpen = ref(false);
+const currentImageVariableKey = ref<string>("");
 
 watch(
   () => props.open,
@@ -54,10 +58,12 @@ watch(hasLoraInputs, (hasInputs) => {
 function resetForm() {
   const nextTextValues: Record<string, string> = {};
   const nextFileValues: Record<string, File | null> = {};
+  const nextLibraryAssetValues: Record<string, LibraryAsset | null> = {};
   const nextLoraListValues: Record<string, LoraItem[]> = {};
   for (const variable of store.userInputVariables.value) {
     if (variable.type === "IMAGE") {
       nextFileValues[variable.key] = null;
+      nextLibraryAssetValues[variable.key] = null;
     } else if (variable.type === "LORA_LIST") {
       nextLoraListValues[variable.key] = Array.isArray(variable.default)
         ? (variable.default as LoraItem[])
@@ -68,6 +74,7 @@ function resetForm() {
   }
   textValues.value = nextTextValues;
   fileValues.value = nextFileValues;
+  libraryAssetValues.value = nextLibraryAssetValues;
   loraListValues.value = nextLoraListValues;
 }
 
@@ -109,9 +116,15 @@ async function buildInputs() {
   for (const variable of store.userInputVariables.value) {
     if (variable.type === "IMAGE") {
       const file = fileValues.value[variable.key];
-      inputs[variable.key] = file
-        ? await appApi.uploadComfyImage(file)
-        : variable.default;
+      const libraryAsset = libraryAssetValues.value[variable.key];
+      
+      if (file) {
+        inputs[variable.key] = await appApi.uploadComfyImage(file);
+      } else if (libraryAsset) {
+        inputs[variable.key] = libraryAsset.mediaAsset;
+      } else {
+        inputs[variable.key] = variable.default;
+      }
       continue;
     }
 
@@ -149,7 +162,11 @@ function validateInputs() {
   for (const variable of store.userInputVariables.value) {
     if (!variable.required) continue;
     if (variable.type === "IMAGE") {
-      if (!fileValues.value[variable.key] && isEmptyValue(variable.default))
+      if (
+        !fileValues.value[variable.key] &&
+        !libraryAssetValues.value[variable.key] &&
+        isEmptyValue(variable.default)
+      )
         return `应用输入 $${variable.key} 不能为空`;
       continue;
     }
@@ -172,6 +189,26 @@ function validateInputs() {
 function setFile(variable: AppVariable, event: Event) {
   const input = event.target as HTMLInputElement;
   fileValues.value[variable.key] = input.files?.[0] ?? null;
+  if (input.files?.[0]) {
+    libraryAssetValues.value[variable.key] = null;
+  }
+}
+
+function openLibraryPicker(variableKey: string) {
+  currentImageVariableKey.value = variableKey;
+  libraryPickerOpen.value = true;
+}
+
+function handleLibraryAssetSelect(asset: LibraryAsset) {
+  if (currentImageVariableKey.value) {
+    libraryAssetValues.value[currentImageVariableKey.value] = asset;
+    fileValues.value[currentImageVariableKey.value] = null;
+  }
+}
+
+function clearImageInput(variableKey: string) {
+  fileValues.value[variableKey] = null;
+  libraryAssetValues.value[variableKey] = null;
 }
 
 function loraOptionsFor(variable: AppVariable) {
@@ -398,13 +435,74 @@ function openSaveStringPresetDialog(variableKey: string) {
             />
           </div>
 
-          <Input
-            v-else-if="variable.type === 'IMAGE'"
-            :id="`run-input-${variable.key}`"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            @change="setFile(variable, $event)"
-          />
+          <div v-else-if="variable.type === 'IMAGE'" class="space-y-2">
+            <div class="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                class="flex-1"
+                @click="openLibraryPicker(variable.key)"
+              >
+                <Images class="size-4" />
+                从素材库选择
+              </Button>
+              <label class="flex-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  class="w-full"
+                  as="span"
+                >
+                  上传新图片
+                </Button>
+                <input
+                  :id="`run-input-${variable.key}`"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  class="hidden"
+                  @change="setFile(variable, $event)"
+                />
+              </label>
+            </div>
+
+            <div
+              v-if="fileValues[variable.key] || libraryAssetValues[variable.key]"
+              class="relative rounded-lg border bg-slate-50 p-3"
+            >
+              <div class="flex items-center gap-3">
+                <div v-if="libraryAssetValues[variable.key]" class="flex items-center gap-3 flex-1 min-w-0">
+                  <img
+                    :src="libraryAssetValues[variable.key]!.mediaAsset.localUrl"
+                    :alt="libraryAssetValues[variable.key]!.displayName"
+                    class="h-12 w-12 rounded object-cover"
+                  />
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium">
+                      {{ libraryAssetValues[variable.key]!.displayName }}
+                    </p>
+                    <p class="text-xs text-slate-500">来自素材库</p>
+                  </div>
+                </div>
+                <div v-else-if="fileValues[variable.key]" class="flex-1 min-w-0">
+                  <p class="truncate text-sm font-medium">
+                    {{ fileValues[variable.key]!.name }}
+                  </p>
+                  <p class="text-xs text-slate-500">
+                    {{ (fileValues[variable.key]!.size / 1024).toFixed(1) }} KB
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  class="shrink-0"
+                  @click="clearImageInput(variable.key)"
+                >
+                  <Trash2 class="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
 
           <div v-else class="space-y-2">
             <div
@@ -530,4 +628,9 @@ function openSaveStringPresetDialog(variableKey: string) {
       </form>
     </SheetContent>
   </Sheet>
+
+  <AppLibraryPicker
+    v-model:open="libraryPickerOpen"
+    @select="handleLibraryAssetSelect"
+  />
 </template>

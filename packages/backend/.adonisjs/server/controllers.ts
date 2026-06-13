@@ -14,4 +14,5 @@ export const controllers = {
   TaskGroups: () => import('#controllers/task_groups_controller'),
   Tasks: () => import('#controllers/tasks_controller'),
   Workflows: () => import('#controllers/workflows_controller'),
+  LibraryAssets: () => import('#controllers/library_assets_controller'),
 }

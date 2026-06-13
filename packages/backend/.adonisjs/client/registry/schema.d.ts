@@ -355,6 +355,66 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/comfy_controller').default['uploadImage']>>>
     }
   }
+  'library.library_assets.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/library'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/library_asset_validator').listLibraryAssetsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'library.library_assets.store': {
+    methods: ["POST"]
+    pattern: '/api/v1/library'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/library_asset_validator').createLibraryAssetValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/library_asset_validator').createLibraryAssetValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'library.library_assets.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/library/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['show']>>>
+    }
+  }
+  'library.library_assets.update': {
+    methods: ["PUT"]
+    pattern: '/api/v1/library/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/library_asset_validator').updateLibraryAssetValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/library_asset_validator').updateLibraryAssetValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'library.library_assets.destroy': {
+    methods: ["DELETE"]
+    pattern: '/api/v1/library/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/library_assets_controller').default['destroy']>>>
+    }
+  }
   'media.show': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/media/:hash'

@@ -180,6 +180,36 @@ const routes = {
     tokens: [{"old":"/api/v1/comfy/images","type":0,"val":"api","end":""},{"old":"/api/v1/comfy/images","type":0,"val":"v1","end":""},{"old":"/api/v1/comfy/images","type":0,"val":"comfy","end":""},{"old":"/api/v1/comfy/images","type":0,"val":"images","end":""}],
     types: placeholder as Registry['comfy.comfy.upload_image']['types'],
   },
+  'library.library_assets.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/library',
+    tokens: [{"old":"/api/v1/library","type":0,"val":"api","end":""},{"old":"/api/v1/library","type":0,"val":"v1","end":""},{"old":"/api/v1/library","type":0,"val":"library","end":""}],
+    types: placeholder as Registry['library.library_assets.index']['types'],
+  },
+  'library.library_assets.store': {
+    methods: ["POST"],
+    pattern: '/api/v1/library',
+    tokens: [{"old":"/api/v1/library","type":0,"val":"api","end":""},{"old":"/api/v1/library","type":0,"val":"v1","end":""},{"old":"/api/v1/library","type":0,"val":"library","end":""}],
+    types: placeholder as Registry['library.library_assets.store']['types'],
+  },
+  'library.library_assets.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/library/:id',
+    tokens: [{"old":"/api/v1/library/:id","type":0,"val":"api","end":""},{"old":"/api/v1/library/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/library/:id","type":0,"val":"library","end":""},{"old":"/api/v1/library/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['library.library_assets.show']['types'],
+  },
+  'library.library_assets.update': {
+    methods: ["PUT"],
+    pattern: '/api/v1/library/:id',
+    tokens: [{"old":"/api/v1/library/:id","type":0,"val":"api","end":""},{"old":"/api/v1/library/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/library/:id","type":0,"val":"library","end":""},{"old":"/api/v1/library/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['library.library_assets.update']['types'],
+  },
+  'library.library_assets.destroy': {
+    methods: ["DELETE"],
+    pattern: '/api/v1/library/:id',
+    tokens: [{"old":"/api/v1/library/:id","type":0,"val":"api","end":""},{"old":"/api/v1/library/:id","type":0,"val":"v1","end":""},{"old":"/api/v1/library/:id","type":0,"val":"library","end":""},{"old":"/api/v1/library/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['library.library_assets.destroy']['types'],
+  },
   'media.show': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/media/:hash',

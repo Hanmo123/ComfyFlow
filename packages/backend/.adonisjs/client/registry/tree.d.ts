@@ -65,6 +65,15 @@ export interface ApiDefinition {
       uploadImage: typeof routes['comfy.comfy.upload_image']
     }
   }
+  library: {
+    libraryAssets: {
+      index: typeof routes['library.library_assets.index']
+      store: typeof routes['library.library_assets.store']
+      show: typeof routes['library.library_assets.show']
+      update: typeof routes['library.library_assets.update']
+      destroy: typeof routes['library.library_assets.destroy']
+    }
+  }
   media: {
     show: typeof routes['media.show']
   }

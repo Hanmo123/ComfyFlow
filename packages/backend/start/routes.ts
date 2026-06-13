@@ -18,6 +18,7 @@ const TaskGroupsController = () => import('#controllers/task_groups_controller')
 const TasksController = () => import('#controllers/tasks_controller')
 const ComfyController = () => import('#controllers/comfy_controller')
 const MediaAssetsController = () => import('#controllers/media_assets_controller')
+const LibraryAssetsController = () => import('#controllers/library_assets_controller')
 
 router.get('/', () => {
   return { hello: 'world' }
@@ -97,6 +98,17 @@ router
       })
       .prefix('comfy')
       .as('comfy')
+
+    router
+      .group(() => {
+        router.get('/', [LibraryAssetsController, 'index'])
+        router.post('/', [LibraryAssetsController, 'store'])
+        router.get(':id', [LibraryAssetsController, 'show'])
+        router.put(':id', [LibraryAssetsController, 'update'])
+        router.delete(':id', [LibraryAssetsController, 'destroy'])
+      })
+      .prefix('library')
+      .as('library')
 
     router.get('media/:hash', [MediaAssetsController, 'show']).as('media.show')
   })
