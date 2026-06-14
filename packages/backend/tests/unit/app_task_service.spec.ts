@@ -152,6 +152,45 @@ test.group('AppTaskService', () => {
     assert.equal(prompt['2_lora_1'].inputs.lora_name, 'dynamic2.safetensors')
     assert.deepEqual(prompt['4'].inputs.model, ['2_lora_1', 0])
   })
+
+  test('uses non-default clip strength as model strength for model-only lora inputs', async ({ assert }) => {
+    const task = createWorkflowTask({
+      loras: [
+        { name: 'dynamic1.safetensors', strength_model: 1, strength_clip: 0.7 },
+        { name: 'dynamic2.safetensors', strength_model: 1, strength_clip: 0.3 },
+      ],
+    })
+    const workflowRuns: unknown[] = []
+    const service = createService(task, workflowRuns, {
+      rawJson: {
+        1: {
+          class_type: 'UNETLoader',
+          inputs: { unet_name: 'model.safetensors' },
+        },
+        2: {
+          class_type: 'LoraLoaderModelOnly',
+          inputs: { model: ['1', 0], lora_name: 'old1.safetensors', strength_model: 0.9 },
+        },
+        3: {
+          class_type: 'LoraLoaderModelOnly',
+          inputs: { model: ['2', 0], lora_name: 'old2.safetensors', strength_model: 0.4 },
+        },
+        4: {
+          class_type: 'KSampler',
+          inputs: { model: ['3', 0] },
+        },
+      },
+      parameters: [
+        { key: 'input:2:lora_list', nodeId: '2', field: 'lora_list', name: 'loras', type: 'LORA_LIST' },
+      ],
+    })
+
+    await executeTask(service, task.id)
+
+    const prompt = workflowRuns[0] as Record<string, any>
+    assert.equal(prompt['2'].inputs.strength_model, 0.7)
+    assert.equal(prompt['2_lora_1'].inputs.strength_model, 0.3)
+  })
 })
 
 function createService(

@@ -289,7 +289,7 @@ function upsertTask(task: AppTaskRecord) {
 
 function taskThumbnail(task: AppTaskRecord) {
   const imageInput = task.appSnapshot.variables.find((variable) => variable.source === 'user_input' && variable.type === 'IMAGE')
-  return imageInput ? imageUrl(task.inputs[imageInput.key]) : ''
+  return imageInput ? imageUrl(task.variables[imageInput.key] ?? task.inputs[imageInput.key]) : ''
 }
 
 function imageUrl(value: unknown) {

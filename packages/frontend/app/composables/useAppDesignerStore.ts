@@ -410,6 +410,7 @@ export function useAppDesignerStore() {
     error,
     sortedApps,
     variableByKey,
+    workflowById,
     userInputVariables,
     computedVariables,
     initialize,

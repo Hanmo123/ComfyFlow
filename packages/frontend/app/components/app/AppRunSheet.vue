@@ -162,7 +162,10 @@ async function buildInputs() {
     }
 
     if (variable.type === "LORA_LIST") {
-      inputs[variable.key] = loraListValues.value[variable.key] || [];
+      inputs[variable.key] = normalizeLoraListInput(
+        variable,
+        loraListValues.value[variable.key] || [],
+      );
       continue;
     }
 
@@ -253,6 +256,48 @@ function loraOptionsFor(variable: AppVariable) {
   if (current && !loraOptions.value.includes(current))
     return [current, ...loraOptions.value];
   return loraOptions.value;
+}
+
+function supportsLoraClipStrength(variable: AppVariable) {
+  const bindings = boundLoraParameters(variable);
+  if (bindings.length === 0) return true;
+  return bindings.some(({ classType }) => classType === "LoraLoader");
+}
+
+function boundLoraParameters(variable: AppVariable) {
+  const bindings: Array<{ classType: string }> = [];
+  for (const node of store.appGraph.value.nodes) {
+    if (node.type !== "workflow_run" || !node.data.workflowId) continue;
+    const workflow = store.workflowById.value.get(node.data.workflowId);
+    if (!workflow) continue;
+
+    for (const [parameterKey, binding] of Object.entries(node.data.inputBindings)) {
+      if (binding.varKey !== variable.key) continue;
+      const parameter = workflow.parameters.find(
+        (item) => item.key === parameterKey && item.type === "LORA_LIST",
+      );
+      if (!parameter) continue;
+
+      const rawNode = workflow.rawJson[parameter.nodeId];
+      if (!rawNode || typeof rawNode !== "object" || Array.isArray(rawNode)) continue;
+      const classType = (rawNode as { class_type?: unknown }).class_type;
+      if (typeof classType === "string") bindings.push({ classType });
+    }
+  }
+  return bindings;
+}
+
+function normalizeLoraListInput(variable: AppVariable, loraList: LoraItem[]) {
+  if (supportsLoraClipStrength(variable)) return loraList;
+  return loraList.map((lora) => {
+    const strengthModel =
+      lora.strength_model === 1 &&
+      lora.strength_clip !== undefined &&
+      lora.strength_clip !== 1
+        ? lora.strength_clip
+        : lora.strength_model;
+    return { name: lora.name, strength_model: strengthModel };
+  });
 }
 
 function inputSelectValue(variable: AppVariable) {
@@ -468,6 +513,7 @@ function openSaveStringPresetDialog(variableKey: string) {
               :disabled="lorasLoading"
               :show-refresh="true"
               :refresh-loading="lorasLoading"
+              :show-clip-strength="supportsLoraClipStrength(variable)"
               @refresh="loadLoras(true)"
             />
           </div>

@@ -17,6 +17,7 @@ const props = defineProps<{
   disabled?: boolean;
   showRefresh?: boolean;
   refreshLoading?: boolean;
+  showClipStrength?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -33,6 +34,18 @@ const loadingPresets = ref(false);
 const savingPreset = ref(false);
 const newPresetName = ref("");
 const showSaveDialog = ref(false);
+const showClipStrength = computed(() => props.showClipStrength ?? true);
+const modelStrengthDrafts = ref<string[]>([]);
+const clipStrengthDrafts = ref<string[]>([]);
+
+watch(
+  () => [props.modelValue, showClipStrength.value] as const,
+  () => {
+    modelStrengthDrafts.value = props.modelValue.map((lora) => String(modelStrengthValue(lora)));
+    clipStrengthDrafts.value = props.modelValue.map((lora) => String(lora.strength_clip ?? 1.0));
+  },
+  { deep: true, immediate: true },
+);
 
 async function loadPresets() {
   if (!props.appId) return;
@@ -124,21 +137,39 @@ function updateLoraName(index: number, value: string) {
 }
 
 function updateLoraStrengthModel(index: number, value: string) {
+  const strengthModel = parseStrengthValue(value, modelStrengthValue(props.modelValue[index]));
   const newList = [...props.modelValue];
   newList[index] = {
     ...newList[index],
-    strength_model: Number.parseFloat(value) || 1.0,
+    strength_model: strengthModel,
   };
+  if (!showClipStrength.value) delete newList[index].strength_clip;
+  modelStrengthDrafts.value[index] = String(strengthModel);
   emit("update:modelValue", newList);
 }
 
 function updateLoraStrengthClip(index: number, value: string) {
+  const strengthClip = parseStrengthValue(value, props.modelValue[index].strength_clip ?? 1.0);
   const newList = [...props.modelValue];
   newList[index] = {
     ...newList[index],
-    strength_clip: Number.parseFloat(value) || 1.0,
+    strength_clip: strengthClip,
   };
+  clipStrengthDrafts.value[index] = String(strengthClip);
   emit("update:modelValue", newList);
+}
+
+function commitLoraStrengthModel(index: number) {
+  updateLoraStrengthModel(index, modelStrengthDrafts.value[index] ?? "");
+}
+
+function commitLoraStrengthClip(index: number) {
+  updateLoraStrengthClip(index, clipStrengthDrafts.value[index] ?? "");
+}
+
+function commitStrengthWithEnter(event: KeyboardEvent, commit: () => void) {
+  commit();
+  (event.currentTarget as HTMLInputElement).blur();
 }
 
 function loraOptionsFor(currentName: string) {
@@ -146,6 +177,23 @@ function loraOptionsFor(currentName: string) {
     return [currentName, ...props.loraOptions];
   }
   return props.loraOptions;
+}
+
+function modelStrengthValue(lora: LoraItem) {
+  if (
+    !showClipStrength.value &&
+    lora.strength_model === 1 &&
+    lora.strength_clip !== undefined &&
+    lora.strength_clip !== 1
+  ) {
+    return lora.strength_clip;
+  }
+  return lora.strength_model;
+}
+
+function parseStrengthValue(value: string, fallback: number) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 </script>
 
@@ -325,47 +373,39 @@ function loraOptionsFor(currentName: string) {
           </Select>
         </div>
 
-        <div class="grid grid-cols-2 gap-2">
+        <div :class="showClipStrength ? 'grid grid-cols-2 gap-2' : 'space-y-1.5'">
           <div class="space-y-1.5">
             <Label :for="`lora-${index}-strength-model`" class="text-xs"
-              >Model 强度</Label
+              >{{ showClipStrength ? 'Model 强度' : '强度' }}</Label
             >
             <Input
               :id="`lora-${index}-strength-model`"
+              v-model="modelStrengthDrafts[index]"
               type="number"
               step="0.01"
               min="0"
               max="2"
-              :value="lora.strength_model"
               :disabled="props.disabled"
               class="h-8 text-sm"
-              @input="
-                updateLoraStrengthModel(
-                  index,
-                  ($event.target as HTMLInputElement).value,
-                )
-              "
+              @blur="commitLoraStrengthModel(index)"
+              @keydown.enter="commitStrengthWithEnter($event, () => commitLoraStrengthModel(index))"
             />
           </div>
-          <div class="space-y-1.5">
+          <div v-if="showClipStrength" class="space-y-1.5">
             <Label :for="`lora-${index}-strength-clip`" class="text-xs"
               >CLIP 强度</Label
             >
             <Input
               :id="`lora-${index}-strength-clip`"
+              v-model="clipStrengthDrafts[index]"
               type="number"
               step="0.01"
               min="0"
               max="2"
-              :value="lora.strength_clip ?? 1.0"
               :disabled="props.disabled"
               class="h-8 text-sm"
-              @input="
-                updateLoraStrengthClip(
-                  index,
-                  ($event.target as HTMLInputElement).value,
-                )
-              "
+              @blur="commitLoraStrengthClip(index)"
+              @keydown.enter="commitStrengthWithEnter($event, () => commitLoraStrengthClip(index))"
             />
           </div>
         </div>

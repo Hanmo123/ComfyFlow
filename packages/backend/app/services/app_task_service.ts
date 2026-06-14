@@ -703,8 +703,8 @@ function expandLoraNode(
           model: currentModelOutput,
           clip: currentClipOutput,
           lora_name: lora.name,
-          strength_model: lora.strength_model,
-          strength_clip: lora.strength_clip ?? 1.0,
+          strength_model: resolveLoraStrengthModel(lora, hasClip),
+          strength_clip: resolveLoraStrengthClip(lora),
         },
       }
       currentModelOutput = [newNodeId, 0]
@@ -716,7 +716,7 @@ function expandLoraNode(
         inputs: {
           model: currentModelOutput,
           lora_name: lora.name,
-          strength_model: lora.strength_model,
+          strength_model: resolveLoraStrengthModel(lora, hasClip),
         },
       }
       currentModelOutput = [newNodeId, 0]
@@ -736,6 +736,21 @@ function expandLoraNode(
       }
     }
   }
+}
+
+function resolveLoraStrengthModel(lora: LoraItem, hasClip: boolean) {
+  if (!hasClip && lora.strength_model === 1 && isFiniteNumber(lora.strength_clip) && lora.strength_clip !== 1) {
+    return lora.strength_clip
+  }
+  return isFiniteNumber(lora.strength_model) ? lora.strength_model : 1.0
+}
+
+function resolveLoraStrengthClip(lora: LoraItem) {
+  return isFiniteNumber(lora.strength_clip) ? lora.strength_clip : 1.0
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
 }
 
 async function normalizePromptInput(

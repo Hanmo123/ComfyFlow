@@ -42,9 +42,25 @@ export default class MediaAssetService {
 
     const hash = await hashFile(file.tmpPath)
     const existing = await this.repository.findByHash(hash)
-    if (existing) return serializeMediaAsset(existing)
-
     const extension = normalizeExtension(file.extname, file.clientName)
+
+    if (existing) {
+      const fileExists = await checkFileExists(existing.localPath)
+      if (!fileExists) {
+        const localPath = await persistLocalImage(file.tmpPath, hash, existing.extension ?? extension)
+        existing.merge({
+          originalName: file.clientName,
+          extension: existing.extension ?? extension,
+          mimeType: file.type && file.subtype ? `${file.type}/${file.subtype}` : existing.mimeType,
+          size: file.size,
+          localPath,
+        })
+        await existing.save()
+      }
+
+      return this.ensureComfyUpload(hash)
+    }
+
     const localPath = await persistLocalImage(file.tmpPath, hash, extension)
     const comfyFileName = extension ? `${hash}.${extension}` : hash
     const uploaded = await this.comfyService.uploadImage({
