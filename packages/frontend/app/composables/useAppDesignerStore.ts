@@ -445,6 +445,7 @@ function createNodeData(type: AppNodeType) {
   if (type === 'output_text' || type === 'output_image') return { varKey: null }
   if (type === 'coalesce') return { inputs: [{ varKey: null }], outputValue: null, outputSourceIndex: null }
   if (type === 'conditional') return { conditionVarKey: null }
+  if (type === 'image_compress') return { varKey: null, quality: 80, resizeMode: 'longest', maxSize: 2048, deleteOriginalFile: false }
   return {}
 }
 

@@ -61,10 +61,10 @@ function updateMaxSize(value: string) {
   });
 }
 
-function updateDeleteOriginalFile(checked: boolean) {
+function updateDeleteOriginalFile(checked: boolean | "indeterminate") {
   store.updateAppNodeData(props.node.id, {
     ...props.node.data,
-    deleteOriginalFile: checked,
+    deleteOriginalFile: checked === true,
   });
 }
 
@@ -182,8 +182,8 @@ const resizeModeLabels = {
       <div class="flex items-center gap-2">
         <Checkbox
           :id="`delete-original-${props.node.id}`"
-          :checked="props.node.data.deleteOriginalFile ?? false"
-          @update:checked="updateDeleteOriginalFile"
+          :model-value="props.node.data.deleteOriginalFile ?? false"
+          @update:model-value="updateDeleteOriginalFile"
         />
         <label
           :for="`delete-original-${props.node.id}`"
