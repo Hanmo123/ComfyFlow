@@ -20,6 +20,7 @@ const appApi = useAppApi();
 const textValues = ref<Record<string, string>>({});
 const fileValues = ref<Record<string, File | null>>({});
 const libraryAssetValues = ref<Record<string, LibraryAsset | null>>({});
+const previousImageValues = ref<Record<string, unknown | null>>({});
 const loraListValues = ref<Record<string, LoraItem[]>>({});
 const loraOptions = ref<string[]>([]);
 const loraCacheExpiresAt = ref(0);
@@ -45,7 +46,7 @@ watch(
   () => props.open,
   (open) => {
     if (!open) return;
-    resetForm();
+    void resetForm();
     if (hasLoraInputs.value) void loadLoras();
     void loadStringPresets();
   },
@@ -56,25 +57,54 @@ watch(hasLoraInputs, (hasInputs) => {
 });
 
 function resetForm() {
+  applyInputValues(null);
+  void loadLatestInputs();
+}
+
+async function loadLatestInputs() {
+  const appId = store.activeApp.value?.id;
+  if (!appId) return;
+
+  try {
+    const latestTask = await appApi.getLatestAppTask(appId);
+    if (!props.open || store.activeApp.value?.id !== appId) return;
+    applyInputValues(latestTask?.inputs ?? null);
+  } catch (error) {
+    // 忽略错误，保留默认值。
+  }
+}
+
+function applyInputValues(lastInputs: Record<string, unknown> | null) {
   const nextTextValues: Record<string, string> = {};
   const nextFileValues: Record<string, File | null> = {};
   const nextLibraryAssetValues: Record<string, LibraryAsset | null> = {};
+  const nextPreviousImageValues: Record<string, unknown | null> = {};
   const nextLoraListValues: Record<string, LoraItem[]> = {};
+
   for (const variable of store.userInputVariables.value) {
+    const lastValue = lastInputs?.[variable.key];
     if (variable.type === "IMAGE") {
       nextFileValues[variable.key] = null;
       nextLibraryAssetValues[variable.key] = null;
+      nextPreviousImageValues[variable.key] = lastValue ?? null;
     } else if (variable.type === "LORA_LIST") {
-      nextLoraListValues[variable.key] = Array.isArray(variable.default)
-        ? (variable.default as LoraItem[])
-        : [];
+      if (lastValue && Array.isArray(lastValue)) {
+        nextLoraListValues[variable.key] = lastValue as LoraItem[];
+      } else {
+        nextLoraListValues[variable.key] = Array.isArray(variable.default)
+          ? (variable.default as LoraItem[])
+          : [];
+      }
     } else {
-      nextTextValues[variable.key] = stringifyInputValue(variable.default);
+      // 优先使用上次的值，否则使用默认值
+      const valueToUse = lastValue !== undefined ? lastValue : variable.default;
+      nextTextValues[variable.key] = stringifyInputValue(valueToUse);
     }
   }
   textValues.value = nextTextValues;
   fileValues.value = nextFileValues;
   libraryAssetValues.value = nextLibraryAssetValues;
+  previousImageValues.value = nextPreviousImageValues;
   loraListValues.value = nextLoraListValues;
 }
 
@@ -117,11 +147,14 @@ async function buildInputs() {
     if (variable.type === "IMAGE") {
       const file = fileValues.value[variable.key];
       const libraryAsset = libraryAssetValues.value[variable.key];
+      const previousImage = previousImageValues.value[variable.key];
       
       if (file) {
         inputs[variable.key] = await appApi.uploadComfyImage(file);
       } else if (libraryAsset) {
         inputs[variable.key] = libraryAsset.mediaAsset;
+      } else if (previousImage) {
+        inputs[variable.key] = previousImage;
       } else {
         inputs[variable.key] = variable.default;
       }
@@ -165,6 +198,7 @@ function validateInputs() {
       if (
         !fileValues.value[variable.key] &&
         !libraryAssetValues.value[variable.key] &&
+        !previousImageValues.value[variable.key] &&
         isEmptyValue(variable.default)
       )
         return `应用输入 $${variable.key} 不能为空`;
@@ -191,6 +225,7 @@ function setFile(variable: AppVariable, event: Event) {
   fileValues.value[variable.key] = input.files?.[0] ?? null;
   if (input.files?.[0]) {
     libraryAssetValues.value[variable.key] = null;
+    previousImageValues.value[variable.key] = null;
   }
 }
 
@@ -203,12 +238,14 @@ function handleLibraryAssetSelect(asset: LibraryAsset) {
   if (currentImageVariableKey.value) {
     libraryAssetValues.value[currentImageVariableKey.value] = asset;
     fileValues.value[currentImageVariableKey.value] = null;
+    previousImageValues.value[currentImageVariableKey.value] = null;
   }
 }
 
 function clearImageInput(variableKey: string) {
   fileValues.value[variableKey] = null;
   libraryAssetValues.value[variableKey] = null;
+  previousImageValues.value[variableKey] = null;
 }
 
 function loraOptionsFor(variable: AppVariable) {
@@ -466,7 +503,11 @@ function openSaveStringPresetDialog(variableKey: string) {
             </div>
 
             <div
-              v-if="fileValues[variable.key] || libraryAssetValues[variable.key]"
+              v-if="
+                fileValues[variable.key] ||
+                libraryAssetValues[variable.key] ||
+                previousImageValues[variable.key]
+              "
               class="relative rounded-lg border bg-slate-50 p-3"
             >
               <div class="flex items-center gap-3">
@@ -490,6 +531,10 @@ function openSaveStringPresetDialog(variableKey: string) {
                   <p class="text-xs text-slate-500">
                     {{ (fileValues[variable.key]!.size / 1024).toFixed(1) }} KB
                   </p>
+                </div>
+                <div v-else class="flex-1 min-w-0">
+                  <p class="truncate text-sm font-medium">沿用上次图片</p>
+                  <p class="text-xs text-slate-500">来自最近一次运行参数</p>
                 </div>
                 <Button
                   type="button"

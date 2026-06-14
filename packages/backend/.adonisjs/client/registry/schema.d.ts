@@ -151,6 +151,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['run']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'apps.apps.latest_task': {
+    methods: ["GET","HEAD"]
+    pattern: '/api/v1/apps/:id/runs/latest'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['latestTask']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/apps_controller').default['latestTask']>>>
+    }
+  }
   'apps.apps.show_task': {
     methods: ["GET","HEAD"]
     pattern: '/api/v1/apps/:id/runs/:taskId'

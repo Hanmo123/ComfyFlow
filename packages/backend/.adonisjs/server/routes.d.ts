@@ -16,6 +16,7 @@ export type ScannedRoutes = {
     'apps.apps.index': { paramsTuple?: []; params?: {} }
     'apps.apps.store': { paramsTuple?: []; params?: {} }
     'apps.apps.run': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'apps.apps.latest_task': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.resume_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -45,6 +46,7 @@ export type ScannedRoutes = {
     'workflows.workflows.index': { paramsTuple?: []; params?: {} }
     'workflows.workflows.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.index': { paramsTuple?: []; params?: {} }
+    'apps.apps.latest_task': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.app_input_presets.index': { paramsTuple: [ParamValue]; params: {'appId': ParamValue} }
@@ -61,6 +63,7 @@ export type ScannedRoutes = {
     'workflows.workflows.index': { paramsTuple?: []; params?: {} }
     'workflows.workflows.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.index': { paramsTuple?: []; params?: {} }
+    'apps.apps.latest_task': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.show_task': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'taskId': ParamValue} }
     'apps.apps.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.app_input_presets.index': { paramsTuple: [ParamValue]; params: {'appId': ParamValue} }

@@ -32,6 +32,10 @@ export default class AppTaskRepository {
     return query
   }
 
+  async findLatestByAppId(appId: number) {
+    return AppTask.query().where('app_id', appId).orderBy('created_at', 'desc').first()
+  }
+
   async create(payload: CreateAppTaskPayload) {
     return AppTask.create({
       appId: payload.appId,

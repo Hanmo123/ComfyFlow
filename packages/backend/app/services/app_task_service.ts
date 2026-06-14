@@ -57,6 +57,10 @@ export default class AppTaskService {
     return this.taskRepository.findForAppOrFail(appId, taskId)
   }
 
+  async getLatestTask(appId: number) {
+    return this.taskRepository.findLatestByAppId(appId)
+  }
+
   async resume(appId: number, taskId: number) {
     const task = await this.taskRepository.findForAppOrFail(appId, taskId)
     if (task.status !== 'waiting' || !task.waitingNodeId) {

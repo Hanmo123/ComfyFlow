@@ -38,6 +38,10 @@ export default class AppsController {
     return this.taskService.show(Number(params.id), Number(params.taskId))
   }
 
+  async latestTask({ params }: HttpContext) {
+    return this.taskService.getLatestTask(Number(params.id))
+  }
+
   async resumeTask({ params }: HttpContext) {
     return this.taskService.resume(Number(params.id), Number(params.taskId))
   }

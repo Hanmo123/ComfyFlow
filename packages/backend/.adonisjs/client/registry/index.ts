@@ -78,6 +78,12 @@ const routes = {
     tokens: [{"old":"/api/v1/apps/:id/runs","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id/runs","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id/runs","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id/runs","type":1,"val":"id","end":""},{"old":"/api/v1/apps/:id/runs","type":0,"val":"runs","end":""}],
     types: placeholder as Registry['apps.apps.run']['types'],
   },
+  'apps.apps.latest_task': {
+    methods: ["GET","HEAD"],
+    pattern: '/api/v1/apps/:id/runs/latest',
+    tokens: [{"old":"/api/v1/apps/:id/runs/latest","type":0,"val":"api","end":""},{"old":"/api/v1/apps/:id/runs/latest","type":0,"val":"v1","end":""},{"old":"/api/v1/apps/:id/runs/latest","type":0,"val":"apps","end":""},{"old":"/api/v1/apps/:id/runs/latest","type":1,"val":"id","end":""},{"old":"/api/v1/apps/:id/runs/latest","type":0,"val":"runs","end":""},{"old":"/api/v1/apps/:id/runs/latest","type":0,"val":"latest","end":""}],
+    types: placeholder as Registry['apps.apps.latest_task']['types'],
+  },
   'apps.apps.show_task': {
     methods: ["GET","HEAD"],
     pattern: '/api/v1/apps/:id/runs/:taskId',

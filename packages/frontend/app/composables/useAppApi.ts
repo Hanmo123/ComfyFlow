@@ -92,6 +92,8 @@ export function useAppApi() {
 
   const getAppTask = (appId: number, taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/apps/${appId}/runs/${taskId}`)
 
+  const getLatestAppTask = (appId: number) => $fetch<AppTaskRecord | null>(`${API_BASE}/apps/${appId}/runs/latest`)
+
   const resumeAppTask = (appId: number, taskId: number) =>
     $fetch<AppTaskRecord>(`${API_BASE}/apps/${appId}/runs/${taskId}/resume`, {
       method: 'POST',
@@ -135,6 +137,7 @@ export function useAppApi() {
     uploadComfyImage,
     listComfyLoras,
     getAppTask,
+    getLatestAppTask,
     resumeAppTask,
     listPresets,
     createPreset,
