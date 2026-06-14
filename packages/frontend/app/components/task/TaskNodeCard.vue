@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
 import { Check, CirclePause, FileInput, Image, RotateCw, Type, Workflow } from 'lucide-vue-next'
-import { nodeTypeLabel, type AppGraphNode, type AppTaskNodeRun } from '@/lib/app'
+import {
+  APP_VARIABLE_TYPE_LABELS,
+  nodeTypeLabel,
+  type AppGraphNode,
+  type AppTaskNodeRun,
+  type AppVariable,
+} from '@/lib/app'
 
 const props = defineProps<{
   data: {
     node: AppGraphNode
     nodeRun?: AppTaskNodeRun
+    taskVariables: Record<string, unknown>
+    appVariables: AppVariable[]
     canRetry: boolean
     retrying: boolean
     canResume: boolean
@@ -48,6 +56,60 @@ const cardClass = computed(() => {
 const showResumeButton = computed(
   () => props.data.node.type === 'manual_gate' && props.data.nodeRun?.status === 'waiting',
 )
+
+const variableByKey = computed(() => new Map(props.data.appVariables.map((variable) => [variable.key, variable])))
+const manualGateDisplayItems = computed(() => {
+  if (props.data.node.type !== 'manual_gate') return []
+  return props.data.node.data.displayVars.map((varKey) => {
+    const variable = variableByKey.value.get(varKey)
+    const value = props.data.taskVariables[varKey]
+    return {
+      varKey,
+      variable,
+      images: variable?.type === 'IMAGE' ? normalizeImages(value) : [],
+      text: variable?.type === 'IMAGE' ? '' : formatValue(value),
+    }
+  })
+})
+
+function normalizeImages(value: unknown): Array<{ url: string; name: string }> {
+  const items = Array.isArray(value) ? value : value ? [value] : []
+  return items.flatMap((item, index) => {
+    if (Array.isArray(item)) return normalizeImages(item)
+    const url = imageUrl(item)
+    return url ? [{ url, name: imageName(item, index) }] : []
+  })
+}
+
+function imageUrl(value: unknown) {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+  const image = value as Record<string, unknown>
+  if (image.proxy && typeof image.proxy === 'object') {
+    const proxy = image.proxy as Record<string, unknown>
+    if (typeof proxy.localUrl === 'string') return proxy.localUrl
+    if (typeof proxy.url === 'string') return proxy.url
+  }
+  if (typeof image.localUrl === 'string') return image.localUrl
+  return typeof image.url === 'string' ? image.url : ''
+}
+
+function imageName(value: unknown, index: number) {
+  if (!value || typeof value !== 'object') return `图片 ${index + 1}`
+  const image = value as Record<string, unknown>
+  return String(image.filename ?? image.name ?? `图片 ${index + 1}`)
+}
+
+function formatValue(value: unknown) {
+  if (value === undefined || value === null || value === '') return '空'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
 </script>
 
 <template>
@@ -87,6 +149,44 @@ const showResumeButton = computed(
 
       <div v-if="props.data.nodeRun?.error" class="border-t border-red-200 px-3 py-2 text-xs text-red-700">
         {{ props.data.nodeRun.error }}
+      </div>
+
+      <div
+        v-if="props.data.node.type === 'manual_gate' && (props.data.node.data.title || props.data.node.data.description || manualGateDisplayItems.length)"
+        class="space-y-3 border-t px-3 py-3"
+      >
+        <div v-if="props.data.node.data.title || props.data.node.data.description" class="space-y-1">
+          <div v-if="props.data.node.data.title" class="text-sm font-medium text-slate-900">
+            {{ props.data.node.data.title }}
+          </div>
+          <div v-if="props.data.node.data.description" class="whitespace-pre-wrap text-xs text-slate-600">
+            {{ props.data.node.data.description }}
+          </div>
+        </div>
+
+        <div v-if="manualGateDisplayItems.length" class="space-y-2">
+          <div v-for="item in manualGateDisplayItems" :key="item.varKey" class="space-y-1.5 rounded-lg border bg-white p-2">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <span class="min-w-0 truncate font-medium text-slate-700">{{ item.variable?.name ?? item.varKey }}</span>
+              <span class="shrink-0 text-slate-400">{{ item.variable ? APP_VARIABLE_TYPE_LABELS[item.variable.type] : '未知' }}</span>
+            </div>
+
+            <div v-if="item.images.length" class="grid grid-cols-2 gap-2">
+              <a
+                v-for="image in item.images"
+                :key="`${item.varKey}-${image.url}`"
+                :href="image.url"
+                target="_blank"
+                class="overflow-hidden rounded-md border bg-slate-50"
+              >
+                <img :src="image.url" :alt="image.name" class="aspect-square w-full object-cover" />
+              </a>
+            </div>
+            <div v-else class="max-h-24 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-600">
+              {{ item.text }}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

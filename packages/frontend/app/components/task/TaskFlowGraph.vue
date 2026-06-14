@@ -28,6 +28,8 @@ const flowNodes = computed<Node[]>(() =>
     data: {
       node,
       nodeRun: nodeRunById.value.get(node.id),
+      taskVariables: props.task?.variables ?? {},
+      appVariables: props.task?.appSnapshot.variables ?? [],
       canRetry: canRetry.value,
       retrying: props.retryingNodeId === node.id,
       canResume: canResume.value,

@@ -7,18 +7,40 @@ const props = defineProps<{
 
 const imageGroups = computed(() => {
   if (!props.task) return []
-  return props.task.appSnapshot.graph.nodes
-    .filter((node) => node.type === 'output_image' && node.data.varKey)
-    .map((node) => {
-      const varKey = node.type === 'output_image' ? node.data.varKey : null
-      return {
-        nodeId: node.id,
-        varKey,
-        images: normalizeImages(varKey ? props.task!.outputs[varKey] : null),
-      }
-    })
-    .filter((group) => group.images.length > 0)
+  const imageVariableKeys = new Set(
+    props.task.appSnapshot.variables.filter((variable) => variable.type === 'IMAGE').map((variable) => variable.key),
+  )
+  const displayedVarKeys = new Set<string>()
+  const groups: Array<{ nodeId: string; varKey: string; images: Array<{ url: string; name: string }> }> = []
+
+  for (const node of props.task.appSnapshot.graph.nodes) {
+    if (node.type !== 'output_image' || !node.data.varKey) continue
+    addImageGroup(groups, displayedVarKeys, node.id, node.data.varKey)
+  }
+
+  for (const node of props.task.appSnapshot.graph.nodes) {
+    if (node.type !== 'manual_gate') continue
+    for (const varKey of node.data.displayVars) {
+      if (!imageVariableKeys.has(varKey)) continue
+      addImageGroup(groups, displayedVarKeys, node.id, varKey)
+    }
+  }
+
+  return groups
 })
+
+function addImageGroup(
+  groups: Array<{ nodeId: string; varKey: string; images: Array<{ url: string; name: string }> }>,
+  displayedVarKeys: Set<string>,
+  nodeId: string,
+  varKey: string,
+) {
+  if (displayedVarKeys.has(varKey)) return
+  const images = normalizeImages(props.task?.outputs[varKey] ?? props.task?.variables[varKey])
+  if (images.length === 0) return
+  groups.push({ nodeId, varKey, images })
+  displayedVarKeys.add(varKey)
+}
 
 function normalizeImages(value: unknown): Array<{ url: string; name: string }> {
   const items = Array.isArray(value) ? value : value ? [value] : []
