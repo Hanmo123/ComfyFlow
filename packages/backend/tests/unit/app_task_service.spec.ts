@@ -93,9 +93,72 @@ test.group('AppTaskService', () => {
     assert.equal(nodeStatus(task, 'final_output'), 'completed')
     assert.deepEqual(task.outputs, { selected_result: 'fallback value' })
   })
+
+  test('injects prompt placeholder from task variables without explicit binding', async ({ assert }) => {
+    const task = createWorkflowTask({ 提示词: '去除丝袜和内裤' })
+    const workflowRuns: unknown[] = []
+    const service = createService(task, workflowRuns, {
+      rawJson: {
+        1: {
+          class_type: 'CLIPTextEncode',
+          inputs: { text: '__PROMPT__' },
+        },
+      },
+      parameters: [],
+    })
+
+    await executeTask(service, task.id)
+
+    assert.equal((workflowRuns[0] as Record<string, any>)['1'].inputs.text, '去除丝袜和内裤')
+  })
+
+  test('normalizes and expands chained lora nodes before running workflow', async ({ assert }) => {
+    const task = createWorkflowTask({
+      loras: [
+        { name: 'dynamic1.safetensors', strength_model: 1 },
+        { name: 'dynamic2.safetensors', strength_model: 0.3 },
+      ],
+    })
+    const workflowRuns: unknown[] = []
+    const service = createService(task, workflowRuns, {
+      rawJson: {
+        1: {
+          class_type: 'UNETLoader',
+          inputs: { unet_name: 'model.safetensors' },
+        },
+        2: {
+          class_type: 'LoraLoaderModelOnly',
+          inputs: { model: ['1', 0], lora_name: 'old1.safetensors', strength_model: 0.9 },
+        },
+        3: {
+          class_type: 'LoraLoaderModelOnly',
+          inputs: { model: ['2', 0], lora_name: 'old2.safetensors', strength_model: 0.4 },
+        },
+        4: {
+          class_type: 'KSampler',
+          inputs: { model: ['3', 0] },
+        },
+      },
+      parameters: [
+        { key: 'input:2:lora_list', nodeId: '2', field: 'lora_list', name: 'loras', type: 'LORA_LIST' },
+      ],
+    })
+
+    await executeTask(service, task.id)
+
+    const prompt = workflowRuns[0] as Record<string, any>
+    assert.isUndefined(prompt['3'])
+    assert.equal(prompt['2'].inputs.lora_name, 'dynamic1.safetensors')
+    assert.equal(prompt['2_lora_1'].inputs.lora_name, 'dynamic2.safetensors')
+    assert.deepEqual(prompt['4'].inputs.model, ['2_lora_1', 0])
+  })
 })
 
-function createService(task: AppTask, workflowRuns: unknown[]) {
+function createService(
+  task: AppTask,
+  workflowRuns: unknown[],
+  workflowPatch: Partial<Workflow> = {}
+) {
   type AppTaskServiceArgs = ConstructorParameters<typeof AppTaskService>
   const taskRepository = {
     async findOrFail(id: number) {
@@ -116,6 +179,7 @@ function createService(task: AppTask, workflowRuns: unknown[]) {
         rawJson: {},
         parameters: [],
         results: [{ key: 'result', nodeId: '1', slotIndex: 0, name: 'Result', type: 'STRING' }],
+        ...workflowPatch,
       } as unknown as Workflow
     },
   }
@@ -134,6 +198,55 @@ function createService(task: AppTask, workflowRuns: unknown[]) {
     comfyService as unknown as AppTaskServiceArgs[4],
     {} as AppTaskServiceArgs[5]
   )
+}
+
+function createWorkflowTask(variables: Record<string, unknown>) {
+  const inputBindings = Object.fromEntries(
+    Object.keys(variables).map((key) => [
+      key === 'loras' ? 'input:2:lora_list' : `input:${key}`,
+      { kind: 'variable', varKey: key },
+    ])
+  )
+
+  return {
+    id: 5,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: variables,
+    variables,
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'workflow task',
+      variables: Object.keys(variables).map((key) => ({
+        key,
+        name: key,
+        type: key === 'loras' ? 'LORA_LIST' : 'STRING',
+        source: 'user_input',
+        required: true,
+      })),
+      graph: {
+        nodes: [
+          { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+          {
+            id: 'workflow',
+            type: 'workflow_run',
+            position: { x: 200, y: 0 },
+            data: { workflowId: 1, inputBindings, outputAssignments: {} },
+          },
+        ],
+        edges: [{ id: 'input-workflow', source: 'input', target: 'workflow' }],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
 }
 
 async function executeTask(service: AppTaskService, taskId: number) {

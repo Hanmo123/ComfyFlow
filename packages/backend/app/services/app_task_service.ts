@@ -10,6 +10,7 @@ import TaskGroupService from '#services/task_group_service'
 import { Exception } from '@adonisjs/core/exceptions'
 import { DateTime } from 'luxon'
 import ComfyService from './comfy_service.js'
+import { normalizeComfyApiJson } from './comfy_parser.js'
 import MediaAssetService from './media_asset_service.js'
 
 export default class AppTaskService {
@@ -359,7 +360,7 @@ export default class AppTaskService {
     markNodeRun(task, node.id, 'running', { inputs })
     await this.persistProgress(task)
 
-    const prompt = await buildWorkflowPrompt(workflow, inputs, this.mediaAssetService)
+    const prompt = await buildWorkflowPrompt(workflow, inputs, task.variables, this.mediaAssetService)
     const workflowOutputs = await this.localizeWorkflowOutputs(
       await this.comfyService.runWorkflow(prompt, workflow.results)
     )
@@ -521,9 +522,10 @@ function resolveBinding(
 async function buildWorkflowPrompt(
   workflow: Workflow,
   inputs: Record<string, unknown>,
+  variables: Record<string, unknown>,
   mediaAssetService: MediaAssetService
 ) {
-  const prompt = structuredClone(workflow.rawJson)
+  const prompt = normalizeComfyApiJson(workflow.rawJson)
   
   // 收集需要扩展的 LORA_LIST 节点
   const loraExpansions: Array<{
@@ -548,9 +550,7 @@ async function buildWorkflowPrompt(
           hasClip: rawNode.class_type === 'LoraLoader',
         })
       } else if (Array.isArray(loraList) && loraList.length === 0) {
-        // 空列表：跳过该节点，直接连接上下游
-        // 将上游的 MODEL 和 CLIP 输出直接透传
-        // 这需要在后续处理连接关系
+        bypassLoraNode(prompt, parameter.nodeId, rawNode.class_type === 'LoraLoader')
       }
       continue
     }
@@ -562,6 +562,7 @@ async function buildWorkflowPrompt(
       mediaAssetService
     )
   }
+  injectPromptPlaceholders(prompt, workflow, inputs, variables)
   
   // 执行 Lora 节点扩展
   for (const expansion of loraExpansions) {
@@ -569,6 +570,103 @@ async function buildWorkflowPrompt(
   }
   
   return prompt
+}
+
+function bypassLoraNode(prompt: Record<string, any>, nodeId: string, hasClip: boolean) {
+  const originalNode = prompt[nodeId]
+  if (!isPromptNode(originalNode)) return
+
+  const replacements = new Map<number, unknown>([[0, originalNode.inputs.model]])
+  if (hasClip) replacements.set(1, originalNode.inputs.clip)
+
+  for (const [otherNodeId, otherNode] of Object.entries(prompt)) {
+    if (otherNodeId === nodeId || !isPromptNode(otherNode)) continue
+    for (const [inputKey, inputValue] of Object.entries(otherNode.inputs)) {
+      if (!Array.isArray(inputValue) || inputValue[0] !== nodeId) continue
+      const replacement = replacements.get(Number(inputValue[1]))
+      if (replacement !== undefined) otherNode.inputs[inputKey] = replacement
+    }
+  }
+
+  delete prompt[nodeId]
+}
+
+function injectPromptPlaceholders(
+  prompt: Record<string, any>,
+  workflow: Workflow,
+  inputs: Record<string, unknown>,
+  variables: Record<string, unknown>
+) {
+  for (const node of Object.values(prompt)) {
+    if (!isPromptNode(node)) continue
+    for (const [field, value] of Object.entries(node.inputs)) {
+      if (typeof value !== 'string') continue
+      node.inputs[field] = replacePromptPlaceholders(value, workflow, inputs, variables)
+    }
+  }
+}
+
+function replacePromptPlaceholders(
+  value: string,
+  workflow: Workflow,
+  inputs: Record<string, unknown>,
+  variables: Record<string, unknown>
+) {
+  const exactMatch = value.match(/^__([^_][\p{L}\p{N}_ -]*?)__$/u)
+  if (exactMatch) {
+    const replacement = resolvePlaceholderValue(exactMatch[1], workflow, inputs, variables)
+    return replacement === undefined ? value : replacement
+  }
+
+  return value.replace(/__([^_][\p{L}\p{N}_ -]*?)__/gu, (placeholder, token) => {
+    const replacement = resolvePlaceholderValue(token, workflow, inputs, variables)
+    return replacement === undefined ? placeholder : String(replacement)
+  })
+}
+
+function resolvePlaceholderValue(
+  token: string,
+  workflow: Workflow,
+  inputs: Record<string, unknown>,
+  variables: Record<string, unknown>
+) {
+  const names = placeholderAliases(token)
+  const parameterByKey = new Map(workflow.parameters.map((parameter) => [parameter.key, parameter]))
+
+  for (const [key, value] of Object.entries(inputs)) {
+    const parameter = parameterByKey.get(key)
+    if (
+      !isUnresolvedPlaceholderValue(value) &&
+      (names.has(normalizePlaceholderName(key)) ||
+        (parameter &&
+          (names.has(normalizePlaceholderName(parameter.name)) ||
+            names.has(normalizePlaceholderName(parameter.field)))))
+    ) {
+      return value
+    }
+  }
+
+  for (const [key, value] of Object.entries(variables)) {
+    if (names.has(normalizePlaceholderName(key))) return value
+  }
+}
+
+function isUnresolvedPlaceholderValue(value: unknown) {
+  return typeof value === 'string' && /^__([^_][\p{L}\p{N}_ -]*?)__$/u.test(value)
+}
+
+function placeholderAliases(token: string) {
+  const normalized = normalizePlaceholderName(token)
+  const aliases = new Set([normalized])
+  if (normalized === 'prompt') {
+    aliases.add(normalizePlaceholderName('提示词'))
+    aliases.add(normalizePlaceholderName('正向提示词'))
+  }
+  return aliases
+}
+
+function normalizePlaceholderName(value: string) {
+  return value.trim().toLowerCase().replace(/[\s_-]+/g, '')
 }
 
 function expandLoraNode(

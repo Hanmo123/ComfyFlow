@@ -1,4 +1,4 @@
-import { parseComfyApiJson } from '#services/comfy_parser'
+import { normalizeComfyApiJson, parseComfyApiJson } from '#services/comfy_parser'
 import { test } from '@japa/runner'
 
 test.group('parseComfyApiJson', () => {
@@ -108,6 +108,45 @@ test.group('parseComfyApiJson', () => {
     const samplerEdge = parsed.graph.edges.find(e => e.to === '5' && e.toField === 'model')
     assert.equal(samplerEdge?.from, '2')
     assert.equal(samplerEdge?.fromSlot, 0)
+  })
+
+  test('normalizes chained LoraLoader nodes for execution', ({ assert }) => {
+    const normalized = normalizeComfyApiJson({
+      1: {
+        class_type: 'CheckpointLoaderSimple',
+        inputs: { ckpt_name: 'model.safetensors' },
+      },
+      2: {
+        class_type: 'LoraLoaderModelOnly',
+        inputs: {
+          model: ['1', 0],
+          lora_name: 'lora1.safetensors',
+          strength_model: 0.8,
+        },
+      },
+      3: {
+        class_type: 'LoraLoaderModelOnly',
+        inputs: {
+          model: ['2', 0],
+          lora_name: 'lora2.safetensors',
+          strength_model: 1.0,
+        },
+      },
+      4: {
+        class_type: 'KSampler',
+        inputs: {
+          model: ['3', 0],
+          seed: 42,
+        },
+      },
+    }) as Record<string, any>
+
+    assert.isUndefined(normalized['3'])
+    assert.deepEqual(normalized['2'].inputs.lora_list, [
+      { name: 'lora1.safetensors', strength_model: 0.8, strength_clip: 1 },
+      { name: 'lora2.safetensors', strength_model: 1, strength_clip: 1 },
+    ])
+    assert.deepEqual(normalized['4'].inputs.model, ['2', 0])
   })
 
   test('does not merge non-chained LoraLoader nodes', ({ assert }) => {

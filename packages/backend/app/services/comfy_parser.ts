@@ -36,29 +36,20 @@ export interface ParsedComfyWorkflow {
 }
 
 export function parseComfyApiJson(rawJson: Record<string, unknown>): ParsedComfyWorkflow {
-  const entries = Object.entries(rawJson).filter(([, value]) => isRawComfyNode(value)) as [
+  const normalizedRawJson = normalizeComfyApiJson(rawJson)
+  const entries = Object.entries(normalizedRawJson).filter(([, value]) => isRawComfyNode(value)) as [
     string,
     RawComfyNode,
   ][]
 
-  // 检测并合并串联的 LoraLoader 节点
-  const { mergedEntries, nodesToRemove, nodeRedirects } = mergeChainedLoraLoaders(entries)
-
   const edges: ParsedWorkflowEdge[] = []
-  const nodes = mergedEntries.map(([id, rawNode]) => {
+  const nodes = entries.map(([id, rawNode]) => {
     const inputs = rawNode.inputs ?? {}
 
     for (const [field, value] of Object.entries(inputs)) {
       if (isConnectionValue(value)) {
-        let fromId = String(value[0])
-        
-        // 如果连接到被删除的节点，重定向到替代节点
-        if (nodesToRemove.has(fromId)) {
-          const redirectTo = nodeRedirects.get(fromId)
-          if (!redirectTo) continue // 没有重定向目标，跳过
-          fromId = redirectTo
-        }
-        
+        const fromId = String(value[0])
+
         edges.push({
           id: `${fromId}:${value[1]}->${id}:${field}`,
           from: fromId,
@@ -78,7 +69,7 @@ export function parseComfyApiJson(rawJson: Record<string, unknown>): ParsedComfy
   })
 
   const positionedNodes = applyLayeredLayout(nodes, edges)
-  const nodeDefinitions = mergedEntries.reduce<Record<string, NodeDefinition>>((result, [, rawNode]) => {
+  const nodeDefinitions = entries.reduce<Record<string, NodeDefinition>>((result, [, rawNode]) => {
     const classType = rawNode.class_type!
     result[classType] = getNodeDefinition(classType) ?? createFallbackDefinition(classType, rawNode.inputs)
     return result
@@ -88,6 +79,30 @@ export function parseComfyApiJson(rawJson: Record<string, unknown>): ParsedComfy
     graph: { nodes: positionedNodes, edges },
     nodeDefinitions,
   }
+}
+
+export function normalizeComfyApiJson(rawJson: Record<string, unknown>): Record<string, unknown> {
+  const entries = Object.entries(rawJson).filter(([, value]) => isRawComfyNode(value)) as [
+    string,
+    RawComfyNode,
+  ][]
+  const { mergedEntries, nodesToRemove, nodeRedirects } = mergeChainedLoraLoaders(entries)
+  if (nodesToRemove.size === 0) return structuredClone(rawJson)
+
+  const normalized = structuredClone(rawJson)
+  for (const nodeId of nodesToRemove) delete normalized[nodeId]
+  for (const [nodeId, node] of mergedEntries) normalized[nodeId] = structuredClone(node)
+
+  for (const value of Object.values(normalized)) {
+    if (!isRawComfyNode(value) || !value.inputs) continue
+    for (const [field, input] of Object.entries(value.inputs)) {
+      if (!isConnectionValue(input)) continue
+      const redirectTo = nodeRedirects.get(String(input[0]))
+      if (redirectTo) value.inputs[field] = [redirectTo, input[1]]
+    }
+  }
+
+  return normalized
 }
 
 function isRawComfyNode(value: unknown): value is RawComfyNode {

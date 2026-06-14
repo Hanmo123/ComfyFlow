@@ -1,7 +1,7 @@
 import WorkflowRepository from '#repositories/workflow_repository'
 import type { WorkflowParameter, WorkflowResult, WorkflowStatus } from '#models/workflow'
 import { Exception } from '@adonisjs/core/exceptions'
-import { parseComfyApiJson } from './comfy_parser.js'
+import { normalizeComfyApiJson, parseComfyApiJson } from './comfy_parser.js'
 
 export interface UpdateWorkflowPayload {
   name?: string | null
@@ -18,11 +18,12 @@ export default class WorkflowService {
   }
 
   async upload(rawJson: Record<string, unknown>) {
-    const parsed = parseComfyApiJson(rawJson)
+    const normalizedRawJson = normalizeComfyApiJson(rawJson)
+    const parsed = parseComfyApiJson(normalizedRawJson)
     const workflow = await this.repository.create({
       name: null,
       status: 'draft',
-      rawJson,
+      rawJson: normalizedRawJson,
       parameters: [],
       results: [],
     })
