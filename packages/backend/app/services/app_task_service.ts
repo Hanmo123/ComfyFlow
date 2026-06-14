@@ -264,7 +264,7 @@ export default class AppTaskService {
         const conditionValue = node.data.conditionVarKey
           ? task.variables[node.data.conditionVarKey]
           : false
-        const conditionMet = Boolean(conditionValue)
+        const conditionMet = resolveConditionValue(conditionValue)
 
         markNodeRun(task, node.id, 'completed', {
           inputs: { condition: conditionValue },
@@ -707,6 +707,17 @@ function markNodeRun(
 
 function nodeRunStatus(task: AppTask, nodeId: string) {
   return task.nodeRuns.find((item) => item.nodeId === nodeId)?.status
+}
+
+function resolveConditionValue(value: unknown) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (['', 'false', '0', 'no', 'off'].includes(normalized)) return false
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true
+  }
+  return Boolean(value)
 }
 
 function isPromptNode(value: unknown): value is { class_type: string; inputs: Record<string, unknown> } {

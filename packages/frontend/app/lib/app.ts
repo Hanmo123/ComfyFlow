@@ -323,10 +323,16 @@ export function normalizeAppGraph(
       for (const target of targetIds) {
         if (!nodeIds.has(source) || !nodeIds.has(target) || source === target)
           continue;
-        const id = `${source}-${target}`;
+        const id = buildEdgeId(source, target, edge.sourceHandle, edge.targetHandle);
         if (edgeIds.has(id)) continue;
         edgeIds.add(id);
-        edges.push({ id, source, target });
+        edges.push({
+          id,
+          source,
+          target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle,
+        });
       }
     }
   }
@@ -346,4 +352,16 @@ export function nodeTypeLabel(type: AppNodeType) {
     image_compress: "图片压缩",
   };
   return labels[type];
+}
+
+function buildEdgeId(
+  source: string,
+  target: string,
+  sourceHandle?: string,
+  targetHandle?: string,
+) {
+  if (sourceHandle || targetHandle) {
+    return `${source}-${sourceHandle || "default"}-${target}-${targetHandle || "default"}`;
+  }
+  return `${source}-${target}`;
 }

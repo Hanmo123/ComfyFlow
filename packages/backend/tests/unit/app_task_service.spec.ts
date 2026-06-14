@@ -68,6 +68,18 @@ test.group('AppTaskService', () => {
     assert.equal(task.startedAt, null)
     assert.equal(task.completedAt, null)
   })
+
+  test('runs the false branch when conditional input is false string', async ({ assert }) => {
+    const task = createConditionalTask('false')
+    const service = createService(task, [])
+
+    await executeTask(service, task.id)
+
+    assert.equal(task.status, 'completed')
+    assert.equal(nodeStatus(task, 'true_output'), 'skipped')
+    assert.equal(nodeStatus(task, 'false_output'), 'completed')
+    assert.deepEqual(task.outputs, { false_result: 'false branch' })
+  })
 })
 
 function createService(task: AppTask, workflowRuns: unknown[]) {
@@ -209,6 +221,78 @@ function createRetryableTask() {
     error: 'old error',
     startedAt: 'old started at',
     completedAt: 'old completed at',
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
+}
+
+function createConditionalTask(conditionValue: unknown) {
+  const nodes: AppGraphNode[] = [
+    { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+    {
+      id: 'condition',
+      type: 'conditional',
+      position: { x: 200, y: 0 },
+      data: { conditionVarKey: 'flag' },
+    },
+    {
+      id: 'true_output',
+      type: 'output_text',
+      position: { x: 420, y: -80 },
+      data: { varKey: 'true_result' },
+    },
+    {
+      id: 'false_output',
+      type: 'output_text',
+      position: { x: 420, y: 80 },
+      data: { varKey: 'false_result' },
+    },
+  ]
+
+  return {
+    id: 3,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: { flag: conditionValue },
+    variables: {
+      flag: conditionValue,
+      true_result: 'true branch',
+      false_result: 'false branch',
+    },
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'conditional app',
+      variables: [
+        { key: 'flag', name: 'flag', type: 'BOOL', source: 'user_input', required: true },
+        { key: 'true_result', name: 'true_result', type: 'STRING', source: 'computed' },
+        { key: 'false_result', name: 'false_result', type: 'STRING', source: 'computed' },
+      ],
+      graph: {
+        nodes,
+        edges: [
+          { id: 'input-condition', source: 'input', target: 'condition' },
+          {
+            id: 'condition-true-true_output-default',
+            source: 'condition',
+            target: 'true_output',
+            sourceHandle: 'true',
+          },
+          {
+            id: 'condition-false-false_output-default',
+            source: 'condition',
+            target: 'false_output',
+            sourceHandle: 'false',
+          },
+        ],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
     createdAt: null,
     updatedAt: null,
   } as unknown as AppTask
