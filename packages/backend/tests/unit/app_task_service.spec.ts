@@ -80,6 +80,19 @@ test.group('AppTaskService', () => {
     assert.equal(nodeStatus(task, 'false_output'), 'completed')
     assert.deepEqual(task.outputs, { false_result: 'false branch' })
   })
+
+  test('keeps merge nodes reachable from the active conditional branch', async ({ assert }) => {
+    const task = createConditionalMergeTask(false)
+    const service = createService(task, [])
+
+    await executeTask(service, task.id)
+
+    assert.equal(task.status, 'completed')
+    assert.equal(nodeStatus(task, 'true_workflow'), 'skipped')
+    assert.equal(nodeStatus(task, 'merge'), 'completed')
+    assert.equal(nodeStatus(task, 'final_output'), 'completed')
+    assert.deepEqual(task.outputs, { selected_result: 'fallback value' })
+  })
 })
 
 function createService(task: AppTask, workflowRuns: unknown[]) {
@@ -285,6 +298,98 @@ function createConditionalTask(conditionValue: unknown) {
             target: 'false_output',
             sourceHandle: 'false',
           },
+        ],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
+}
+
+function createConditionalMergeTask(conditionValue: unknown) {
+  const nodes: AppGraphNode[] = [
+    { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+    {
+      id: 'condition',
+      type: 'conditional',
+      position: { x: 200, y: 0 },
+      data: { conditionVarKey: 'flag' },
+    },
+    {
+      id: 'true_workflow',
+      type: 'workflow_run',
+      position: { x: 420, y: -80 },
+      data: {
+        workflowId: 1,
+        inputBindings: {},
+        outputAssignments: { result: 'generated_result' },
+      },
+    },
+    {
+      id: 'merge',
+      type: 'coalesce',
+      position: { x: 640, y: 0 },
+      data: {
+        inputs: [{ varKey: 'generated_result' }, { varKey: 'fallback_result' }],
+        outputValue: 'selected_result',
+        outputSourceIndex: null,
+      },
+    },
+    {
+      id: 'final_output',
+      type: 'output_text',
+      position: { x: 860, y: 0 },
+      data: { varKey: 'selected_result' },
+    },
+  ]
+
+  return {
+    id: 4,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: { flag: conditionValue },
+    variables: {
+      flag: conditionValue,
+      fallback_result: 'fallback value',
+    },
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'conditional merge app',
+      variables: [
+        { key: 'flag', name: 'flag', type: 'BOOL', source: 'user_input', required: true },
+        { key: 'generated_result', name: 'generated_result', type: 'STRING', source: 'computed' },
+        { key: 'fallback_result', name: 'fallback_result', type: 'STRING', source: 'computed' },
+        { key: 'selected_result', name: 'selected_result', type: 'STRING', source: 'computed' },
+      ],
+      graph: {
+        nodes,
+        edges: [
+          { id: 'input-condition', source: 'input', target: 'condition' },
+          {
+            id: 'condition-true-true_workflow-default',
+            source: 'condition',
+            target: 'true_workflow',
+            sourceHandle: 'true',
+          },
+          {
+            id: 'true_workflow-merge',
+            source: 'true_workflow',
+            target: 'merge',
+          },
+          {
+            id: 'condition-false-merge-default',
+            source: 'condition',
+            target: 'merge',
+            sourceHandle: 'false',
+          },
+          { id: 'merge-final_output', source: 'merge', target: 'final_output' },
         ],
       },
     },

@@ -271,22 +271,27 @@ export default class AppTaskService {
           outputs: { conditionMet },
         })
 
-        // 根据条件结果跳过对应分支的下游节点
         const branchToSkip = conditionMet ? 'false' : 'true'
+        const branchToRun = conditionMet ? 'true' : 'false'
+        const activeBranchNodeIds = collectBranchNodeIds(
+          task.appSnapshot.graph.nodes,
+          task.appSnapshot.graph.edges,
+          node.id,
+          branchToRun
+        )
         const edgesToSkip = task.appSnapshot.graph.edges.filter(
           (edge) => edge.source === node.id && edge.sourceHandle === branchToSkip
         )
-        
+
         for (const edge of edgesToSkip) {
           const downstreamNodeIds = collectDownstreamNodeIds(
             task.appSnapshot.graph.nodes,
             task.appSnapshot.graph.edges,
             edge.target
           )
-          // 将起始节点也加入跳过列表
-          downstreamNodeIds.add(edge.target)
-          
+
           for (const downstreamId of downstreamNodeIds) {
+            if (activeBranchNodeIds.has(downstreamId)) continue
             const existingRun = task.nodeRuns.find((run) => run.nodeId === downstreamId)
             if (!existingRun) {
               const downstreamNode = task.appSnapshot.graph.nodes.find((n) => n.id === downstreamId)
@@ -669,6 +674,24 @@ function collectDownstreamNodeIds(
     if (!nodeIds.has(current) || result.has(current)) continue
     result.add(current)
     queue.push(...(outgoing.get(current) ?? []))
+  }
+  return result
+}
+
+function collectBranchNodeIds(
+  nodes: AppGraphNode[],
+  edges: { source: string; target: string; sourceHandle?: string }[],
+  nodeId: string,
+  sourceHandle: string
+) {
+  const result = new Set<string>()
+  const branchEdges = edges.filter(
+    (edge) => edge.source === nodeId && edge.sourceHandle === sourceHandle
+  )
+  for (const edge of branchEdges) {
+    for (const downstreamId of collectDownstreamNodeIds(nodes, edges, edge.target)) {
+      result.add(downstreamId)
+    }
   }
   return result
 }
