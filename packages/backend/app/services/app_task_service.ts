@@ -133,15 +133,15 @@ export default class AppTaskService {
     return task
   }
 
-  async deleteTask(taskId: number) {
+  async deleteTask(taskId: number, options: { force?: boolean } = {}) {
     const task = await this.taskRepository.findOrFail(taskId)
-    if (task.status === 'queued' || task.status === 'running') {
+    if (!options.force && (task.status === 'queued' || task.status === 'running')) {
       throw new Exception('任务正在执行，不能删除', { status: 422, code: 'E_TASK_BUSY' })
     }
 
     const mediaHashes = collectMediaHashes([task.inputs, task.variables, task.outputs, task.nodeRuns])
     await this.taskRepository.delete(task)
-    await this.mediaAssetService.deleteOrphanedByHashes(mediaHashes)
+    await this.mediaAssetService.deleteOrphanedByHashes(mediaHashes, { force: options.force ?? false })
   }
 
   private enqueue(taskId: number) {
@@ -359,7 +359,7 @@ export default class AppTaskService {
     markNodeRun(task, node.id, 'running', { inputs })
     await this.persistProgress(task)
 
-    const prompt = buildWorkflowPrompt(workflow, inputs)
+    const prompt = await buildWorkflowPrompt(workflow, inputs, this.mediaAssetService)
     const workflowOutputs = await this.localizeWorkflowOutputs(
       await this.comfyService.runWorkflow(prompt, workflow.results)
     )
@@ -518,7 +518,11 @@ function resolveBinding(
   return binding.varKey ? variables[binding.varKey] : fallback
 }
 
-function buildWorkflowPrompt(workflow: Workflow, inputs: Record<string, unknown>) {
+async function buildWorkflowPrompt(
+  workflow: Workflow,
+  inputs: Record<string, unknown>,
+  mediaAssetService: MediaAssetService
+) {
   const prompt = structuredClone(workflow.rawJson)
   
   // 收集需要扩展的 LORA_LIST 节点
@@ -552,7 +556,11 @@ function buildWorkflowPrompt(workflow: Workflow, inputs: Record<string, unknown>
     }
     
     // 普通参数处理
-    rawNode.inputs[parameter.field] = normalizePromptInput(parameter.type, inputs[parameter.key])
+    rawNode.inputs[parameter.field] = await normalizePromptInput(
+      parameter.type,
+      inputs[parameter.key],
+      mediaAssetService
+    )
   }
   
   // 执行 Lora 节点扩展
@@ -632,18 +640,37 @@ function expandLoraNode(
   }
 }
 
-function normalizePromptInput(type: string, value: unknown) {
+async function normalizePromptInput(
+  type: string,
+  value: unknown,
+  mediaAssetService: MediaAssetService
+): Promise<unknown> {
   if (type !== 'IMAGE') return value
-  if (Array.isArray(value)) return normalizePromptInput(type, value[0])
+  if (Array.isArray(value)) return normalizePromptInput(type, value[0], mediaAssetService)
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value
   const image = value as Record<string, unknown>
-  if (typeof image.filename !== 'string') return typeof image.name === 'string' ? image.name : value
+  const promptImage = await resolvePromptImage(image, mediaAssetService)
+  if (typeof promptImage.filename !== 'string') {
+    return typeof promptImage.name === 'string' ? promptImage.name : value
+  }
 
   const subfolder =
-    typeof image.subfolder === 'string' ? image.subfolder.replace(/^\/+|\/+$/g, '') : ''
-  const filePath = subfolder ? `${subfolder}/${image.filename}` : image.filename
-  const imageType = typeof image.type === 'string' ? image.type : 'input'
+    typeof promptImage.subfolder === 'string' ? promptImage.subfolder.replace(/^\/+|\/+$/g, '') : ''
+  const filePath = subfolder ? `${subfolder}/${promptImage.filename}` : promptImage.filename
+  const imageType = typeof promptImage.type === 'string' ? promptImage.type : 'input'
   return imageType === 'input' ? filePath : `${filePath} [${imageType}]`
+}
+
+async function resolvePromptImage(
+  image: Record<string, unknown>,
+  mediaAssetService: MediaAssetService
+) {
+  const proxy = image.proxy
+  if (!proxy || typeof proxy !== 'object' || Array.isArray(proxy)) return image
+
+  const proxyImage = proxy as Record<string, unknown>
+  if (typeof proxyImage.hash !== 'string') return proxyImage
+  return mediaAssetService.ensureComfyUpload(proxyImage.hash)
 }
 
 function topologicalSort(nodes: AppGraphNode[], edges: { source: string; target: string }[]) {

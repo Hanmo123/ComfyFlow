@@ -110,6 +110,37 @@ export default class MediaAssetService {
     return asset.localPath
   }
 
+  async ensureComfyUpload(hash: string) {
+    const asset = await this.repository.findByHashOrFail(hash)
+    const fileExists = await checkFileExists(asset.localPath)
+    if (!fileExists) {
+      throw new Exception('媒体文件不存在，无法上传到 ComfyUI', {
+        status: 404,
+        code: 'E_MEDIA_FILE_NOT_FOUND',
+      })
+    }
+
+    const extension = asset.extension ?? normalizeExtension(undefined, asset.originalName)
+    const uploaded = await this.comfyService.uploadImage({
+      clientName: extension ? `${asset.hash}.${extension}` : asset.hash,
+      tmpPath: asset.localPath,
+      type: asset.mimeType?.split('/')[0],
+      subtype: asset.mimeType?.split('/')[1],
+      isValid: true,
+    })
+
+    asset.merge({
+      comfyName: uploaded.name,
+      comfyFilename: uploaded.filename,
+      comfySubfolder: uploaded.subfolder,
+      comfyType: uploaded.type,
+      comfyUrl: uploaded.url,
+    })
+    await asset.save()
+
+    return serializeMediaAsset(asset)
+  }
+
   async compressToAvif(options: {
     originalHash: string
     quality: number
@@ -179,11 +210,18 @@ export default class MediaAssetService {
     const compressedHash = hashBuffer(compressedBuffer)
     const existing = await this.repository.findByHash(compressedHash)
     if (existing && existing.proxyForId === originalAsset.id) {
-      return serializeMediaAsset(existing)
+      return this.ensureComfyUpload(existing.hash)
     }
 
     const extension = 'avif'
     const localPath = await persistImageBuffer(compressedBuffer, compressedHash, extension)
+    const uploaded = await this.comfyService.uploadImage({
+      clientName: `${compressedHash}.${extension}`,
+      tmpPath: localPath,
+      type: 'image',
+      subtype: extension,
+      isValid: true,
+    })
 
     const proxyAsset = await this.repository.create({
       hash: compressedHash,
@@ -192,11 +230,11 @@ export default class MediaAssetService {
       mimeType: 'image/avif',
       size: compressedBuffer.byteLength,
       localPath,
-      comfyName: originalAsset.comfyName,
-      comfyFilename: originalAsset.comfyFilename,
-      comfySubfolder: originalAsset.comfySubfolder,
-      comfyType: originalAsset.comfyType,
-      comfyUrl: originalAsset.comfyUrl,
+      comfyName: uploaded.name,
+      comfyFilename: uploaded.filename,
+      comfySubfolder: uploaded.subfolder,
+      comfyType: uploaded.type,
+      comfyUrl: uploaded.url,
       proxyForId: originalAsset.id,
     })
 
@@ -211,7 +249,7 @@ export default class MediaAssetService {
     return serializeMediaAsset(proxyAsset)
   }
 
-  async deleteOrphanedByHashes(hashes: string[]) {
+  async deleteOrphanedByHashes(hashes: string[], options: { force?: boolean } = {}) {
     const uniqueHashes = [...new Set(hashes.filter(Boolean))]
     if (uniqueHashes.length === 0) return
 
@@ -227,7 +265,7 @@ export default class MediaAssetService {
     })
 
     for (const asset of assets) {
-      if (!(await this.canDeleteAsset(asset))) continue
+      if (!options.force && !(await this.canDeleteAsset(asset))) continue
       await asset.delete()
       await deleteLocalFile(asset.localPath)
     }

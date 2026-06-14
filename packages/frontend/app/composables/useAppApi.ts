@@ -65,9 +65,10 @@ export function useAppApi() {
 
   const getTask = (taskId: number) => $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}`)
 
-  const deleteTask = (taskId: number) =>
+  const deleteTask = (taskId: number, force = false) =>
     $fetch<void>(`${API_BASE}/tasks/${taskId}`, {
       method: 'DELETE',
+      query: force ? { force: true } : undefined,
     })
 
   const retryTask = (taskId: number, inputs?: Record<string, unknown>) =>

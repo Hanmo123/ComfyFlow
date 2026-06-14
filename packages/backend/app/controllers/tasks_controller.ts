@@ -23,10 +23,14 @@ export default class TasksController {
     return this.taskService.retryTask(Number(params.id), normalizeOptionalInputs(payload.inputs))
   }
 
-  async destroy({ params, response }: HttpContext) {
-    await this.taskService.deleteTask(Number(params.id))
+  async destroy({ params, request, response }: HttpContext) {
+    await this.taskService.deleteTask(Number(params.id), { force: isTruthy(request.input('force')) })
     return response.noContent()
   }
+}
+
+function isTruthy(value: unknown) {
+  return value === true || value === 'true' || value === '1' || value === 1
 }
 
 function normalizeOptionalInputs(inputs: unknown) {

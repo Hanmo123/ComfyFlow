@@ -18,6 +18,7 @@ const error = ref('')
 const retryingTask = ref(false)
 const deletingTask = ref(false)
 const editingInputs = ref(false)
+const shiftPressed = ref(false)
 const editTextValues = ref<Record<string, string>>({})
 const editFileValues = ref<Record<string, File | null>>({})
 const editPreviousImageValues = ref<Record<string, unknown | null>>({})
@@ -28,13 +29,20 @@ let pollTimer: ReturnType<typeof window.setTimeout> | null = null
 const selectedGroup = computed(() => taskGroups.value.find((group) => group.id === selectedGroupId.value) ?? null)
 const selectedTask = computed(() => tasks.value.find((task) => task.id === selectedTaskId.value) ?? null)
 const selectedTaskBusy = computed(() => Boolean(selectedTask.value && ['queued', 'running'].includes(selectedTask.value.status)))
+const deleteTaskDisabled = computed(() => deletingTask.value || (selectedTaskBusy.value && !shiftPressed.value))
 const userInputVariables = computed(() => selectedTask.value?.appSnapshot.variables.filter((variable) => variable.source === 'user_input') ?? [])
 
 onMounted(async () => {
+  window.addEventListener('keydown', updateShiftPressed)
+  window.addEventListener('keyup', updateShiftPressed)
+  window.addEventListener('blur', clearShiftPressed)
   await initializePage()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', updateShiftPressed)
+  window.removeEventListener('keyup', updateShiftPressed)
+  window.removeEventListener('blur', clearShiftPressed)
   stopPolling()
 })
 
@@ -202,23 +210,36 @@ async function submitEditedInputs() {
   }
 }
 
-async function deleteSelectedTask() {
-  if (!selectedTask.value || deletingTask.value || selectedTaskBusy.value) return
-  if (!window.confirm(`确定删除任务 #${selectedTask.value.id} 及其未被其他任务或素材库使用的文件吗？`)) return
+async function deleteSelectedTask(event?: MouseEvent) {
+  if (!selectedTask.value || deletingTask.value) return
+  const force = event?.shiftKey === true || shiftPressed.value
+  if (selectedTaskBusy.value && !force) return
+  const message = force
+    ? `确定强制删除任务 #${selectedTask.value.id} 及其关联文件吗？被其他任务或素材库引用的文件也会被删除。`
+    : `确定删除任务 #${selectedTask.value.id} 及其未被其他任务或素材库使用的文件吗？按住 Shift 点击删除可强制删除关联文件。`
+  if (!window.confirm(message)) return
 
   const taskId = selectedTask.value.id
   try {
     deletingTask.value = true
-    await appApi.deleteTask(taskId)
+    await appApi.deleteTask(taskId, force)
     tasks.value = tasks.value.filter((task) => task.id !== taskId)
     selectedTaskId.value = tasks.value[0]?.id ?? null
     await syncTaskRoute()
-    toast.success('任务已删除')
+    toast.success(force ? '任务已强制删除' : '任务已删除')
   } catch (deleteError) {
     toast.error(deleteError instanceof Error ? deleteError.message : '删除任务失败')
   } finally {
     deletingTask.value = false
   }
+}
+
+function updateShiftPressed(event: KeyboardEvent) {
+  shiftPressed.value = event.shiftKey
+}
+
+function clearShiftPressed() {
+  shiftPressed.value = false
 }
 
 async function resumeNode(nodeId: string) {
@@ -438,7 +459,7 @@ function statusLabel(status: AppTaskRecord['status']) {
             type="button"
             variant="outline"
             class="text-red-600 hover:text-red-700"
-            :disabled="deletingTask || selectedTaskBusy"
+            :disabled="deleteTaskDisabled"
             @click="deleteSelectedTask"
           >
             <Trash2 class="size-4" />
