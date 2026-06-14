@@ -14,7 +14,7 @@
 
 - 工作流 `workflow`：ComfyUI 的 API JSON 流。用户上传后，从节点输入中选择可暴露参数，从节点输出中选择可暴露结果。
 - 应用 `app`：用户编排出来的多工作流流程，包含应用变量和图结构。
-- 节点 `node`：应用编排中的逻辑节点，目前包括 `input_collect`、`workflow_run`、`manual_gate`、`output_text`、`output_image`。节点概念主要存在于编排画布，不作为一级侧边栏入口。
+- 节点 `node`：应用编排中的逻辑节点，目前包括 `input_collect`、`workflow_run`、`manual_gate`、`output_text`、`output_image`、`coalesce`、`conditional`、`image_compress`。节点概念主要存在于编排画布，不作为一级侧边栏入口。
 - 任务 `task`：应用每运行一次生成一个任务。任务保存 `appSnapshot`，执行时基于快照推进，避免后续编辑影响已创建任务。
 - 变量 `variable`：应用输入、工作流输出和节点间传递值的统一抽象，类型定义需要同时关注前端 `app/lib/app.ts` 和后端 `app/models/app.ts`。
 
@@ -87,3 +87,14 @@
 - 不要提交真实本地数据、临时文件、上传图片或构建产物。
 - 遇到用户已有改动时不要回滚；只在与当前任务直接冲突时询问。
 - 注释只写必要的业务或复杂流程说明，避免解释显而易见的赋值和调用。
+
+## 图片代理机制
+
+- **代理定义**：图片压缩后生成的 AVIF 格式图片作为原图的"代理"，优化存储和展示性能。
+- **数据库关系**：`media_assets.proxy_for_id` 字段指向原图的 `id`，形成一对多关系（一张原图可有多个不同参数的代理）。
+- **节点类型**：`image_compress` 节点用于配置和执行图片压缩，支持调整质量、裁切模式（长边/短边/不裁切）、尺寸限制和是否删除原图本地文件。
+- **处理方式**：压缩节点原地更新 IMAGE 变量，为图片对象添加 `proxy` 字段，原图信息保留在原对象中。
+- **展示规则**：前端展示时优先使用代理图片（`image.proxy.localUrl` > `image.proxy.url` > `image.localUrl` > `image.url`），降低带宽消耗。
+- **流转规则**：ComfyUI 工作流执行时优先使用原图（确保生成质量），压缩节点处理后的变量同时包含原图和代理信息。
+- **原图删除**：`image_compress` 节点可配置删除原图本地文件（`deleteOriginalFile: true`），仅保留数据库记录和代理文件，适用于输入图过大场景。删除后原图 `localPath` 指向的文件不存在，但数据库记录保留 `comfyUrl` 可作为回退。
+- **未来扩展**：系统设计支持"仅代理无原图"场景，此时 `proxy_for_id` 可为空，表示该资源本身就是最终态。

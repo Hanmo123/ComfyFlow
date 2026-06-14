@@ -11,6 +11,7 @@ export type AppNodeType =
   | 'workflow_run'
   | 'coalesce'
   | 'conditional'
+  | 'image_compress'
 
 export interface AppVariable {
   key: string
@@ -71,6 +72,16 @@ export type ConditionalNode = BaseAppNode<
     conditionVarKey: string | null
   }
 >
+export type ImageCompressNode = BaseAppNode<
+  'image_compress',
+  {
+    varKey: string | null
+    quality: number
+    resizeMode: 'longest' | 'shortest' | 'none'
+    maxSize: number | null
+    deleteOriginalFile: boolean
+  }
+>
 
 export type AppGraphNode =
   | InputCollectNode
@@ -80,6 +91,7 @@ export type AppGraphNode =
   | WorkflowRunNode
   | CoalesceNode
   | ConditionalNode
+  | ImageCompressNode
 
 export interface AppGraph {
   nodes: AppGraphNode[]

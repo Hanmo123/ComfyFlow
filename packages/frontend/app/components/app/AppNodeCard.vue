@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
-import { CirclePause, FileInput, GitMerge, GitBranch, Image, Trash2, Type, Workflow } from 'lucide-vue-next'
+import { CirclePause, FileInput, GitMerge, GitBranch, Image, Trash2, Type, Workflow, ImageDown } from 'lucide-vue-next'
 import { nodeTypeLabel, type AppGraphNode } from '@/lib/app'
 
 const props = defineProps<{
@@ -17,6 +17,7 @@ const nodeIcons = {
   workflow_run: Workflow,
   coalesce: GitMerge,
   conditional: GitBranch,
+  image_compress: ImageDown,
 } as const
 </script>
 
@@ -58,6 +59,7 @@ const nodeIcons = {
       <AppWorkflowRunNode v-else-if="props.node.type === 'workflow_run'" :node="props.node" />
       <AppCoalesceNode v-else-if="props.node.type === 'coalesce'" :node="props.node" />
       <AppConditionalNode v-else-if="props.node.type === 'conditional'" :node="props.node" />
+      <AppImageCompressNode v-else-if="props.node.type === 'image_compress'" :node="props.node" />
     </div>
 
     <template v-if="props.node.type === 'conditional'">

@@ -33,6 +33,15 @@ function imageUrl(value: unknown) {
   if (typeof value === 'string') return value
   if (!value || typeof value !== 'object') return ''
   const image = value as Record<string, unknown>
+  
+  // 优先使用代理图片
+  if (image.proxy && typeof image.proxy === 'object') {
+    const proxy = image.proxy as Record<string, unknown>
+    if (typeof proxy.localUrl === 'string') return proxy.localUrl
+    if (typeof proxy.url === 'string') return proxy.url
+  }
+  
+  // 降级到原图
   if (typeof image.localUrl === 'string') return image.localUrl
   return typeof image.url === 'string' ? image.url : ''
 }

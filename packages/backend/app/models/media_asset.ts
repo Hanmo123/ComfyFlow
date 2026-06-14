@@ -1,4 +1,5 @@
-import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { DateTime } from 'luxon'
 
 export default class MediaAsset extends BaseModel {
@@ -37,6 +38,19 @@ export default class MediaAsset extends BaseModel {
 
   @column()
   declare comfyUrl: string
+
+  @column()
+  declare proxyForId: number | null
+
+  @belongsTo(() => MediaAsset, {
+    foreignKey: 'proxyForId',
+  })
+  declare original: BelongsTo<typeof MediaAsset>
+
+  @hasMany(() => MediaAsset, {
+    foreignKey: 'proxyForId',
+  })
+  declare proxies: HasMany<typeof MediaAsset>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

@@ -4,8 +4,10 @@ import ComfyService from '#services/comfy_service'
 import { Exception } from '@adonisjs/core/exceptions'
 import app from '@adonisjs/core/services/app'
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, writeFile, unlink, access } from 'node:fs/promises'
+import { constants } from 'node:fs'
 import path from 'node:path'
+import sharp from 'sharp'
 
 interface UploadableImage {
   clientName: string
@@ -105,6 +107,107 @@ export default class MediaAssetService {
     const asset = await this.repository.findByHashOrFail(hash)
     return asset.localPath
   }
+
+  async compressToAvif(options: {
+    originalHash: string
+    quality: number
+    resizeMode: 'longest' | 'shortest' | 'none'
+    maxSize?: number
+    deleteOriginalFile: boolean
+  }) {
+    const originalAsset = await this.repository.findByHashOrFail(options.originalHash)
+
+    const fileExists = await checkFileExists(originalAsset.localPath)
+    if (!fileExists) {
+      throw new Exception('原图文件不存在', {
+        status: 404,
+        code: 'E_ORIGINAL_FILE_NOT_FOUND',
+      })
+    }
+
+    let sharpInstance = sharp(originalAsset.localPath)
+    let needsResize = false
+
+    if (options.resizeMode !== 'none' && options.maxSize && options.maxSize > 0) {
+      const metadata = await sharpInstance.metadata()
+      const { width = 0, height = 0 } = metadata
+
+      if (options.resizeMode === 'longest') {
+        const longest = Math.max(width, height)
+        if (longest > options.maxSize) {
+          needsResize = true
+          sharpInstance = sharpInstance.resize({
+            width: options.maxSize,
+            height: options.maxSize,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+        }
+      } else if (options.resizeMode === 'shortest') {
+        const shortest = Math.min(width, height)
+        if (shortest > options.maxSize) {
+          needsResize = true
+          sharpInstance = sharpInstance.resize({
+            width: options.maxSize,
+            height: options.maxSize,
+            fit: 'outside',
+            withoutEnlargement: true,
+          })
+        }
+      }
+    }
+
+    // 如果图片未超限制且裁切模式不是 'none'，或者裁切模式是 'none'，则不压缩，直接返回原图
+    if (!needsResize && options.resizeMode === 'none') {
+      return serializeMediaAsset(originalAsset)
+    }
+
+    // 如果图片未超限制但裁切模式不是 'none'，也不压缩
+    if (!needsResize) {
+      return serializeMediaAsset(originalAsset)
+    }
+
+    const compressedBuffer = await sharpInstance
+      .avif({
+        quality: Math.max(1, Math.min(100, options.quality)),
+        effort: 4,
+      })
+      .toBuffer()
+
+    const compressedHash = hashBuffer(compressedBuffer)
+    const existing = await this.repository.findByHash(compressedHash)
+    if (existing && existing.proxyForId === originalAsset.id) {
+      return serializeMediaAsset(existing)
+    }
+
+    const extension = 'avif'
+    const localPath = await persistImageBuffer(compressedBuffer, compressedHash, extension)
+
+    const proxyAsset = await this.repository.create({
+      hash: compressedHash,
+      originalName: originalAsset.originalName.replace(/\.[^.]+$/, '.avif'),
+      extension,
+      mimeType: 'image/avif',
+      size: compressedBuffer.byteLength,
+      localPath,
+      comfyName: originalAsset.comfyName,
+      comfyFilename: originalAsset.comfyFilename,
+      comfySubfolder: originalAsset.comfySubfolder,
+      comfyType: originalAsset.comfyType,
+      comfyUrl: originalAsset.comfyUrl,
+      proxyForId: originalAsset.id,
+    })
+
+    if (options.deleteOriginalFile) {
+      try {
+        await unlink(originalAsset.localPath)
+      } catch (error) {
+        console.warn(`无法删除原图文件: ${originalAsset.localPath}`, error)
+      }
+    }
+
+    return serializeMediaAsset(proxyAsset)
+  }
 }
 
 function serializeMediaAsset(asset: MediaAsset) {
@@ -120,6 +223,7 @@ function serializeMediaAsset(asset: MediaAsset) {
     localUrl: `${appUrl}/api/v1/media/${asset.hash}`,
     originalName: asset.originalName,
     size: asset.size,
+    proxyForId: asset.proxyForId,
   }
 }
 
@@ -166,4 +270,13 @@ function mergeComfyImageReference(image: ComfyImageReference, asset: ReturnType<
 function normalizeExtension(extname: string | undefined, clientName: string) {
   const value = extname || path.extname(clientName).replace(/^\./, '')
   return value ? value.toLowerCase() : null
+}
+
+async function checkFileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath, constants.F_OK)
+    return true
+  } catch {
+    return false
+  }
 }

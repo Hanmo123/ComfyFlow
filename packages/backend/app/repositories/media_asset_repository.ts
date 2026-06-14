@@ -12,6 +12,7 @@ export interface CreateMediaAssetPayload {
   comfySubfolder: string
   comfyType: string
   comfyUrl: string
+  proxyForId?: number | null
 }
 
 export default class MediaAssetRepository {

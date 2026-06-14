@@ -8,11 +8,11 @@ export const controllers = {
   AppInputPresets: () => import('#controllers/app_input_presets_controller'),
   Apps: () => import('#controllers/apps_controller'),
   Comfy: () => import('#controllers/comfy_controller'),
+  LibraryAssets: () => import('#controllers/library_assets_controller'),
   MediaAssets: () => import('#controllers/media_assets_controller'),
   NewAccount: () => import('#controllers/new_account_controller'),
   Profile: () => import('#controllers/profile_controller'),
   TaskGroups: () => import('#controllers/task_groups_controller'),
   Tasks: () => import('#controllers/tasks_controller'),
   Workflows: () => import('#controllers/workflows_controller'),
-  LibraryAssets: () => import('#controllers/library_assets_controller'),
 }

@@ -7,7 +7,8 @@ export type AppNodeType =
   | "manual_gate"
   | "workflow_run"
   | "coalesce"
-  | "conditional";
+  | "conditional"
+  | "image_compress";
 
 export interface LoraItem {
   name: string;
@@ -155,6 +156,16 @@ export type ConditionalNode = BaseAppNode<
     conditionVarKey: string | null;
   }
 >;
+export type ImageCompressNode = BaseAppNode<
+  "image_compress",
+  {
+    varKey: string | null;
+    quality: number;
+    resizeMode: "longest" | "shortest" | "none";
+    maxSize: number | null;
+    deleteOriginalFile: boolean;
+  }
+>;
 
 export type AppGraphNode =
   | InputCollectNode
@@ -163,7 +174,8 @@ export type AppGraphNode =
   | ManualGateNode
   | WorkflowRunNode
   | CoalesceNode
-  | ConditionalNode;
+  | ConditionalNode
+  | ImageCompressNode;
 
 export interface AppGraph {
   nodes: AppGraphNode[];
@@ -331,6 +343,7 @@ export function nodeTypeLabel(type: AppNodeType) {
     workflow_run: "工作流运行",
     coalesce: "取非空值",
     conditional: "条件执行",
+    image_compress: "图片压缩",
   };
   return labels[type];
 }

@@ -1,4 +1,4 @@
-import type { AppGraphNode, VariableBinding, WorkflowRunNode } from '#models/app'
+import type { AppGraphNode, VariableBinding, WorkflowRunNode, ImageCompressNode } from '#models/app'
 import type AppTask from '#models/app_task'
 import type { AppTaskNodeRun } from '#models/app_task'
 import type Workflow from '#models/workflow'
@@ -302,6 +302,11 @@ export default class AppTaskService {
         await this.persistProgress(task)
         continue
       }
+
+      if (node.type === 'image_compress') {
+        await this.runImageCompressNode(task, node)
+        continue
+      }
     }
 
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
@@ -343,6 +348,63 @@ export default class AppTaskService {
     }
 
     markNodeRun(task, node.id, 'completed', { outputs: workflowOutputs })
+    await this.persistProgress(task)
+  }
+
+  private async runImageCompressNode(task: AppTask, node: ImageCompressNode) {
+    const varKey = node.data.varKey
+    markNodeRun(task, node.id, 'running')
+    await this.persistProgress(task)
+
+    if (!varKey) {
+      markNodeRun(task, node.id, 'completed', { skipped: true, reason: '未选择变量' })
+      await this.persistProgress(task)
+      return
+    }
+
+    const value = task.variables[varKey]
+    if (!value) {
+      markNodeRun(task, node.id, 'completed', { skipped: true, reason: '变量值为空' })
+      await this.persistProgress(task)
+      return
+    }
+
+    const images = Array.isArray(value) ? value : [value]
+    const compressed = []
+    let compressedCount = 0
+
+    for (const image of images) {
+      if (!image || typeof image !== 'object') {
+        compressed.push(image)
+        continue
+      }
+
+      const imageObj = image as Record<string, unknown>
+      if (!imageObj.hash || typeof imageObj.hash !== 'string') {
+        compressed.push(image)
+        continue
+      }
+
+      try {
+        const proxy = await this.mediaAssetService.compressToAvif({
+          originalHash: imageObj.hash,
+          quality: node.data.quality ?? 80,
+          resizeMode: node.data.resizeMode ?? 'longest',
+          maxSize: node.data.maxSize ?? 2048,
+          deleteOriginalFile: node.data.deleteOriginalFile ?? false,
+        })
+
+        compressed.push({ ...imageObj, proxy })
+        compressedCount++
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '压缩失败'
+        console.warn(`图片压缩失败: ${imageObj.hash}`, message)
+        compressed.push(image)
+      }
+    }
+
+    task.variables[varKey] = Array.isArray(value) ? compressed : compressed[0]
+    markNodeRun(task, node.id, 'completed', { compressedCount })
     await this.persistProgress(task)
   }
 
@@ -622,7 +684,7 @@ function markNodeRun(
   task: AppTask,
   nodeId: string,
   status: AppTaskNodeRun['status'],
-  patch: Partial<AppTaskNodeRun> = {}
+  patch: Partial<AppTaskNodeRun> & Record<string, unknown> = {}
 ) {
   const node = task.appSnapshot.graph.nodes.find((item) => item.id === nodeId)
   if (!node) return
