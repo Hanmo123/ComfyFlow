@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { ArrowLeft, FolderOpen, Image, LayoutGrid, RotateCw } from 'lucide-vue-next'
+import { ArrowLeft, FolderOpen, Image, LayoutGrid, Pencil, RotateCw, Trash2 } from 'lucide-vue-next'
 import TaskFlowGraph from '@/components/task/TaskFlowGraph.vue'
 import TaskOutputImages from '@/components/task/TaskOutputImages.vue'
-import type { AppTaskRecord, TaskGroupRecord } from '@/lib/app'
+import { APP_VARIABLE_TYPE_LABELS, type AppTaskRecord, type AppVariable, type TaskGroupRecord } from '@/lib/app'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +16,11 @@ const selectedTaskId = ref<number | null>(null)
 const showingGroupPicker = ref(false)
 const error = ref('')
 const retryingTask = ref(false)
+const deletingTask = ref(false)
+const editingInputs = ref(false)
+const editTextValues = ref<Record<string, string>>({})
+const editFileValues = ref<Record<string, File | null>>({})
+const editPreviousImageValues = ref<Record<string, unknown | null>>({})
 const retryingNodeId = ref<string | null>(null)
 const resumingNodeId = ref<string | null>(null)
 let pollTimer: ReturnType<typeof window.setTimeout> | null = null
@@ -23,6 +28,7 @@ let pollTimer: ReturnType<typeof window.setTimeout> | null = null
 const selectedGroup = computed(() => taskGroups.value.find((group) => group.id === selectedGroupId.value) ?? null)
 const selectedTask = computed(() => tasks.value.find((task) => task.id === selectedTaskId.value) ?? null)
 const selectedTaskBusy = computed(() => Boolean(selectedTask.value && ['queued', 'running'].includes(selectedTask.value.status)))
+const userInputVariables = computed(() => selectedTask.value?.appSnapshot.variables.filter((variable) => variable.source === 'user_input') ?? [])
 
 onMounted(async () => {
   await initializePage()
@@ -148,6 +154,73 @@ async function retryTask() {
   }
 }
 
+function openInputEditor() {
+  if (!selectedTask.value) return
+  const nextTextValues: Record<string, string> = {}
+  const nextFileValues: Record<string, File | null> = {}
+  const nextPreviousImageValues: Record<string, unknown | null> = {}
+
+  for (const variable of userInputVariables.value) {
+    const value = selectedTask.value.inputs[variable.key] ?? variable.default
+    if (variable.type === 'IMAGE') {
+      nextFileValues[variable.key] = null
+      nextPreviousImageValues[variable.key] = value ?? null
+    } else if (variable.type === 'LORA_LIST') {
+      nextTextValues[variable.key] = stringifyInputValue(value, true)
+    } else {
+      nextTextValues[variable.key] = stringifyInputValue(value)
+    }
+  }
+
+  editTextValues.value = nextTextValues
+  editFileValues.value = nextFileValues
+  editPreviousImageValues.value = nextPreviousImageValues
+  editingInputs.value = true
+}
+
+async function submitEditedInputs() {
+  if (!selectedTask.value || retryingTask.value || selectedTaskBusy.value) return
+
+  const validationError = validateEditedInputs()
+  if (validationError) {
+    toast.error(validationError)
+    return
+  }
+
+  try {
+    retryingTask.value = true
+    const inputs = await buildEditedInputs()
+    const updated = await appApi.retryTask(selectedTask.value.id, inputs)
+    upsertTask(updated)
+    editingInputs.value = false
+    toast.success('任务已使用新参数重新提交')
+    startPolling()
+  } catch (retryError) {
+    toast.error(retryError instanceof Error ? retryError.message : '重新提交任务失败')
+  } finally {
+    retryingTask.value = false
+  }
+}
+
+async function deleteSelectedTask() {
+  if (!selectedTask.value || deletingTask.value || selectedTaskBusy.value) return
+  if (!window.confirm(`确定删除任务 #${selectedTask.value.id} 及其未被其他任务或素材库使用的文件吗？`)) return
+
+  const taskId = selectedTask.value.id
+  try {
+    deletingTask.value = true
+    await appApi.deleteTask(taskId)
+    tasks.value = tasks.value.filter((task) => task.id !== taskId)
+    selectedTaskId.value = tasks.value[0]?.id ?? null
+    await syncTaskRoute()
+    toast.success('任务已删除')
+  } catch (deleteError) {
+    toast.error(deleteError instanceof Error ? deleteError.message : '删除任务失败')
+  } finally {
+    deletingTask.value = false
+  }
+}
+
 async function resumeNode(nodeId: string) {
   if (!selectedTask.value || resumingNodeId.value) return
   try {
@@ -202,8 +275,72 @@ function imageUrl(value: unknown) {
   if (typeof value === 'string' && /^https?:\/\//.test(value)) return value
   if (!value || typeof value !== 'object') return ''
   const image = value as Record<string, unknown>
+  if (image.proxy && typeof image.proxy === 'object') {
+    const proxy = image.proxy as Record<string, unknown>
+    if (typeof proxy.localUrl === 'string') return proxy.localUrl
+    if (typeof proxy.url === 'string') return proxy.url
+  }
   if (typeof image.localUrl === 'string') return image.localUrl
   return typeof image.url === 'string' ? image.url : ''
+}
+
+function setEditFile(variable: AppVariable, event: Event) {
+  const input = event.target as HTMLInputElement
+  editFileValues.value[variable.key] = input.files?.[0] ?? null
+  if (input.files?.[0]) editPreviousImageValues.value[variable.key] = null
+}
+
+function clearEditImage(variableKey: string) {
+  editFileValues.value[variableKey] = null
+  editPreviousImageValues.value[variableKey] = null
+}
+
+function validateEditedInputs() {
+  for (const variable of userInputVariables.value) {
+    if (!variable.required) continue
+    if (variable.type === 'IMAGE') {
+      if (!editFileValues.value[variable.key] && !editPreviousImageValues.value[variable.key] && isEmptyValue(variable.default)) {
+        return `应用输入 $${variable.key} 不能为空`
+      }
+      continue
+    }
+    if (isEmptyValue(editTextValues.value[variable.key])) return `应用输入 $${variable.key} 不能为空`
+  }
+  return ''
+}
+
+async function buildEditedInputs() {
+  const inputs: Record<string, unknown> = {}
+  for (const variable of userInputVariables.value) {
+    if (variable.type === 'IMAGE') {
+      const file = editFileValues.value[variable.key]
+      const previousImage = editPreviousImageValues.value[variable.key]
+      inputs[variable.key] = file ? await appApi.uploadComfyImage(file) : (previousImage ?? variable.default)
+      continue
+    }
+
+    inputs[variable.key] = parseInputValue(editTextValues.value[variable.key] ?? '', variable.type)
+  }
+  return inputs
+}
+
+function stringifyInputValue(value: unknown, pretty = false) {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return JSON.stringify(value, null, pretty ? 2 : 0)
+}
+
+function parseInputValue(value: string, type: string) {
+  if (type === 'INT') return Number.parseInt(value, 10)
+  if (type === 'FLOAT') return Number.parseFloat(value)
+  if (type === 'BOOL') return value === 'true'
+  if (type === 'LORA_LIST') return value.trim() ? JSON.parse(value) : []
+  return value
+}
+
+function isEmptyValue(value: unknown) {
+  return value === undefined || value === null || value === ''
 }
 
 function taskFallbackClass(task: AppTaskRecord) {
@@ -286,6 +423,27 @@ function statusLabel(status: AppTaskRecord['status']) {
             <RotateCw class="size-4" :class="retryingTask ? 'animate-spin' : ''" />
             重试
           </Button>
+          <Button
+            v-if="selectedTask && !showingGroupPicker"
+            type="button"
+            variant="outline"
+            :disabled="retryingTask || selectedTaskBusy"
+            @click="openInputEditor"
+          >
+            <Pencil class="size-4" />
+            参数
+          </Button>
+          <Button
+            v-if="selectedTask && !showingGroupPicker"
+            type="button"
+            variant="outline"
+            class="text-red-600 hover:text-red-700"
+            :disabled="deletingTask || selectedTaskBusy"
+            @click="deleteSelectedTask"
+          >
+            <Trash2 class="size-4" />
+            删除
+          </Button>
           <Button v-if="!showingGroupPicker" type="button" variant="outline" @click="openGroupPicker">
             <ArrowLeft class="size-4" />
             返回分组
@@ -341,5 +499,80 @@ function statusLabel(status: AppTaskRecord['status']) {
 
       <TaskOutputImages v-if="!showingGroupPicker" :task="selectedTask" />
     </div>
+
+    <Dialog v-model:open="editingInputs">
+      <DialogContent class="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>查看和编辑任务参数</DialogTitle>
+          <DialogDescription>基于任务快照的输入变量重新提交，当前任务会被重置执行。</DialogDescription>
+        </DialogHeader>
+
+        <form class="max-h-[70vh] space-y-4 overflow-y-auto py-2" @submit.prevent="submitEditedInputs">
+          <div v-if="userInputVariables.length === 0" class="rounded-lg border border-dashed p-4 text-sm text-slate-500">
+            当前任务没有用户输入参数。
+          </div>
+
+          <div v-for="variable in userInputVariables" :key="variable.key" class="space-y-2 rounded-lg border p-3">
+            <Label :for="`task-input-${variable.key}`" class="flex items-center justify-between gap-3">
+              <span>{{ variable.name || variable.key }}</span>
+              <span class="text-xs font-normal text-slate-400">
+                {{ APP_VARIABLE_TYPE_LABELS[variable.type] }}{{ variable.required ? ' · 必填' : '' }}
+              </span>
+            </Label>
+
+            <Input
+              v-if="variable.type === 'INT' || variable.type === 'FLOAT'"
+              :id="`task-input-${variable.key}`"
+              v-model="editTextValues[variable.key]"
+              type="number"
+              :step="variable.type === 'FLOAT' ? 'any' : '1'"
+            />
+
+            <Select v-else-if="variable.type === 'BOOL'" v-model="editTextValues[variable.key]">
+              <SelectTrigger :id="`task-input-${variable.key}`">
+                <SelectValue placeholder="选择布尔值" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">是</SelectItem>
+                <SelectItem value="false">否</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div v-else-if="variable.type === 'IMAGE'" class="space-y-2">
+              <div v-if="imageUrl(editPreviousImageValues[variable.key])" class="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+                <img :src="imageUrl(editPreviousImageValues[variable.key])" :alt="variable.name" class="size-14 rounded object-cover" />
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium">沿用当前图片</p>
+                  <p class="text-xs text-slate-500">上传新图片可替换该参数</p>
+                </div>
+                <Button type="button" variant="ghost" size="icon" @click="clearEditImage(variable.key)">
+                  <Trash2 class="size-4" />
+                </Button>
+              </div>
+              <Input :id="`task-input-${variable.key}`" type="file" accept="image/png,image/jpeg,image/webp" @change="setEditFile(variable, $event)" />
+              <p v-if="editFileValues[variable.key]" class="text-xs text-slate-500">
+                新图片：{{ editFileValues[variable.key]!.name }}
+              </p>
+            </div>
+
+            <Textarea
+              v-else
+              :id="`task-input-${variable.key}`"
+              v-model="editTextValues[variable.key]"
+              class="min-h-24"
+              :placeholder="variable.type === 'LORA_LIST' ? '输入 JSON 数组' : '输入参数值'"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" :disabled="retryingTask" @click="editingInputs = false">取消</Button>
+            <Button type="submit" :disabled="retryingTask || selectedTaskBusy">
+              <RotateCw class="size-4" :class="retryingTask ? 'animate-spin' : ''" />
+              保存参数并再次执行
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   </main>
 </template>

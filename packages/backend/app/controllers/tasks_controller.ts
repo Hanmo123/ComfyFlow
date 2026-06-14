@@ -22,6 +22,11 @@ export default class TasksController {
     const payload = await request.validateUsing(retryTaskValidator)
     return this.taskService.retryTask(Number(params.id), normalizeOptionalInputs(payload.inputs))
   }
+
+  async destroy({ params, response }: HttpContext) {
+    await this.taskService.deleteTask(Number(params.id))
+    return response.noContent()
+  }
 }
 
 function normalizeOptionalInputs(inputs: unknown) {

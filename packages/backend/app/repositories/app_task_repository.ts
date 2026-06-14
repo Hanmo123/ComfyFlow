@@ -66,4 +66,8 @@ export default class AppTaskRepository {
     await task.save()
     return task
   }
+
+  async delete(task: AppTask) {
+    await task.delete()
+  }
 }

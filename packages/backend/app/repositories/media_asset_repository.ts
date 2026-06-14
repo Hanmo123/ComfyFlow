@@ -27,4 +27,19 @@ export default class MediaAssetRepository {
   async create(payload: CreateMediaAssetPayload) {
     return MediaAsset.create(payload)
   }
+
+  async listByHashes(hashes: string[]) {
+    if (hashes.length === 0) return []
+    return MediaAsset.query().whereIn('hash', hashes)
+  }
+
+  async listByProxyForIds(assetIds: number[]) {
+    if (assetIds.length === 0) return []
+    return MediaAsset.query().whereIn('proxy_for_id', assetIds)
+  }
+
+  async hasProxyFor(assetId: number) {
+    const proxy = await MediaAsset.query().where('proxy_for_id', assetId).first()
+    return Boolean(proxy)
+  }
 }

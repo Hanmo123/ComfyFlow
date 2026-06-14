@@ -133,6 +133,17 @@ export default class AppTaskService {
     return task
   }
 
+  async deleteTask(taskId: number) {
+    const task = await this.taskRepository.findOrFail(taskId)
+    if (task.status === 'queued' || task.status === 'running') {
+      throw new Exception('任务正在执行，不能删除', { status: 422, code: 'E_TASK_BUSY' })
+    }
+
+    const mediaHashes = collectMediaHashes([task.inputs, task.variables, task.outputs, task.nodeRuns])
+    await this.taskRepository.delete(task)
+    await this.mediaAssetService.deleteOrphanedByHashes(mediaHashes)
+  }
+
   private enqueue(taskId: number) {
     AppTaskService.queue = AppTaskService.queue
       .then(() => this.execute(taskId))
@@ -463,6 +474,25 @@ function buildInitialVariables(
     if (variable.default !== undefined) result[variable.key] = variable.default
   }
   return result
+}
+
+function collectMediaHashes(values: unknown[]) {
+  const hashes = new Set<string>()
+  for (const value of values) collectMediaHashesFromValue(value, hashes)
+  return [...hashes]
+}
+
+function collectMediaHashesFromValue(value: unknown, hashes: Set<string>) {
+  if (!value) return
+  if (Array.isArray(value)) {
+    for (const item of value) collectMediaHashesFromValue(item, hashes)
+    return
+  }
+  if (typeof value !== 'object') return
+
+  const record = value as Record<string, unknown>
+  if (typeof record.hash === 'string') hashes.add(record.hash)
+  for (const nested of Object.values(record)) collectMediaHashesFromValue(nested, hashes)
 }
 
 function resolveWorkflowInputs(

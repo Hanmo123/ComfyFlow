@@ -1,4 +1,6 @@
 import MediaAsset from '#models/media_asset'
+import AppTask from '#models/app_task'
+import LibraryAsset from '#models/library_asset'
 import MediaAssetRepository from '#repositories/media_asset_repository'
 import ComfyService from '#services/comfy_service'
 import { Exception } from '@adonisjs/core/exceptions'
@@ -208,6 +210,35 @@ export default class MediaAssetService {
 
     return serializeMediaAsset(proxyAsset)
   }
+
+  async deleteOrphanedByHashes(hashes: string[]) {
+    const uniqueHashes = [...new Set(hashes.filter(Boolean))]
+    if (uniqueHashes.length === 0) return
+
+    const directAssets = await this.repository.listByHashes(uniqueHashes)
+    const proxyAssets = await this.repository.listByProxyForIds(directAssets.map((asset) => asset.id))
+    const assetsById = new Map<number, MediaAsset>()
+    for (const asset of [...directAssets, ...proxyAssets]) assetsById.set(asset.id, asset)
+
+    const assets = [...assetsById.values()].sort((left, right) => {
+      if (left.proxyForId && !right.proxyForId) return -1
+      if (!left.proxyForId && right.proxyForId) return 1
+      return right.id - left.id
+    })
+
+    for (const asset of assets) {
+      if (!(await this.canDeleteAsset(asset))) continue
+      await asset.delete()
+      await deleteLocalFile(asset.localPath)
+    }
+  }
+
+  private async canDeleteAsset(asset: MediaAsset) {
+    if (await isReferencedByLibrary(asset.id)) return false
+    if (await isReferencedByTaskJson(asset.hash)) return false
+    if (!asset.proxyForId && (await this.repository.hasProxyFor(asset.id))) return false
+    return true
+  }
 }
 
 function serializeMediaAsset(asset: MediaAsset) {
@@ -254,6 +285,31 @@ async function persistImageBuffer(buffer: Buffer, hash: string, extension: strin
   const localPath = path.join(storageDir, fileName)
   await writeFile(localPath, buffer)
   return localPath
+}
+
+async function deleteLocalFile(filePath: string) {
+  try {
+    await unlink(filePath)
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return
+    console.warn(`无法删除媒体文件: ${filePath}`, error)
+  }
+}
+
+async function isReferencedByLibrary(assetId: number) {
+  const asset = await LibraryAsset.query().where('media_asset_id', assetId).first()
+  return Boolean(asset)
+}
+
+async function isReferencedByTaskJson(hash: string) {
+  const pattern = `%${hash}%`
+  const task = await AppTask.query()
+    .where('inputs', 'like', pattern)
+    .orWhere('variables', 'like', pattern)
+    .orWhere('outputs', 'like', pattern)
+    .orWhere('node_runs', 'like', pattern)
+    .first()
+  return Boolean(task)
 }
 
 function mergeComfyImageReference(image: ComfyImageReference, asset: ReturnType<typeof serializeMediaAsset>) {

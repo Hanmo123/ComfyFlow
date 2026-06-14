@@ -88,6 +88,7 @@ router
         router.get(':id', [TasksController, 'show'])
         router.post(':id/retry', [TasksController, 'retry'])
         router.post(':id/nodes/:nodeId/retry', [TasksController, 'retryNode'])
+        router.delete(':id', [TasksController, 'destroy'])
       })
       .prefix('tasks')
       .as('tasks')
