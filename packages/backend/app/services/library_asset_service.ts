@@ -83,6 +83,7 @@ export default class LibraryAssetService {
         originalName: mediaAsset.originalName,
         size: mediaAsset.size,
         extension: mediaAsset.extension,
+        isStarred: mediaAsset.isStarred,
       },
     }
   }

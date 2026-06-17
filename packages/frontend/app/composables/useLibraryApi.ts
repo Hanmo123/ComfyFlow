@@ -62,11 +62,33 @@ export function useLibraryApi() {
     if (!response.ok) throw new Error('删除素材失败')
   }
 
+  async function updateMediaAssetStar(hash: string, isStarred: boolean) {
+    const response = await fetch(`${baseUrl}/media/${hash}/star`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isStarred }),
+    })
+    if (!response.ok) throw new Error('更新星标失败')
+    return await response.json()
+  }
+
+  async function getMediaAssetStarStates(hashes: string[]) {
+    const response = await fetch(`${baseUrl}/media/star-states`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hashes }),
+    })
+    if (!response.ok) throw new Error('获取星标状态失败')
+    return await response.json() as Record<string, boolean>
+  }
+
   return {
     listLibraryAssets,
     getLibraryAsset,
     createLibraryAsset,
     updateLibraryAsset,
     deleteLibraryAsset,
+    updateMediaAssetStar,
+    getMediaAssetStarStates,
   }
 }

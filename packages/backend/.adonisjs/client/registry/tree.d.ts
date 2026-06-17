@@ -78,5 +78,7 @@ export interface ApiDefinition {
   }
   media: {
     show: typeof routes['media.show']
+    starStates: typeof routes['media.starStates']
+    updateStar: typeof routes['media.updateStar']
   }
 }

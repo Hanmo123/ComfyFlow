@@ -16,6 +16,7 @@ export interface LibraryAsset {
     originalName: string
     size: number
     extension: string | null
+    isStarred: boolean
   }
 }
 

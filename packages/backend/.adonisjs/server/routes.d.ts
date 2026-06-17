@@ -41,6 +41,8 @@ export type ScannedRoutes = {
     'library.library_assets.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
+    'media.starStates': { paramsTuple?: []; params?: {} }
+    'media.updateStar': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
   GET: {
     'profile.profile.show': { paramsTuple?: []; params?: {} }
@@ -90,6 +92,7 @@ export type ScannedRoutes = {
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
     'library.library_assets.store': { paramsTuple?: []; params?: {} }
+    'media.starStates': { paramsTuple?: []; params?: {} }
   }
   PUT: {
     'workflows.workflows.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -103,6 +106,9 @@ export type ScannedRoutes = {
     'apps.app_input_presets.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'appId': ParamValue,'id': ParamValue} }
     'tasks.tasks.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
+  PATCH: {
+    'media.updateStar': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

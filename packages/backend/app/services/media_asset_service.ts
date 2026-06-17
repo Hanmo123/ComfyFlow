@@ -195,6 +195,16 @@ export default class MediaAssetService {
     return serializeMediaAsset(asset)
   }
 
+  async updateStarred(hash: string, isStarred: boolean) {
+    const asset = await this.repository.updateStarred(hash, isStarred)
+    return serializeMediaAsset(asset)
+  }
+
+  async listStarStates(hashes: string[]) {
+    const uniqueHashes = [...new Set(hashes.filter(Boolean))]
+    return this.repository.listStarStates(uniqueHashes)
+  }
+
   async compressToAvif(options: {
     originalHash: string
     quality: number
@@ -347,6 +357,7 @@ function serializeMediaAsset(asset: MediaAsset) {
     originalName: asset.originalName,
     size: asset.size,
     proxyForId: asset.proxyForId,
+    isStarred: asset.isStarred,
   }
 }
 

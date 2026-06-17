@@ -8,4 +8,16 @@ export default class MediaAssetsController {
     const filePath = await this.mediaAssetService.localPathForHash(String(params.hash))
     return response.download(filePath)
   }
+
+  async updateStar({ params, request, response }: HttpContext) {
+    const isStarred = request.input('isStarred') === true
+    const asset = await this.mediaAssetService.updateStarred(String(params.hash), isStarred)
+    return response.ok(asset)
+  }
+
+  async starStates({ request, response }: HttpContext) {
+    const hashes = request.input('hashes', [])
+    const states = await this.mediaAssetService.listStarStates(Array.isArray(hashes) ? hashes.map(String) : [])
+    return response.ok(states)
+  }
 }

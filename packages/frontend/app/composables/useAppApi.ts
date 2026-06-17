@@ -11,6 +11,7 @@ export interface ComfyUploadedImage {
   localUrl: string
   originalName: string
   size: number
+  isStarred: boolean
 }
 
 export interface ComfyLoraListResponse {

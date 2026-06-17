@@ -5,6 +5,7 @@ import { onMounted, onUnmounted, computed } from 'vue'
 interface ImageItem {
   url: string
   name?: string
+  isStarred?: boolean
 }
 
 const props = defineProps<{

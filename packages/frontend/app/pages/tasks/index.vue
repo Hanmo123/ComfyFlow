@@ -518,7 +518,7 @@ function statusLabel(status: AppTaskRecord['status']) {
         </div>
       </section>
 
-      <TaskOutputImages v-if="!showingGroupPicker" :task="selectedTask" />
+      <TaskOutputImages v-if="!showingGroupPicker" :task="selectedTask" :tasks="tasks" />
     </div>
 
     <Dialog v-model:open="editingInputs">

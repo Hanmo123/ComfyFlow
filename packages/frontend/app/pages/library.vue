@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { Images, Plus, Search, Trash2, Upload } from 'lucide-vue-next'
+import { Images, Plus, Search, Star, Trash2, Upload } from 'lucide-vue-next'
 import ImageViewer from '@/components/ImageViewer.vue'
 import type { LibraryAsset } from '~/lib/library'
 
@@ -22,6 +22,8 @@ const viewerOpen = ref(false)
 const viewerImages = ref<Array<{ url: string; name: string }>>([])
 const viewerInitialIndex = ref(0)
 
+const starredState = ref<Record<string, boolean>>({})
+
 function openViewer(index: number) {
   viewerImages.value = assets.value.map((asset) => ({
     url: asset.mediaAsset.localUrl,
@@ -29,6 +31,22 @@ function openViewer(index: number) {
   }))
   viewerInitialIndex.value = index
   viewerOpen.value = true
+}
+
+async function toggleStar(asset: LibraryAsset) {
+  const nextValue = !(starredState.value[asset.mediaAsset.hash] ?? asset.mediaAsset.isStarred)
+  starredState.value = { ...starredState.value, [asset.mediaAsset.hash]: nextValue }
+
+  try {
+    await libraryApi.updateMediaAssetStar(asset.mediaAsset.hash, nextValue)
+  } catch (error) {
+    starredState.value = { ...starredState.value, [asset.mediaAsset.hash]: !nextValue }
+    toast.error(error instanceof Error ? error.message : '更新星标失败')
+  }
+}
+
+function isStarred(asset: LibraryAsset) {
+  return starredState.value[asset.mediaAsset.hash] ?? asset.mediaAsset.isStarred
 }
 
 async function loadAssets() {
@@ -41,6 +59,7 @@ async function loadAssets() {
     
     assets.value = response.data
     totalPages.value = response.meta.lastPage
+    starredState.value = Object.fromEntries(response.data.map((asset) => [asset.mediaAsset.hash, asset.mediaAsset.isStarred]))
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '加载素材库失败')
   } finally {
@@ -189,6 +208,15 @@ onMounted(() => {
             @click.stop="handleDelete(asset)"
           >
             <Trash2 class="size-4" />
+          </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            class="absolute left-2 top-2 bg-white/90 opacity-0 transition-opacity group-hover:opacity-100"
+            @click.stop="toggleStar(asset)"
+          >
+            <Star class="size-4" :class="isStarred(asset) ? 'text-amber-500' : 'text-slate-500'" :fill="isStarred(asset) ? 'currentColor' : 'none'" />
           </Button>
         </div>
       </div>

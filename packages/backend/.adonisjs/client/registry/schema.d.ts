@@ -451,4 +451,28 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['show']>>>
     }
   }
+  'media.starStates': {
+    methods: ["POST"]
+    pattern: '/api/v1/media/star-states'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['starStates']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['starStates']>>>
+    }
+  }
+  'media.updateStar': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/media/:hash/star'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { hash: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['updateStar']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['updateStar']>>>
+    }
+  }
 }

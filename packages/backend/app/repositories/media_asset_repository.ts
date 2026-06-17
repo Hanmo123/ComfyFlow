@@ -24,6 +24,13 @@ export default class MediaAssetRepository {
     return MediaAsset.findByOrFail('hash', hash)
   }
 
+  async updateStarred(hash: string, isStarred: boolean) {
+    const asset = await this.findByHashOrFail(hash)
+    asset.isStarred = isStarred
+    await asset.save()
+    return asset
+  }
+
   async create(payload: CreateMediaAssetPayload) {
     return MediaAsset.create(payload)
   }
@@ -31,6 +38,11 @@ export default class MediaAssetRepository {
   async listByHashes(hashes: string[]) {
     if (hashes.length === 0) return []
     return MediaAsset.query().whereIn('hash', hashes)
+  }
+
+  async listStarStates(hashes: string[]) {
+    const assets = await this.listByHashes(hashes)
+    return Object.fromEntries(assets.map((asset) => [asset.hash, asset.isStarred]))
   }
 
   async listByProxyForIds(assetIds: number[]) {

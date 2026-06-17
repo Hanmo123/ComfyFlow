@@ -113,5 +113,7 @@ router
       .as('library')
 
     router.get('media/:hash', [MediaAssetsController, 'show']).as('media.show')
+    router.post('media/star-states', [MediaAssetsController, 'starStates']).as('media.starStates')
+    router.patch('media/:hash/star', [MediaAssetsController, 'updateStar']).as('media.updateStar')
   })
   .prefix('/api/v1')

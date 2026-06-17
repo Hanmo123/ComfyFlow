@@ -127,7 +127,7 @@ export class LibraryAssetSchema extends BaseModel {
 }
 
 export class MediaAssetSchema extends BaseModel {
-  static $columns = ['comfyFilename', 'comfyName', 'comfySubfolder', 'comfyType', 'comfyUrl', 'createdAt', 'extension', 'hash', 'id', 'localPath', 'mimeType', 'originalName', 'proxyForId', 'size', 'updatedAt'] as const
+  static $columns = ['comfyFilename', 'comfyName', 'comfySubfolder', 'comfyType', 'comfyUrl', 'createdAt', 'extension', 'hash', 'id', 'isStarred', 'localPath', 'mimeType', 'originalName', 'proxyForId', 'size', 'updatedAt'] as const
   $columns = MediaAssetSchema.$columns
   @column()
   declare comfyFilename: string
@@ -147,6 +147,8 @@ export class MediaAssetSchema extends BaseModel {
   declare hash: string
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare isStarred: boolean
   @column()
   declare localPath: string
   @column()

@@ -42,6 +42,9 @@ export default class MediaAsset extends BaseModel {
   @column()
   declare proxyForId: number | null
 
+  @column()
+  declare isStarred: boolean
+
   @belongsTo(() => MediaAsset, {
     foreignKey: 'proxyForId',
   })
