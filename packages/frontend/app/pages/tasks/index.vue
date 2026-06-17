@@ -136,13 +136,15 @@ async function syncTaskRoute() {
 
 async function retryNode(nodeId: string, event?: MouseEvent) {
   if (!selectedTask.value || retryingNodeId.value) return
-  const force = event?.shiftKey || false
-  if (!force && selectedTaskBusy.value) return
+  const nodeRun = selectedTask.value.nodeRuns.find((item) => item.nodeId === nodeId)
+  const userForced = event?.shiftKey === true
+  const force = userForced || (selectedTaskBusy.value && nodeRun?.status === 'completed')
+  if (!force && selectedTaskBusy.value && nodeRun?.status !== 'completed') return
   try {
     retryingNodeId.value = nodeId
     const updated = await appApi.retryTaskNode(selectedTask.value.id, nodeId, force)
     upsertTask(updated)
-    toast.success(force ? '节点已强制重新提交' : '节点已重新提交')
+    toast.success(userForced ? '节点已强制重新提交' : '节点已重新提交')
     startPolling()
   } catch (retryError) {
     toast.error(retryError instanceof Error ? retryError.message : '重试节点失败')

@@ -19,8 +19,13 @@ const emit = defineEmits<{
 
 const nodeRunById = computed(() => new Map((props.task?.nodeRuns ?? []).map((nodeRun) => [nodeRun.nodeId, nodeRun])))
 const taskBusy = computed(() => Boolean(props.task && ['queued', 'running'].includes(props.task.status)))
-const canRetry = computed(() => Boolean(props.task && (!taskBusy.value || props.shiftPressed)))
 const canResume = computed(() => props.task?.status === 'waiting')
+
+function canRetryNode(nodeId: string) {
+  if (!props.task) return false
+  if (!taskBusy.value || props.shiftPressed) return true
+  return nodeRunById.value.get(nodeId)?.status === 'completed'
+}
 
 const flowNodes = computed<Node[]>(() =>
   (props.task?.appSnapshot.graph.nodes ?? []).map((node) => ({
@@ -32,7 +37,7 @@ const flowNodes = computed<Node[]>(() =>
       nodeRun: nodeRunById.value.get(node.id),
       taskVariables: props.task?.variables ?? {},
       appVariables: props.task?.appSnapshot.variables ?? [],
-      canRetry: canRetry.value,
+      canRetry: canRetryNode(node.id),
       retrying: props.retryingNodeId === node.id,
       canResume: canResume.value,
       resuming: props.resumingNodeId === node.id,
