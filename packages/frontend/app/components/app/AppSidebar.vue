@@ -67,6 +67,7 @@ const store = useAppDesignerStore()
         <div class="grid grid-cols-2 gap-2">
           <Button variant="outline" size="sm" type="button" @click="store.addAppNode('workflow_run')">工作流运行</Button>
           <Button variant="outline" size="sm" type="button" @click="store.addAppNode('manual_gate')">人工卡点</Button>
+          <Button variant="outline" size="sm" type="button" @click="store.addAppNode('image_concat')">图片拼接</Button>
           <Button variant="outline" size="sm" type="button" @click="store.addAppNode('wait_for_previous')">等待前序</Button>
           <Button variant="outline" size="sm" type="button" @click="store.addAppNode('output_text')">输出文本</Button>
           <Button variant="outline" size="sm" type="button" @click="store.addAppNode('output_image')">输出图片</Button>

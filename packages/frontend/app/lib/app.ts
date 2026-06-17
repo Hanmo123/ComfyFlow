@@ -9,6 +9,7 @@ export type AppNodeType =
   | "coalesce"
   | "conditional"
   | "image_compress"
+  | "image_concat"
   | "wait_for_previous";
 
 export interface LoraItem {
@@ -168,6 +169,13 @@ export type ImageCompressNode = BaseAppNode<
     deleteOriginalFile: boolean;
   }
 >;
+export type ImageConcatNode = BaseAppNode<
+  "image_concat",
+  {
+    inputs: Array<{ varKey: string | null }>;
+    outputValue: string | null;
+  }
+>;
 export type WaitForPreviousNode = BaseAppNode<
   "wait_for_previous",
   Record<string, never>
@@ -182,6 +190,7 @@ export type AppGraphNode =
   | CoalesceNode
   | ConditionalNode
   | ImageCompressNode
+  | ImageConcatNode
   | WaitForPreviousNode;
 
 export interface AppGraph {
@@ -357,6 +366,7 @@ export function nodeTypeLabel(type: AppNodeType) {
     coalesce: "取非空值",
     conditional: "条件执行",
     image_compress: "图片压缩",
+    image_concat: "图片拼接",
     wait_for_previous: "等待前序",
   };
   return labels[type];

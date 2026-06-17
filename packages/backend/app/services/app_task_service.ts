@@ -1,4 +1,10 @@
-import type { AppGraphNode, VariableBinding, WorkflowRunNode, ImageCompressNode } from '#models/app'
+import type {
+  AppGraphNode,
+  VariableBinding,
+  WorkflowRunNode,
+  ImageCompressNode,
+  ImageConcatNode,
+} from '#models/app'
 import type AppTask from '#models/app_task'
 import type { AppTaskNodeRun } from '#models/app_task'
 import type Workflow from '#models/workflow'
@@ -11,6 +17,7 @@ import TaskGroupService from '#services/task_group_service'
 import { Exception } from '@adonisjs/core/exceptions'
 import { randomInt } from 'node:crypto'
 import { DateTime } from 'luxon'
+import sharp from 'sharp'
 import ComfyService from './comfy_service.js'
 import { normalizeComfyApiJson } from './comfy_parser.js'
 import MediaAssetService from './media_asset_service.js'
@@ -340,6 +347,11 @@ export default class AppTaskService {
         await this.runImageCompressNode(task, node)
         continue
       }
+
+      if (node.type === 'image_concat') {
+        await this.runImageConcatNode(task, node)
+        continue
+      }
     }
 
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
@@ -447,6 +459,102 @@ export default class AppTaskService {
     await this.persistProgress(task)
   }
 
+  private async runImageConcatNode(task: AppTask, node: ImageConcatNode) {
+    markNodeRun(task, node.id, 'running')
+    await this.persistProgress(task)
+
+    const inputs = node.data.inputs ?? []
+    const imageValues = inputs.flatMap((input) => {
+      const value = input.varKey ? task.variables[input.varKey] : undefined
+      return normalizeImageItems(value)
+    })
+
+    if (imageValues.length === 0) {
+      markNodeRun(task, node.id, 'failed', { inputs: { inputs }, error: '没有可拼接的图片' })
+      throw new Exception('图片拼接节点：没有可拼接的图片', { status: 422 })
+    }
+
+    const sourceImages = await Promise.all(
+      imageValues.map(async (image) => {
+        const localPath = await this.imageLocalPath(image)
+        const metadata = await sharp(localPath).metadata()
+        if (!metadata.width || !metadata.height) {
+          throw new Exception('图片尺寸信息无效', { status: 422 })
+        }
+        return { localPath, width: metadata.width, height: metadata.height }
+      })
+    )
+
+    const base = sourceImages[0]
+    const horizontal = base.width >= base.height
+    const resizedImages = await Promise.all(
+      sourceImages.map(async (image, index) => {
+        if (index === 0) return { input: image.localPath, width: image.width, height: image.height }
+
+        const buffer = await (horizontal
+          ? sharp(image.localPath).resize({ height: base.height, withoutEnlargement: false }).png().toBuffer()
+          : sharp(image.localPath).resize({ width: base.width, withoutEnlargement: false }).png().toBuffer())
+        const metadata = await sharp(buffer).metadata()
+        if (!metadata.width || !metadata.height) {
+          throw new Exception('图片缩放失败', { status: 422 })
+        }
+        return { input: buffer, width: metadata.width, height: metadata.height }
+      })
+    )
+
+    const outputWidth = horizontal
+      ? resizedImages.reduce((sum, image) => sum + image.width, 0)
+      : base.width
+    const outputHeight = horizontal
+      ? base.height
+      : resizedImages.reduce((sum, image) => sum + image.height, 0)
+
+    let offset = 0
+    const composite = resizedImages.map((image) => {
+        const currentOffset = offset
+        offset += horizontal ? image.width : image.height
+        return {
+          input: image.input,
+          left: horizontal ? currentOffset : 0,
+          top: horizontal ? 0 : currentOffset,
+        }
+      })
+
+    const buffer = await sharp({
+      create: {
+        width: outputWidth,
+        height: outputHeight,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .composite(composite)
+      .png()
+      .toBuffer()
+
+    const image = await this.mediaAssetService.saveGeneratedImage({
+      buffer,
+      originalName: `concat-${node.id}.png`,
+      mimeType: 'image/png',
+    })
+
+    if (node.data.outputValue) task.variables[node.data.outputValue] = image
+    markNodeRun(task, node.id, 'completed', {
+      inputs: { imageCount: imageValues.length, direction: horizontal ? 'horizontal' : 'vertical' },
+      outputs: node.data.outputValue ? { [node.data.outputValue]: image } : { image },
+    })
+    await this.persistProgress(task)
+  }
+
+  private async imageLocalPath(image: Record<string, unknown>) {
+    const hashes = collectImageHashes(image)
+    for (const hash of hashes) {
+      const localPath = await this.mediaAssetService.existingLocalPathForHash(hash)
+      if (localPath) return localPath
+    }
+    throw new Exception('图片缺少可用的本地文件，无法拼接', { status: 422 })
+  }
+
   private async localizeWorkflowOutputs(outputs: Record<string, unknown>) {
     const localized: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(outputs)) {
@@ -512,6 +620,30 @@ function collectMediaHashesFromValue(value: unknown, hashes: Set<string>) {
   const record = value as Record<string, unknown>
   if (typeof record.hash === 'string') hashes.add(record.hash)
   for (const nested of Object.values(record)) collectMediaHashesFromValue(nested, hashes)
+}
+
+function normalizeImageItems(value: unknown): Record<string, unknown>[] {
+  const items = Array.isArray(value) ? value : value ? [value] : []
+  const images: Record<string, unknown>[] = []
+  for (const item of items) {
+    if (Array.isArray(item)) {
+      images.push(...normalizeImageItems(item))
+    } else if (item && typeof item === 'object') {
+      images.push(item as Record<string, unknown>)
+    }
+  }
+  return images
+}
+
+function collectImageHashes(image: Record<string, unknown>) {
+  const hashes: string[] = []
+  if (typeof image.hash === 'string') hashes.push(image.hash)
+  const proxy = image.proxy
+  if (proxy && typeof proxy === 'object' && !Array.isArray(proxy)) {
+    const proxyImage = proxy as Record<string, unknown>
+    if (typeof proxyImage.hash === 'string') hashes.push(proxyImage.hash)
+  }
+  return hashes
 }
 
 function resolveWorkflowInputs(

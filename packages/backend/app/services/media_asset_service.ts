@@ -121,9 +121,47 @@ export default class MediaAssetService {
     return serializeMediaAsset(asset)
   }
 
+  async saveGeneratedImage(options: { buffer: Buffer; originalName: string; mimeType: string }) {
+    const hash = hashBuffer(options.buffer)
+    const existing = await this.repository.findByHash(hash)
+    if (existing) return serializeMediaAsset(existing)
+
+    const extension = normalizeExtension(undefined, options.originalName)
+    const localPath = await persistImageBuffer(options.buffer, hash, extension)
+    const uploaded = await this.comfyService.uploadImage({
+      clientName: extension ? `${hash}.${extension}` : hash,
+      tmpPath: localPath,
+      type: options.mimeType.split('/')[0],
+      subtype: options.mimeType.split('/')[1],
+      isValid: true,
+    })
+
+    const asset = await this.repository.create({
+      hash,
+      originalName: options.originalName,
+      extension,
+      mimeType: options.mimeType,
+      size: options.buffer.byteLength,
+      localPath,
+      comfyName: uploaded.name,
+      comfyFilename: uploaded.filename,
+      comfySubfolder: uploaded.subfolder,
+      comfyType: uploaded.type,
+      comfyUrl: uploaded.url,
+    })
+
+    return serializeMediaAsset(asset)
+  }
+
   async localPathForHash(hash: string) {
     const asset = await this.repository.findByHashOrFail(hash)
     return asset.localPath
+  }
+
+  async existingLocalPathForHash(hash: string) {
+    const asset = await this.repository.findByHash(hash)
+    if (!asset) return null
+    return (await checkFileExists(asset.localPath)) ? asset.localPath : null
   }
 
   async ensureComfyUpload(hash: string) {

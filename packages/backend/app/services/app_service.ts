@@ -177,6 +177,28 @@ export default class AppService {
         }
       }
 
+      if (node.type === 'image_concat') {
+        for (const input of node.data.inputs ?? []) {
+          if (!input.varKey) continue
+          if (!variableKeys.has(input.varKey)) throw invalidApp(`节点 ${node.id} 引用了不存在的应用变量`)
+          if (!readableVariables.get(node.id)?.has(input.varKey)) {
+            throw invalidApp(`节点 ${node.id} 引用了尚未在上游赋值的应用变量 $${input.varKey}`)
+          }
+          const inputVariable = variables.find((item) => item.key === input.varKey)
+          if (inputVariable && !isCompatibleVariableType(inputVariable.type, 'IMAGE')) {
+            throw invalidApp(`节点 ${node.id} 的输入变量类型应为 IMAGE`)
+          }
+        }
+
+        const varKey = node.data.outputValue
+        if (!varKey) continue
+        if (!variableKeys.has(varKey)) throw invalidApp(`节点 ${node.id} 引用了不存在的应用变量`)
+        const variable = variables.find((item) => item.key === varKey)
+        if (variable && !isCompatibleVariableType(variable.type, 'IMAGE')) {
+          throw invalidApp(`节点 ${node.id} 的输出变量类型应为 IMAGE`)
+        }
+      }
+
       if (node.type === 'workflow_run') {
         await this.validateWorkflowRunNode(node, variableKeys, readableVariables.get(node.id) ?? new Set())
       }
@@ -242,6 +264,9 @@ export default class AppService {
           for (const varKey of Object.values(parent.data.outputAssignments ?? {})) {
             if (varKey) readable.add(varKey)
           }
+        }
+        if (parent?.type === 'image_concat' && parent.data.outputValue) {
+          readable.add(parent.data.outputValue)
         }
         stack.push(...(parents.get(parentId) ?? []))
       }

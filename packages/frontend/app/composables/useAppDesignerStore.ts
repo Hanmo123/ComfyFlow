@@ -184,6 +184,10 @@ export function useAppDesignerStore() {
       if (node.type === 'conditional') {
         if (node.data.conditionVarKey === key) node.data.conditionVarKey = null
       }
+      if (node.type === 'image_concat') {
+        node.data.inputs = node.data.inputs.map((input) => ({ varKey: input.varKey === key ? null : input.varKey }))
+        if (node.data.outputValue === key) node.data.outputValue = null
+      }
     }
   }
 
@@ -396,6 +400,12 @@ export function useAppDesignerStore() {
       if (node.type === 'conditional') {
         if (node.data.conditionVarKey === oldKey) node.data.conditionVarKey = newKey
       }
+      if (node.type === 'image_concat') {
+        for (const input of node.data.inputs) {
+          if (input.varKey === oldKey) input.varKey = newKey
+        }
+        if (node.data.outputValue === oldKey) node.data.outputValue = newKey
+      }
     }
   }
 
@@ -449,6 +459,7 @@ function createNodeData(type: AppNodeType) {
   if (type === 'coalesce') return { inputs: [{ varKey: null }], outputValue: null, outputSourceIndex: null }
   if (type === 'conditional') return { conditionVarKey: null }
   if (type === 'image_compress') return { varKey: null, quality: 80, resizeMode: 'longest', maxSize: 2048, deleteOriginalFile: false }
+  if (type === 'image_concat') return { inputs: [{ varKey: null }, { varKey: null }], outputValue: null }
   return {}
 }
 
