@@ -20,7 +20,7 @@ const props = defineProps<{
     retrying: boolean
     canResume: boolean
     resuming: boolean
-    onRetry: (nodeId: string) => void
+    onRetry: (nodeId: string, event?: MouseEvent) => void
     onResume: (nodeId: string) => void
   }
 }>()
@@ -157,7 +157,7 @@ function formatValue(value: unknown) {
           class="size-8 bg-white"
           :disabled="!props.data.canRetry || props.data.retrying"
           aria-label="重试节点"
-          @click.stop="props.data.onRetry(props.data.node.id)"
+          @click.stop="props.data.onRetry(props.data.node.id, $event)"
         >
           <RotateCw class="size-4" :class="props.data.retrying ? 'animate-spin' : ''" />
         </Button>

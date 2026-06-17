@@ -98,9 +98,9 @@ export default class AppTaskService {
     return task
   }
 
-  async retryNode(taskId: number, nodeId: string) {
+  async retryNode(taskId: number, nodeId: string, force?: boolean) {
     const task = await this.taskRepository.findOrFail(taskId)
-    if (task.status === 'queued' || task.status === 'running') {
+    if (!force && (task.status === 'queued' || task.status === 'running')) {
       throw new Exception('任务正在执行，不能发起重试', { status: 422, code: 'E_TASK_BUSY' })
     }
 
@@ -131,9 +131,9 @@ export default class AppTaskService {
     return task
   }
 
-  async retryTask(taskId: number, inputs?: Record<string, unknown>) {
+  async retryTask(taskId: number, inputs?: Record<string, unknown>, force?: boolean) {
     const task = await this.taskRepository.findOrFail(taskId)
-    if (task.status === 'queued' || task.status === 'running') {
+    if (!force && (task.status === 'queued' || task.status === 'running')) {
       throw new Exception('任务正在执行，不能发起重试', { status: 422, code: 'E_TASK_BUSY' })
     }
 

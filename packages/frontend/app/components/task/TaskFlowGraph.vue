@@ -9,15 +9,17 @@ const props = defineProps<{
   task: AppTaskRecord | null
   retryingNodeId?: string | null
   resumingNodeId?: string | null
+  shiftPressed?: boolean
 }>()
 
 const emit = defineEmits<{
-  retry: [nodeId: string]
+  retry: [nodeId: string, event?: MouseEvent]
   resume: [nodeId: string]
 }>()
 
 const nodeRunById = computed(() => new Map((props.task?.nodeRuns ?? []).map((nodeRun) => [nodeRun.nodeId, nodeRun])))
-const canRetry = computed(() => Boolean(props.task && !['queued', 'running'].includes(props.task.status)))
+const taskBusy = computed(() => Boolean(props.task && ['queued', 'running'].includes(props.task.status)))
+const canRetry = computed(() => Boolean(props.task && (!taskBusy.value || props.shiftPressed)))
 const canResume = computed(() => props.task?.status === 'waiting')
 
 const flowNodes = computed<Node[]>(() =>
@@ -34,7 +36,7 @@ const flowNodes = computed<Node[]>(() =>
       retrying: props.retryingNodeId === node.id,
       canResume: canResume.value,
       resuming: props.resumingNodeId === node.id,
-      onRetry: (nodeId: string) => emit('retry', nodeId),
+      onRetry: (nodeId: string, event?: MouseEvent) => emit('retry', nodeId, event),
       onResume: (nodeId: string) => emit('resume', nodeId),
     },
   })),

@@ -30,6 +30,7 @@ let pollTimer: ReturnType<typeof window.setTimeout> | null = null
 const selectedGroup = computed(() => taskGroups.value.find((group) => group.id === selectedGroupId.value) ?? null)
 const selectedTask = computed(() => tasks.value.find((task) => task.id === selectedTaskId.value) ?? null)
 const selectedTaskBusy = computed(() => Boolean(selectedTask.value && ['queued', 'running'].includes(selectedTask.value.status)))
+const retryTaskDisabled = computed(() => retryingTask.value || (selectedTaskBusy.value && !shiftPressed.value))
 const deleteTaskDisabled = computed(() => deletingTask.value || (selectedTaskBusy.value && !shiftPressed.value))
 const userInputVariables = computed(() => selectedTask.value?.appSnapshot.variables.filter((variable) => variable.source === 'user_input') ?? [])
 
@@ -133,13 +134,15 @@ async function syncTaskRoute() {
   })
 }
 
-async function retryNode(nodeId: string) {
+async function retryNode(nodeId: string, event?: MouseEvent) {
   if (!selectedTask.value || retryingNodeId.value) return
+  const force = event?.shiftKey || false
+  if (!force && selectedTaskBusy.value) return
   try {
     retryingNodeId.value = nodeId
-    const updated = await appApi.retryTaskNode(selectedTask.value.id, nodeId)
+    const updated = await appApi.retryTaskNode(selectedTask.value.id, nodeId, force)
     upsertTask(updated)
-    toast.success('节点已重新提交')
+    toast.success(force ? '节点已强制重新提交' : '节点已重新提交')
     startPolling()
   } catch (retryError) {
     toast.error(retryError instanceof Error ? retryError.message : '重试节点失败')
@@ -148,13 +151,15 @@ async function retryNode(nodeId: string) {
   }
 }
 
-async function retryTask() {
-  if (!selectedTask.value || retryingTask.value || selectedTaskBusy.value) return
+async function retryTask(event?: MouseEvent) {
+  if (!selectedTask.value || retryingTask.value) return
+  const force = event?.shiftKey || false
+  if (!force && selectedTaskBusy.value) return
   try {
     retryingTask.value = true
-    const updated = await appApi.retryTask(selectedTask.value.id)
+    const updated = await appApi.retryTask(selectedTask.value.id, undefined, force)
     upsertTask(updated)
-    toast.success('任务已重新提交')
+    toast.success(force ? '任务已强制重新提交' : '任务已重新提交')
     startPolling()
   } catch (retryError) {
     toast.error(retryError instanceof Error ? retryError.message : '重试任务失败')
@@ -456,7 +461,7 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             v-if="selectedTask && !showingGroupPicker"
             type="button"
             variant="outline"
-            :disabled="retryingTask || selectedTaskBusy"
+            :disabled="retryTaskDisabled"
             @click="retryTask"
           >
             <RotateCw class="size-4" :class="retryingTask ? 'animate-spin' : ''" />
@@ -466,7 +471,7 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             v-if="selectedTask && !showingGroupPicker"
             type="button"
             variant="outline"
-            :disabled="retryingTask || selectedTaskBusy"
+            :disabled="retryTaskDisabled"
             @click="openInputEditor"
           >
             <Pencil class="size-4" />
@@ -547,6 +552,7 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             :task="selectedTask"
             :retrying-node-id="retryingNodeId"
             :resuming-node-id="resumingNodeId"
+            :shift-pressed="shiftPressed"
             @retry="retryNode"
             @resume="resumeNode"
           />

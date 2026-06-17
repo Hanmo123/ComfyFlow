@@ -72,15 +72,16 @@ export function useAppApi() {
       query: force ? { force: true } : undefined,
     })
 
-  const retryTask = (taskId: number, inputs?: Record<string, unknown>) =>
+  const retryTask = (taskId: number, inputs?: Record<string, unknown>, force?: boolean) =>
     $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/retry`, {
       method: 'POST',
-      body: inputs === undefined ? undefined : { inputs },
+      body: inputs === undefined && !force ? undefined : { inputs, force },
     })
 
-  const retryTaskNode = (taskId: number, nodeId: string) =>
+  const retryTaskNode = (taskId: number, nodeId: string, force?: boolean) =>
     $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/nodes/${nodeId}/retry`, {
       method: 'POST',
+      body: force ? { force } : undefined,
     })
 
   const moveTaskToGroup = (taskId: number, taskGroupId: number) =>
