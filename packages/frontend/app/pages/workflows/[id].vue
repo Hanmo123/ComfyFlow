@@ -202,6 +202,11 @@ function renameParameter(key: string, name: string) {
   if (parameter) parameter.name = name
 }
 
+function updateParameterDefault(key: string, value: unknown) {
+  const parameter = parameters.value.find((item) => item.key === key)
+  if (parameter) parameter.default = value
+}
+
 function renameResult(key: string, name: string) {
   const result = results.value.find((item) => item.key === key)
   if (result) result.name = name
@@ -235,7 +240,17 @@ function normalizeDraftVariables<T extends WorkflowParameter | WorkflowResult>(i
 function validateDraftVariables(items: Array<WorkflowParameter | WorkflowResult>) {
   if (items.some((item) => !normalizeVariableName(item.name))) return '变量名不能为空'
   if (findDuplicateDraftNames(items).length > 0) return '变量名不能重复'
+  for (const item of items) {
+    if (!('default' in item) || item.default === undefined) continue
+    if ((item.type === 'INT' || item.type === 'FLOAT') && !isFiniteNumber(item.default)) {
+      return `参数 $${item.name} 的默认值必须是数字`
+    }
+  }
   return ''
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
 }
 
 function findDuplicateDraftNames(items: Array<WorkflowParameter | WorkflowResult>) {
@@ -340,7 +355,12 @@ async function withLoading(action: () => Promise<void>, message: string) {
           <div class="mt-1 text-xs text-slate-500">点击画布节点上的按钮添加或移除参数与结果。</div>
         </div>
         <div class="flex-1 space-y-5 overflow-y-auto p-3">
-          <WorkflowInputsPanel :parameters="parameters" :duplicate-names="duplicateNames" @rename="renameParameter" />
+          <WorkflowInputsPanel
+            :parameters="parameters"
+            :duplicate-names="duplicateNames"
+            @rename="renameParameter"
+            @update-default="updateParameterDefault"
+          />
           <WorkflowOutputsPanel :results="results" :duplicate-names="duplicateNames" @rename="renameResult" />
         </div>
       </aside>

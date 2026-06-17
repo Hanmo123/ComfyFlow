@@ -1,14 +1,55 @@
 <script setup lang="ts">
-import type { WorkflowParameter } from "@/lib/workflow";
+import { APP_VARIABLE_TYPE_COLORS, APP_VARIABLE_TYPE_LABELS, APP_VARIABLE_TYPES } from '@/lib/app'
+import type { WorkflowParameter } from '@/lib/workflow'
 
 withDefaults(
   defineProps<{ parameters: WorkflowParameter[]; duplicateNames?: string[] }>(),
-  { duplicateNames: () => [] },
-);
+  { duplicateNames: () => [] }
+)
 const emit = defineEmits<{
-  rename: [key: string, name: string];
-  remove: [key: string];
-}>();
+  rename: [key: string, name: string]
+  remove: [key: string]
+  updateDefault: [key: string, value: unknown]
+}>()
+
+function defaultValueText(item: WorkflowParameter) {
+  if (item.default === undefined || item.default === null) return ''
+  if (typeof item.default === 'object') return JSON.stringify(item.default)
+  return String(item.default)
+}
+
+function updateDefaultValue(item: WorkflowParameter, value: string | number) {
+  const text = String(value)
+  if (item.type === 'INT') {
+    emit('updateDefault', item.key, text.trim() ? Number.parseInt(text, 10) : undefined)
+    return
+  }
+  if (item.type === 'FLOAT') {
+    emit('updateDefault', item.key, text.trim() ? Number.parseFloat(text) : undefined)
+    return
+  }
+  emit('updateDefault', item.key, text)
+}
+
+function updateBoolDefault(item: WorkflowParameter, value: unknown) {
+  emit('updateDefault', item.key, value === 'true')
+}
+
+function supportsDefaultEditor(type: string) {
+  return ['STRING', 'INT', 'FLOAT', 'BOOL'].includes(type)
+}
+
+function typeLabel(type: string) {
+  return isKnownType(type) ? APP_VARIABLE_TYPE_LABELS[type] : type
+}
+
+function typeClass(type: string) {
+  return isKnownType(type) ? APP_VARIABLE_TYPE_COLORS[type] : APP_VARIABLE_TYPE_COLORS.UNKNOWN
+}
+
+function isKnownType(type: string): type is (typeof APP_VARIABLE_TYPES)[number] {
+  return APP_VARIABLE_TYPES.includes(type as (typeof APP_VARIABLE_TYPES)[number])
+}
 </script>
 
 <template>
@@ -43,15 +84,40 @@ const emit = defineEmits<{
             />
           </div>
 
-          <div
-            class="bg-gray-500/10 text-gray-500 w-fit px-2 py-1 text-sm rounded-sm"
-          >
-            {{ item.type }}
-          </div>
+          <Badge class="border-0" :class="typeClass(item.type)">
+            {{ typeLabel(item.type) }}
+          </Badge>
+        </div>
+
+        <div v-if="supportsDefaultEditor(item.type)" class="mt-2 space-y-1">
+          <div class="text-xs text-slate-500">默认值</div>
+          <Select v-if="item.type === 'BOOL'" :model-value="String(Boolean(item.default))" @update:model-value="updateBoolDefault(item, $event)">
+            <SelectTrigger class="h-8 bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">true</SelectItem>
+              <SelectItem value="false">false</SelectItem>
+            </SelectContent>
+          </Select>
+          <Textarea
+            v-else-if="item.type === 'STRING'"
+            class="min-h-20 bg-white text-sm"
+            :model-value="defaultValueText(item)"
+            @update:model-value="updateDefaultValue(item, $event)"
+          />
+          <Input
+            v-else
+            class="h-8 bg-white"
+            :type="item.type === 'INT' || item.type === 'FLOAT' ? 'number' : 'text'"
+            :step="item.type === 'INT' ? '1' : 'any'"
+            :model-value="defaultValueText(item)"
+            @update:model-value="updateDefaultValue(item, $event)"
+          />
         </div>
 
         <div class="mt-2 pl-0.5 text-[13px] text-gray-500">
-          节点 #{{ item.nodeId }}
+          节点 #{{ item.nodeId }} · {{ item.field }}
         </div>
       </div>
     </div>

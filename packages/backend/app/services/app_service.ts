@@ -211,7 +211,10 @@ export default class AppService {
 
     for (const parameter of workflow.parameters) {
       const binding = node.data.inputBindings?.[parameter.key]
-      if (!binding) throw invalidApp(`工作流节点 ${node.id} 的参数 ${parameter.name} 未赋值`)
+      if (!binding) {
+        if (parameter.default !== undefined || parameter.type === 'SEED') continue
+        throw invalidApp(`工作流节点 ${node.id} 的参数 ${parameter.name} 未赋值`)
+      }
       if (binding.kind === 'variable' && (!binding.varKey || !variableKeys.has(binding.varKey))) {
         throw invalidApp(`工作流节点 ${node.id} 的参数 ${parameter.name} 引用了不存在的应用变量`)
       }

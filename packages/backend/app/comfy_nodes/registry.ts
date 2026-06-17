@@ -34,7 +34,7 @@ export function createFallbackDefinition(classType: string, inputs: Record<strin
 }
 
 export function inferTypeFromValue(value: unknown): ComfyType {
-  if (typeof value === 'boolean') return 'BOOLEAN'
+  if (typeof value === 'boolean') return 'BOOL'
   if (typeof value === 'number') return Number.isInteger(value) ? 'INT' : 'FLOAT'
   if (typeof value === 'string') return 'STRING'
   return 'UNKNOWN'

@@ -2,7 +2,7 @@ export type ComfyType =
   | 'STRING'
   | 'INT'
   | 'FLOAT'
-  | 'BOOLEAN'
+  | 'BOOL'
   | 'SEED'
   | 'COMBO'
   | 'MODEL_NAME'

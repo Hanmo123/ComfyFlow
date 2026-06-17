@@ -988,6 +988,10 @@ async function normalizePromptInput(
   value: unknown,
   mediaAssetService: MediaAssetService
 ): Promise<unknown> {
+  if (type === 'INT') return normalizeIntInput(value)
+  if (type === 'FLOAT') return normalizeFloatInput(value)
+  if (type === 'BOOL') return normalizeBoolInput(value)
+  if (type === 'STRING') return value == null ? '' : String(value)
   if (type !== 'IMAGE') return value
   if (Array.isArray(value)) return normalizePromptInput(type, value[0], mediaAssetService)
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value
@@ -1002,6 +1006,30 @@ async function normalizePromptInput(
   const filePath = subfolder ? `${subfolder}/${promptImage.filename}` : promptImage.filename
   const imageType = typeof promptImage.type === 'string' ? promptImage.type : 'input'
   return imageType === 'input' ? filePath : `${filePath} [${imageType}]`
+}
+
+function normalizeIntInput(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value)
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseInt(value, 10)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return value
+}
+
+function normalizeFloatInput(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseFloat(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return value
+}
+
+function normalizeBoolInput(value: unknown) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return value === 'true'
+  return Boolean(value)
 }
 
 async function resolvePromptImage(

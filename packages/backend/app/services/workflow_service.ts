@@ -52,7 +52,7 @@ export default class WorkflowService {
   private normalizePayload(payload: UpdateWorkflowPayload): UpdateWorkflowPayload {
     return {
       ...payload,
-      parameters: payload.parameters?.map((item) => ({ ...item, name: normalizeVariableName(item) })),
+      parameters: payload.parameters?.map((item) => normalizeParameter(item)),
       results: payload.results?.map((item) => ({ ...item, name: normalizeVariableName(item) })),
     }
   }
@@ -80,4 +80,38 @@ export default class WorkflowService {
 function normalizeVariableName(item: WorkflowParameter | WorkflowResult) {
   const legacyLabel = (item as unknown as { label?: string }).label ?? ''
   return (item.name || legacyLabel).trim().replace(/^\$+/, '').trim()
+}
+
+function normalizeParameter(item: WorkflowParameter): WorkflowParameter {
+  const normalized = { ...item, name: normalizeVariableName(item), type: normalizeWorkflowType(item.type) }
+  if (normalized.default !== undefined) normalized.default = normalizeParameterDefault(normalized.type, normalized.default)
+  return normalized
+}
+
+function normalizeWorkflowType(type: string) {
+  return type === 'BOOLEAN' ? 'BOOL' : type
+}
+
+function normalizeParameterDefault(type: string, value: unknown) {
+  if (type === 'INT') {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value)
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number.parseInt(value, 10)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  if (type === 'FLOAT') {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number.parseFloat(value)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  if (type === 'BOOL') {
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'string') return value === 'true'
+    return Boolean(value)
+  }
+  if (type === 'STRING') return value == null ? '' : String(value)
+  return value
 }

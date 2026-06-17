@@ -229,7 +229,9 @@ function formatValue(value: unknown) {
     </div>
 
     <Handle type="source" :position="Position.Right" class="!bg-slate-500" />
-
-    <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
   </div>
+
+  <Teleport to="body">
+    <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
+  </Teleport>
 </template>
