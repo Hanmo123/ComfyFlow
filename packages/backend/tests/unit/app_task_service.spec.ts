@@ -69,6 +69,28 @@ test.group('AppTaskService', () => {
     assert.equal(task.completedAt, null)
   })
 
+  test('updates task inputs without resetting execution state', async ({ assert }) => {
+    const task = createRetryableTask()
+    const service = createService(task, [])
+    let enqueuedTaskId: number | null = null
+    ;(service as unknown as { enqueue(taskId: number): void }).enqueue = (taskId) => {
+      enqueuedTaskId = taskId
+    }
+
+    await service.updateTaskInputs(task.id, { prompt: 'saved prompt' })
+
+    assert.equal(enqueuedTaskId, null)
+    assert.equal(task.status, 'failed')
+    assert.deepEqual(task.inputs, { prompt: 'saved prompt' })
+    assert.deepEqual(task.variables, { prompt: 'saved prompt', result: 'old result' })
+    assert.deepEqual(task.outputs, { result: 'old result' })
+    assert.deepEqual(task.nodeRuns, [{ nodeId: 'input', type: 'input_collect', status: 'completed' }])
+    assert.equal(task.waitingNodeId, 'gate')
+    assert.equal(task.error, 'old error')
+    assert.equal(task.startedAt, 'old started at')
+    assert.equal(task.completedAt, 'old completed at')
+  })
+
   test('runs the false branch when conditional input is false string', async ({ assert }) => {
     const task = createConditionalTask('false')
     const service = createService(task, [])

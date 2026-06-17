@@ -153,6 +153,25 @@ export default class AppTaskService {
     return task
   }
 
+  async updateTaskInputs(taskId: number, inputs: Record<string, unknown>) {
+    const task = await this.taskRepository.findOrFail(taskId)
+    if (task.status === 'queued' || task.status === 'running') {
+      throw new Exception('任务正在执行，不能编辑参数', { status: 422, code: 'E_TASK_BUSY' })
+    }
+
+    const nextVariables = mergeUserInputVariables(
+      task.appSnapshot.variables,
+      task.variables,
+      inputs
+    )
+
+    await this.taskRepository.update(task, {
+      inputs,
+      variables: nextVariables,
+    })
+    return task
+  }
+
   async deleteTask(taskId: number, options: { force?: boolean } = {}) {
     const task = await this.taskRepository.findOrFail(taskId)
     if (!options.force && (task.status === 'queued' || task.status === 'running')) {
@@ -612,6 +631,19 @@ function buildInitialVariables(
     if (variable.default !== undefined) result[variable.key] = variable.default
   }
   return result
+}
+
+function mergeUserInputVariables(
+  variables: AppTask['appSnapshot']['variables'],
+  currentVariables: Record<string, unknown>,
+  inputs: Record<string, unknown>
+) {
+  const nextVariables = { ...currentVariables }
+  const nextInitialVariables = buildInitialVariables(variables, inputs)
+  for (const variable of variables) {
+    if (variable.source === 'user_input') nextVariables[variable.key] = nextInitialVariables[variable.key]
+  }
+  return nextVariables
 }
 
 function collectMediaHashes(values: unknown[]) {

@@ -16,6 +16,7 @@ const selectedTaskId = ref<number | null>(null)
 const showingGroupPicker = ref(false)
 const error = ref('')
 const retryingTask = ref(false)
+const savingInputs = ref(false)
 const deletingTask = ref(false)
 const editingInputs = ref(false)
 const shiftPressed = ref(false)
@@ -194,8 +195,8 @@ function openInputEditor() {
   editingInputs.value = true
 }
 
-async function submitEditedInputs() {
-  if (!selectedTask.value || retryingTask.value || selectedTaskBusy.value) return
+async function submitEditedInputs(action: 'save' | 'retry' = 'retry') {
+  if (!selectedTask.value || retryingTask.value || savingInputs.value || selectedTaskBusy.value) return
 
   const validationError = validateEditedInputs()
   if (validationError) {
@@ -204,17 +205,27 @@ async function submitEditedInputs() {
   }
 
   try {
-    retryingTask.value = true
     const inputs = await buildEditedInputs()
+    if (action === 'save') {
+      savingInputs.value = true
+      const updated = await appApi.updateTaskInputs(selectedTask.value.id, inputs)
+      upsertTask(updated)
+      editingInputs.value = false
+      toast.success('任务参数已保存')
+      return
+    }
+
+    retryingTask.value = true
     const updated = await appApi.retryTask(selectedTask.value.id, inputs)
     upsertTask(updated)
     editingInputs.value = false
     toast.success('任务已使用新参数重新提交')
     startPolling()
   } catch (retryError) {
-    toast.error(retryError instanceof Error ? retryError.message : '重新提交任务失败')
+    toast.error(retryError instanceof Error ? retryError.message : action === 'save' ? '保存任务参数失败' : '重新提交任务失败')
   } finally {
     retryingTask.value = false
+    savingInputs.value = false
   }
 }
 
@@ -611,10 +622,10 @@ async function moveTaskToGroupAction(targetGroupId: number) {
       <DialogContent class="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>查看和编辑任务参数</DialogTitle>
-          <DialogDescription>基于任务快照的输入变量重新提交，当前任务会被重置执行。</DialogDescription>
+          <DialogDescription>可仅保存任务输入参数，也可保存后重置当前任务并再次执行。</DialogDescription>
         </DialogHeader>
 
-        <form class="max-h-[70vh] space-y-4 overflow-y-auto py-2" @submit.prevent="submitEditedInputs">
+        <form class="max-h-[70vh] space-y-4 overflow-y-auto py-2" @submit.prevent="submitEditedInputs('retry')">
           <div v-if="userInputVariables.length === 0" class="rounded-lg border border-dashed p-4 text-sm text-slate-500">
             当前任务没有用户输入参数。
           </div>
@@ -672,8 +683,12 @@ async function moveTaskToGroupAction(targetGroupId: number) {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" :disabled="retryingTask" @click="editingInputs = false">取消</Button>
-            <Button type="submit" :disabled="retryingTask || selectedTaskBusy">
+            <Button type="button" variant="outline" :disabled="retryingTask || savingInputs" @click="editingInputs = false">取消</Button>
+            <Button type="button" variant="outline" :disabled="retryingTask || savingInputs || selectedTaskBusy" @click="submitEditedInputs('save')">
+              <Pencil class="size-4" :class="savingInputs ? 'animate-pulse' : ''" />
+              仅保存参数
+            </Button>
+            <Button type="submit" :disabled="retryingTask || savingInputs || selectedTaskBusy">
               <RotateCw class="size-4" :class="retryingTask ? 'animate-spin' : ''" />
               保存参数并再次执行
             </Button>

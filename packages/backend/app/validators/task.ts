@@ -5,6 +5,10 @@ export const retryTaskValidator = vine.create({
   force: vine.boolean().optional(),
 })
 
+export const updateTaskInputsValidator = vine.create({
+  inputs: vine.any(),
+})
+
 export const retryTaskNodeValidator = vine.create({
   force: vine.boolean().optional(),
 })

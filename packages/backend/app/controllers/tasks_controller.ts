@@ -1,5 +1,10 @@
 import AppTaskService from '#services/app_task_service'
-import { retryTaskValidator, retryTaskNodeValidator, moveTaskGroupValidator } from '#validators/task'
+import {
+  retryTaskValidator,
+  retryTaskNodeValidator,
+  moveTaskGroupValidator,
+  updateTaskInputsValidator,
+} from '#validators/task'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class TasksController {
@@ -24,6 +29,11 @@ export default class TasksController {
     return this.taskService.retryTask(Number(params.id), normalizeOptionalInputs(payload.inputs), payload.force)
   }
 
+  async updateInputs({ params, request }: HttpContext) {
+    const payload = await request.validateUsing(updateTaskInputsValidator)
+    return this.taskService.updateTaskInputs(Number(params.id), normalizeInputs(payload.inputs))
+  }
+
   async moveToGroup({ params, request }: HttpContext) {
     const payload = await request.validateUsing(moveTaskGroupValidator)
     return this.taskService.moveToGroup(Number(params.id), payload.taskGroupId)
@@ -41,6 +51,10 @@ function isTruthy(value: unknown) {
 
 function normalizeOptionalInputs(inputs: unknown) {
   if (inputs === undefined) return undefined
+  return normalizeInputs(inputs)
+}
+
+function normalizeInputs(inputs: unknown) {
   if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) return {}
   return inputs as Record<string, unknown>
 }
