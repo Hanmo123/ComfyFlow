@@ -38,9 +38,9 @@ function next() {
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     emit('close')
-  } else if (e.key === 'ArrowLeft') {
+  } else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
     prev()
-  } else if (e.key === 'ArrowRight') {
+  } else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
     next()
   }
 }
