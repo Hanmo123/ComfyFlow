@@ -5,6 +5,10 @@ import type Workflow from '#models/workflow'
 import type { UpdateAppTaskPayload } from '#repositories/app_task_repository'
 import AppTaskService from '#services/app_task_service'
 import { test } from '@japa/runner'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import sharp from 'sharp'
 
 test.group('AppTaskService', () => {
   test('continues independent branches after a manual gate starts waiting', async ({ assert }) => {
@@ -298,13 +302,68 @@ test.group('AppTaskService', () => {
     assert.equal(prompt['2'].inputs.strength_model, 0.7)
     assert.equal(prompt['2_lora_1'].inputs.strength_model, 0.3)
   })
+
+  test('concats portrait images horizontally', async ({ assert }) => {
+    const tmpDir = await mkdtemp(join(tmpdir(), 'image-concat-'))
+    try {
+      const firstImagePath = join(tmpDir, 'first.png')
+      const secondImagePath = join(tmpDir, 'second.png')
+      await sharp({
+        create: { width: 100, height: 200, channels: 4, background: '#ff0000' },
+      })
+        .png()
+        .toFile(firstImagePath)
+      await sharp({
+        create: { width: 50, height: 100, channels: 4, background: '#0000ff' },
+      })
+        .png()
+        .toFile(secondImagePath)
+
+      let generatedBuffer: Buffer | null = null
+      const task = createImageConcatTask()
+      const service = createService(task, [], {}, undefined, {
+        async existingLocalPathForHash(hash: string) {
+          return hash === 'first' ? firstImagePath : secondImagePath
+        },
+        async saveGeneratedImage({ buffer }: { buffer: Buffer }) {
+          generatedBuffer = buffer
+          return {
+            id: 1,
+            hash: 'concat',
+            name: 'concat.png',
+            filename: 'concat.png',
+            subfolder: '',
+            type: 'output',
+            url: '/images/concat.png',
+            localUrl: '/api/v1/media-assets/concat/file',
+            originalName: 'concat.png',
+            size: buffer.length,
+            proxyForId: null,
+            isStarred: false,
+          }
+        },
+      })
+
+      await executeTask(service, task.id)
+
+      if (!generatedBuffer) throw new Error('Expected generated concat image')
+      const metadata = await sharp(generatedBuffer).metadata()
+      const concatRun = task.nodeRuns.find((nodeRun) => nodeRun.nodeId === 'concat')
+      assert.equal(metadata.width, 200)
+      assert.equal(metadata.height, 200)
+      assert.equal(concatRun?.inputs?.direction, 'horizontal')
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true })
+    }
+  })
 })
 
 function createService(
   task: AppTask,
   workflowRuns: unknown[],
   workflowPatch: Partial<Workflow> = {},
-  seedGenerator?: () => number
+  seedGenerator?: () => number,
+  mediaAssetService: Partial<ConstructorParameters<typeof AppTaskService>[5]> = {}
 ) {
   type AppTaskServiceArgs = ConstructorParameters<typeof AppTaskService>
   const taskRepository = {
@@ -343,7 +402,7 @@ function createService(
     workflowRepository as AppTaskServiceArgs[2],
     {} as AppTaskServiceArgs[3],
     comfyService as unknown as AppTaskServiceArgs[4],
-    {} as AppTaskServiceArgs[5],
+    mediaAssetService as AppTaskServiceArgs[5],
     seedGenerator
   )
 }
@@ -385,6 +444,51 @@ function createWorkflowTask(variables: Record<string, unknown>) {
           },
         ],
         edges: [{ id: 'input-workflow', source: 'input', target: 'workflow' }],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
+}
+
+function createImageConcatTask() {
+  const nodes: AppGraphNode[] = [
+    { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+    {
+      id: 'concat',
+      type: 'image_concat',
+      position: { x: 200, y: 0 },
+      data: { inputs: [{ varKey: 'first_image' }, { varKey: 'second_image' }], outputValue: 'result' },
+    },
+  ]
+
+  return {
+    id: 7,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: {},
+    variables: {
+      first_image: { hash: 'first' },
+      second_image: { hash: 'second' },
+    },
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'image concat app',
+      variables: [
+        { key: 'first_image', name: 'first_image', type: 'IMAGE', source: 'computed' },
+        { key: 'second_image', name: 'second_image', type: 'IMAGE', source: 'computed' },
+        { key: 'result', name: 'result', type: 'IMAGE', source: 'computed' },
+      ],
+      graph: {
+        nodes,
+        edges: [{ id: 'input-concat', source: 'input', target: 'concat' }],
       },
     },
     nodeRuns: [],

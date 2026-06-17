@@ -111,7 +111,7 @@ function updateOutputValue(varKey: string) {
         添加图片输入
       </Button>
       <div class="rounded border border-dashed bg-slate-50 px-2 py-2 text-xs text-slate-500">
-        以第一张图片尺寸为基准，横图/方图向右拼接，竖图向下拼接。
+        以第一张图片尺寸为基准，竖图/方图向右拼接，横图向下拼接。
         未赋值的输入变量会在执行时自动跳过。
       </div>
     </section>

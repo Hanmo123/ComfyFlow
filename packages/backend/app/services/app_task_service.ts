@@ -516,7 +516,7 @@ export default class AppTaskService {
     )
 
     const base = sourceImages[0]
-    const horizontal = base.width >= base.height
+    const horizontal = base.height >= base.width
     const resizedImages = await Promise.all(
       sourceImages.map(async (image, index) => {
         if (index === 0) return { input: image.localPath, width: image.width, height: image.height }
