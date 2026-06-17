@@ -37,9 +37,23 @@ function openViewer(index: number) {
   viewerOpen.value = true
 }
 
-function openVarImageViewer(varKey: string, imageIndex: number) {
-  const viewerIndex = findTaskImageIndex(props.data.viewerImages, props.data.node.id, varKey, imageIndex)
-  openViewer(viewerIndex >= 0 ? viewerIndex : imageIndex)
+function openManualGateImageViewer(varKey: string, images: TaskImageItem[], displayIndex: number) {
+  const image = images[displayIndex]
+  if (!image) return
+
+  const viewerIndex = findTaskImageIndex(props.data.viewerImages, props.data.node.id, varKey, image.imageIndex)
+  const matchedIndex = viewerIndex >= 0
+    ? viewerIndex
+    : props.data.viewerImages.findIndex((item) => item.varKey === varKey && item.imageIndex === image.imageIndex && item.url === image.url)
+
+  if (matchedIndex >= 0) {
+    openViewer(matchedIndex)
+    return
+  }
+
+  viewerImages.value = images
+  viewerInitialIndex.value = displayIndex
+  viewerOpen.value = true
 }
 
 const nodeIcons = {
@@ -86,7 +100,7 @@ const manualGateDisplayItems = computed(() => {
   return props.data.node.data.displayVars.map((varKey) => {
     const variable = variableByKey.value.get(varKey)
     const value = props.data.taskVariables[varKey]
-    const images = variable?.type === 'IMAGE' ? normalizeImages(value) : []
+    const images = variable?.type === 'IMAGE' ? normalizeImages(value, varKey) : []
     return {
       varKey,
       variable,
@@ -96,12 +110,24 @@ const manualGateDisplayItems = computed(() => {
   })
 })
 
-function normalizeImages(value: unknown): Array<{ url: string; name: string }> {
+function normalizeImages(value: unknown, varKey: string): TaskImageItem[] {
   const items = Array.isArray(value) ? value : value ? [value] : []
   return items.flatMap((item, index) => {
-    if (Array.isArray(item)) return normalizeImages(item)
+    if (Array.isArray(item)) return normalizeImages(item, varKey)
     const url = imageUrl(item)
-    return url ? [{ url, name: imageName(item, index) }] : []
+    return url
+      ? [
+          {
+            url,
+            name: imageName(item, index),
+            hash: imageHash(item),
+            isStarred: imageIsStarred(item),
+            nodeId: props.data.node.id,
+            varKey,
+            imageIndex: index,
+          },
+        ]
+      : []
   })
 }
 
@@ -122,6 +148,18 @@ function imageName(value: unknown, index: number) {
   if (!value || typeof value !== 'object') return `图片 ${index + 1}`
   const image = value as Record<string, unknown>
   return String(image.filename ?? image.name ?? `图片 ${index + 1}`)
+}
+
+function imageHash(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const image = value as Record<string, unknown>
+  return typeof image.hash === 'string' ? image.hash : null
+}
+
+function imageIsStarred(value: unknown) {
+  if (!value || typeof value !== 'object') return false
+  const image = value as Record<string, unknown>
+  return image.isStarred === true
 }
 
 function formatValue(value: unknown) {
@@ -202,7 +240,7 @@ function formatValue(value: unknown) {
                 :key="`${item.varKey}-${image.url}`"
                 class="nodrag nopan overflow-hidden rounded-md border bg-slate-50 transition hover:border-slate-300"
                 @pointerdown.stop
-                @click.stop="openVarImageViewer(item.varKey, index)"
+                @click.stop="openManualGateImageViewer(item.varKey, item.images, index)"
               >
                 <img :src="image.url" :alt="image.name" class="aspect-square w-full object-cover" />
               </button>
