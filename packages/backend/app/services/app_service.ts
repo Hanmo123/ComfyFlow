@@ -117,9 +117,6 @@ export default class AppService {
     if (edges.some((edge) => edge.target === inputNode.id)) {
       throw invalidApp('变量定义节点不能有入边')
     }
-    if (edges.some((edge) => isOutputNode(nodes.find((node) => node.id === edge.source)))) {
-      throw invalidApp('输出节点不能有出边')
-    }
   }
 
   private ensureAcyclic(nodes: AppGraphNode[], edges: AppGraph['edges']) {
@@ -261,6 +258,10 @@ export default class AppService {
           for (const varKey of Object.values(parent.data.outputAssignments ?? {})) {
             if (varKey) readable.add(varKey)
           }
+        }
+        if (parent?.type === 'coalesce') {
+          if (parent.data.outputValue) readable.add(parent.data.outputValue)
+          if (parent.data.outputSourceIndex) readable.add(parent.data.outputSourceIndex)
         }
         if (parent?.type === 'image_concat' && parent.data.outputValue) {
           readable.add(parent.data.outputValue)
