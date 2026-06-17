@@ -12,6 +12,7 @@ export type AppNodeType =
   | 'coalesce'
   | 'conditional'
   | 'image_compress'
+  | 'wait_for_previous'
 
 export interface AppVariable {
   key: string
@@ -83,6 +84,7 @@ export type ImageCompressNode = BaseAppNode<
     deleteOriginalFile: boolean
   }
 >
+export type WaitForPreviousNode = BaseAppNode<'wait_for_previous', Record<string, never>>
 
 export type AppGraphNode =
   | InputCollectNode
@@ -93,6 +95,7 @@ export type AppGraphNode =
   | CoalesceNode
   | ConditionalNode
   | ImageCompressNode
+  | WaitForPreviousNode
 
 export interface AppGraph {
   nodes: AppGraphNode[]

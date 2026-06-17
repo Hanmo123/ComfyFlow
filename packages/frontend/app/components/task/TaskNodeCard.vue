@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
-import { Check, CirclePause, FileInput, Image, RotateCw, Type, Workflow } from 'lucide-vue-next'
+import { Check, CirclePause, FileInput, GitBranch, GitMerge, GitPullRequest, Image, ImageDown, RotateCw, Type, Workflow } from 'lucide-vue-next'
 import {
   APP_VARIABLE_TYPE_LABELS,
   nodeTypeLabel,
@@ -30,6 +30,10 @@ const nodeIcons = {
   output_image: Image,
   manual_gate: CirclePause,
   workflow_run: Workflow,
+  coalesce: GitMerge,
+  conditional: GitBranch,
+  image_compress: ImageDown,
+  wait_for_previous: GitPullRequest,
 } as const
 
 const statusLabel = computed(() => {

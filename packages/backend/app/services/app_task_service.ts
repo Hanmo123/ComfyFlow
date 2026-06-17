@@ -196,7 +196,14 @@ export default class AppTaskService {
     for (const node of orderedNodes) {
       const status = nodeRunStatus(task, node.id)
       if (status === 'completed' || status === 'waiting' || status === 'skipped') continue
+
       if (!areParentsCompleted(task, node.id, parents)) continue
+
+      if (node.type === 'wait_for_previous') {
+        markWaitForPreviousNode(task, node.id, parents)
+        await this.persistProgress(task)
+        continue
+      }
 
       if (node.type === 'input_collect') {
         markNodeRun(task, node.id, 'completed')
@@ -872,6 +879,25 @@ function areParentsCompleted(task: AppTask, nodeId: string, parents: Map<string,
   return (parents.get(nodeId) ?? []).every((parentId) => {
     const status = nodeRunStatus(task, parentId)
     return status === 'completed' || status === 'skipped'
+  })
+}
+
+function markWaitForPreviousNode(task: AppTask, nodeId: string, parents: Map<string, string[]>) {
+  const parentIds = parents.get(nodeId) ?? []
+  const arrivedParentIds = parentIds.filter((parentId) => {
+    const status = nodeRunStatus(task, parentId)
+    return status === 'completed' || status === 'skipped'
+  })
+
+  markNodeRun(task, nodeId, 'completed', {
+    inputs: {
+      arrivedParentIds,
+      arrivedCount: arrivedParentIds.length,
+      expectedCount: parentIds.length,
+    },
+    outputs: {
+      canContinue: arrivedParentIds.length === parentIds.length,
+    },
   })
 }
 

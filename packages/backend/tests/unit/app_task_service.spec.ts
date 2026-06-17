@@ -94,6 +94,26 @@ test.group('AppTaskService', () => {
     assert.deepEqual(task.outputs, { selected_result: 'fallback value' })
   })
 
+  test('counts skipped incoming edges for wait-for-previous nodes', async ({ assert }) => {
+    const task = createConditionalWaitTask(false)
+    const service = createService(task, [])
+
+    await executeTask(service, task.id)
+
+    const waitRun = task.nodeRuns.find((nodeRun) => nodeRun.nodeId === 'wait')
+
+    assert.equal(task.status, 'completed')
+    assert.equal(nodeStatus(task, 'true_workflow'), 'skipped')
+    assert.equal(nodeStatus(task, 'wait'), 'completed')
+    assert.equal(nodeStatus(task, 'final_output'), 'completed')
+    assert.deepEqual(waitRun?.inputs, {
+      arrivedParentIds: ['true_workflow', 'condition'],
+      arrivedCount: 2,
+      expectedCount: 2,
+    })
+    assert.deepEqual(waitRun?.outputs, { canContinue: true })
+  })
+
   test('injects prompt placeholder from task variables without explicit binding', async ({ assert }) => {
     const task = createWorkflowTask({ 提示词: '去除丝袜和内裤' })
     const workflowRuns: unknown[] = []
@@ -609,6 +629,93 @@ function createConditionalMergeTask(conditionValue: unknown) {
             sourceHandle: 'false',
           },
           { id: 'merge-final_output', source: 'merge', target: 'final_output' },
+        ],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
+}
+
+function createConditionalWaitTask(conditionValue: unknown) {
+  const nodes: AppGraphNode[] = [
+    { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+    {
+      id: 'condition',
+      type: 'conditional',
+      position: { x: 200, y: 0 },
+      data: { conditionVarKey: 'flag' },
+    },
+    {
+      id: 'true_workflow',
+      type: 'workflow_run',
+      position: { x: 420, y: -80 },
+      data: {
+        workflowId: 1,
+        inputBindings: {},
+        outputAssignments: { result: 'generated_result' },
+      },
+    },
+    {
+      id: 'wait',
+      type: 'wait_for_previous',
+      position: { x: 640, y: 0 },
+      data: {},
+    },
+    {
+      id: 'final_output',
+      type: 'output_text',
+      position: { x: 860, y: 0 },
+      data: { varKey: 'fallback_result' },
+    },
+  ]
+
+  return {
+    id: 6,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: { flag: conditionValue },
+    variables: {
+      flag: conditionValue,
+      fallback_result: 'fallback value',
+    },
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'conditional wait app',
+      variables: [
+        { key: 'flag', name: 'flag', type: 'BOOL', source: 'user_input', required: true },
+        { key: 'generated_result', name: 'generated_result', type: 'STRING', source: 'computed' },
+        { key: 'fallback_result', name: 'fallback_result', type: 'STRING', source: 'computed' },
+      ],
+      graph: {
+        nodes,
+        edges: [
+          { id: 'input-condition', source: 'input', target: 'condition' },
+          {
+            id: 'condition-true-true_workflow-default',
+            source: 'condition',
+            target: 'true_workflow',
+            sourceHandle: 'true',
+          },
+          {
+            id: 'true_workflow-wait',
+            source: 'true_workflow',
+            target: 'wait',
+          },
+          {
+            id: 'condition-false-wait-default',
+            source: 'condition',
+            target: 'wait',
+            sourceHandle: 'false',
+          },
+          { id: 'wait-final_output', source: 'wait', target: 'final_output' },
         ],
       },
     },

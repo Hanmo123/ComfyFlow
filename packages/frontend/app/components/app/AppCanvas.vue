@@ -2,7 +2,7 @@
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { VueFlow, type Connection, type Edge, type EdgeChange, type Node, type NodeChange, type VueFlowStore } from '@vue-flow/core'
-import { CirclePause, GitBranch, GitMerge, Image, Type, Workflow, ImageDown } from 'lucide-vue-next'
+import { CirclePause, GitBranch, GitMerge, Image, Type, Workflow, ImageDown, GitPullRequest } from 'lucide-vue-next'
 
 const props = defineProps<{
   controlsOffsetLeft?: number
@@ -159,6 +159,10 @@ onBeforeUnmount(() => {
         <ContextMenuItem @select="store.addAppNode('image_compress')">
           <ImageDown class="mr-2 size-4" />
           图片压缩
+        </ContextMenuItem>
+        <ContextMenuItem @select="store.addAppNode('wait_for_previous')">
+          <GitPullRequest class="mr-2 size-4" />
+          等待前序
         </ContextMenuItem>
         <ContextMenuItem @select="store.addAppNode('manual_gate')">
           <CirclePause class="mr-2 size-4" />
