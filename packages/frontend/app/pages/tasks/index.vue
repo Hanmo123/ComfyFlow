@@ -294,8 +294,48 @@ function upsertTask(task: AppTaskRecord) {
 }
 
 function taskThumbnail(task: AppTaskRecord) {
+  const proxiedImage = findTaskImage(task, hasProxyImageUrl)
+  if (proxiedImage) return imageUrl(proxiedImage)
+
   const imageInput = task.appSnapshot.variables.find((variable) => variable.source === 'user_input' && variable.type === 'IMAGE')
-  return imageInput ? imageUrl(task.variables[imageInput.key] ?? task.inputs[imageInput.key]) : ''
+  if (imageInput) return imageUrl(task.variables[imageInput.key] ?? task.inputs[imageInput.key])
+
+  const firstImage = findTaskImage(task)
+  return firstImage ? imageUrl(firstImage) : ''
+}
+
+function findTaskImage(task: AppTaskRecord, predicate: (value: unknown) => boolean = isImageValue) {
+  const imageVariables = task.appSnapshot.variables.filter((variable) => variable.type === 'IMAGE')
+  for (const variable of imageVariables) {
+    const value = task.outputs[variable.key] ?? task.variables[variable.key] ?? task.inputs[variable.key]
+    const image = findImageValue(value, predicate)
+    if (image) return image
+  }
+  return null
+}
+
+function findImageValue(value: unknown, predicate: (value: unknown) => boolean): unknown {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const image = findImageValue(item, predicate)
+      if (image) return image
+    }
+    return null
+  }
+
+  return predicate(value) ? value : null
+}
+
+function isImageValue(value: unknown) {
+  return Boolean(imageUrl(value))
+}
+
+function hasProxyImageUrl(value: unknown) {
+  if (!value || typeof value !== 'object') return false
+  const image = value as Record<string, unknown>
+  if (!image.proxy || typeof image.proxy !== 'object') return false
+  const proxy = image.proxy as Record<string, unknown>
+  return typeof proxy.localUrl === 'string' || typeof proxy.url === 'string'
 }
 
 function imageUrl(value: unknown) {

@@ -254,14 +254,8 @@ export default class MediaAssetService {
       }
     }
 
-    // 如果图片未超限制且裁切模式不是 'none'，或者裁切模式是 'none'，则不压缩，直接返回原图
-    if (!needsResize && options.resizeMode === 'none') {
-      return serializeMediaAsset(originalAsset)
-    }
-
-    // 如果图片未超限制但裁切模式不是 'none'，也不压缩
     if (!needsResize) {
-      return serializeMediaAsset(originalAsset)
+      return null
     }
 
     const compressedBuffer = await sharpInstance

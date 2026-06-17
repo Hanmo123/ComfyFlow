@@ -452,8 +452,12 @@ export default class AppTaskService {
           deleteOriginalFile: node.data.deleteOriginalFile ?? false,
         })
 
-        compressed.push({ ...imageObj, proxy })
-        compressedCount++
+        if (proxy) {
+          compressed.push({ ...imageObj, proxy })
+          compressedCount++
+        } else {
+          compressed.push(image)
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : '压缩失败'
         console.warn(`图片压缩失败: ${imageObj.hash}`, message)
