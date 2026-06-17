@@ -350,9 +350,11 @@ export function useAppDesignerStore() {
     const variableKeys = new Set<string>()
     for (const variable of appVariables.value) {
       if (!variable.key || !variable.name) return '应用变量名称不能为空'
+      if (variable.batch && (variable.source !== 'user_input' || variable.type !== 'IMAGE')) return '只有图片用户输入变量可以开启批量'
       if (variableKeys.has(variable.key)) return `应用变量 $${variable.key} 重复`
       variableKeys.add(variable.key)
     }
+    if (appVariables.value.filter((variable) => variable.batch).length > 1) return '最多只能有一个批量图片输入变量'
     if (appGraph.value.nodes.filter((node) => node.type === 'input_collect').length !== 1) {
       return '应用必须有且仅有一个变量定义节点'
     }

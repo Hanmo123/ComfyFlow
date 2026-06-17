@@ -189,7 +189,7 @@ const resizeModeLabels = {
           :for="`delete-original-${props.node.id}`"
           class="cursor-pointer text-sm text-slate-700"
         >
-          压缩时删除原图
+          压缩后删除原图
         </label>
       </div>
     </section>

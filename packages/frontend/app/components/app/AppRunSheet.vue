@@ -17,6 +17,23 @@ const emit = defineEmits<{
 const store = useAppDesignerStore();
 const appApi = useAppApi();
 
+interface RunFormState {
+  textValues: Record<string, string>;
+  fileValues: Record<string, File | null>;
+  libraryAssetValues: Record<string, LibraryAsset | null>;
+  previousImageValues: Record<string, unknown | null>;
+  loraListValues: Record<string, LoraItem[]>;
+}
+
+interface BatchImageItem extends RunFormState {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: "draft" | "submitting" | "submitted" | "failed";
+  taskId?: number;
+  error?: string;
+}
+
 const textValues = ref<Record<string, string>>({});
 const fileValues = ref<Record<string, File | null>>({});
 const libraryAssetValues = ref<Record<string, LibraryAsset | null>>({});
@@ -41,11 +58,29 @@ const hasLoraInputs = computed(() =>
 const EMPTY_LORA_VALUE = "__empty_lora__";
 const libraryPickerOpen = ref(false);
 const currentImageVariableKey = ref<string>("");
+const batchFileInput = ref<HTMLInputElement | null>(null);
+const batchItems = ref<BatchImageItem[]>([]);
+const activeBatchItemId = ref("");
+const batchImageVariable = computed(
+  () =>
+    store.userInputVariables.value.find(
+      (variable) => variable.type === "IMAGE" && variable.batch,
+    ) ?? null,
+);
+const batchMode = computed(
+  () => Boolean(batchImageVariable.value) && batchItems.value.length > 0,
+);
+const activeBatchItem = computed(
+  () => batchItems.value.find((item) => item.id === activeBatchItemId.value) ?? null,
+);
 
 watch(
   () => props.open,
   (open) => {
-    if (!open) return;
+    if (!open) {
+      resetBatchMode();
+      return;
+    }
     void resetForm();
     if (hasLoraInputs.value) void loadLoras();
     void loadStringPresets();
@@ -57,6 +92,7 @@ watch(hasLoraInputs, (hasInputs) => {
 });
 
 function resetForm() {
+  resetBatchMode();
   applyInputValues(null);
   void loadLatestInputs();
 }
@@ -108,15 +144,154 @@ function applyInputValues(lastInputs: Record<string, unknown> | null) {
   loraListValues.value = nextLoraListValues;
 }
 
+function captureFormState(): RunFormState {
+  return cloneFormState({
+    textValues: textValues.value,
+    fileValues: fileValues.value,
+    libraryAssetValues: libraryAssetValues.value,
+    previousImageValues: previousImageValues.value,
+    loraListValues: loraListValues.value,
+  });
+}
+
+function applyFormState(state: RunFormState) {
+  const nextState = cloneFormState(state);
+  textValues.value = nextState.textValues;
+  fileValues.value = nextState.fileValues;
+  libraryAssetValues.value = nextState.libraryAssetValues;
+  previousImageValues.value = nextState.previousImageValues;
+  loraListValues.value = nextState.loraListValues;
+}
+
+function cloneFormState(state: RunFormState): RunFormState {
+  return {
+    textValues: { ...state.textValues },
+    fileValues: { ...state.fileValues },
+    libraryAssetValues: { ...state.libraryAssetValues },
+    previousImageValues: { ...state.previousImageValues },
+    loraListValues: Object.fromEntries(
+      Object.entries(state.loraListValues).map(([key, value]) => [
+        key,
+        value.map((item) => ({ ...item })),
+      ]),
+    ),
+  };
+}
+
+function syncActiveBatchDraft() {
+  const item = activeBatchItem.value;
+  if (!item) return;
+  Object.assign(item, captureFormState());
+}
+
+function selectBatchItem(itemId: string) {
+  if (activeBatchItemId.value === itemId) return;
+  syncActiveBatchDraft();
+  const item = batchItems.value.find((candidate) => candidate.id === itemId);
+  if (!item) return;
+  activeBatchItemId.value = itemId;
+  applyFormState(item);
+}
+
+function openBatchFilePicker() {
+  if (!batchImageVariable.value) {
+    toast.error("请先为一个图片用户输入变量开启批量");
+    return;
+  }
+  batchFileInput.value?.click();
+}
+
+function setBatchFiles(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []).filter((file) => file.type.startsWith("image/"));
+  input.value = "";
+  const batchVariable = batchImageVariable.value;
+  if (!batchVariable) {
+    toast.error("请先为一个图片用户输入变量开启批量");
+    return;
+  }
+  if (files.length === 0) return;
+
+  if (batchMode.value) syncActiveBatchDraft();
+  const baseState = batchMode.value && activeBatchItem.value ? activeBatchItem.value : captureFormState();
+  const shouldSelectFirstNewItem = batchItems.value.length === 0;
+  const nextItems = files.map((file) => createBatchItem(file, batchVariable.key, baseState));
+  batchItems.value = [...batchItems.value, ...nextItems];
+  if (shouldSelectFirstNewItem) {
+    activeBatchItemId.value = nextItems[0].id;
+    applyFormState(nextItems[0]);
+  }
+  toast.success(`已加入 ${nextItems.length} 张图片`);
+}
+
+function createBatchItem(file: File, variableKey: string, baseState: RunFormState): BatchImageItem {
+  const state = cloneFormState(baseState);
+  state.fileValues[variableKey] = file;
+  state.libraryAssetValues[variableKey] = null;
+  state.previousImageValues[variableKey] = null;
+  return {
+    ...state,
+    id: createBatchItemId(),
+    file,
+    previewUrl: URL.createObjectURL(file),
+    status: "draft",
+  };
+}
+
+function createBatchItemId() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function resetBatchMode() {
+  for (const item of batchItems.value) URL.revokeObjectURL(item.previewUrl);
+  batchItems.value = [];
+  activeBatchItemId.value = "";
+}
+
+function removeBatchItem(itemId: string) {
+  const item = batchItems.value.find((candidate) => candidate.id === itemId);
+  if (!item) return;
+  URL.revokeObjectURL(item.previewUrl);
+  batchItems.value = batchItems.value.filter((candidate) => candidate.id !== itemId);
+  if (activeBatchItemId.value !== itemId) return;
+  const nextItem = batchItems.value[0] ?? null;
+  activeBatchItemId.value = nextItem?.id ?? "";
+  if (nextItem) applyFormState(nextItem);
+}
+
+function batchItemStatusLabel(item: BatchImageItem) {
+  if (item.status === "submitting") return "提交中";
+  if (item.status === "submitted") return item.taskId ? `#${item.taskId}` : "已提交";
+  if (item.status === "failed") return "失败";
+  return "待提交";
+}
+
+function batchItemClass(item: BatchImageItem) {
+  const active = activeBatchItemId.value === item.id;
+  const statusClass = item.status === "failed"
+    ? "border-red-300 bg-red-50"
+    : item.status === "submitted"
+      ? "border-emerald-300 bg-emerald-50"
+      : "border-slate-200 bg-white";
+  return `${active ? "ring-2 ring-slate-900" : ""} ${statusClass}`;
+}
+
+onBeforeUnmount(resetBatchMode);
+
 async function submitRun() {
   if (submitting.value || store.running.value) return;
+
+  if (batchMode.value) {
+    await submitActiveBatchRun();
+    return;
+  }
 
   if (!props.taskGroupId) {
     toast.error("请选择任务分组");
     return;
   }
 
-  const validationError = validateInputs();
+  const validationError = validateInputs(captureFormState());
   if (validationError) {
     toast.error(validationError);
     return;
@@ -124,7 +299,7 @@ async function submitRun() {
 
   try {
     submitting.value = true;
-    const inputs = await buildInputs();
+    const inputs = await buildInputs(captureFormState());
     const task = await store.runApp(inputs, props.taskGroupId);
     if (!task) {
       if (store.error.value) toast.error(store.error.value);
@@ -141,13 +316,60 @@ async function submitRun() {
   }
 }
 
-async function buildInputs() {
+async function submitActiveBatchRun() {
+  if (!props.taskGroupId) {
+    toast.error("请选择任务分组");
+    return;
+  }
+
+  const item = activeBatchItem.value;
+  if (!item) {
+    toast.error("请选择要提交的图片");
+    return;
+  }
+
+  syncActiveBatchDraft();
+  const validationError = validateInputs(item);
+  if (validationError) {
+    toast.error(validationError);
+    return;
+  }
+
+  try {
+    submitting.value = true;
+    item.status = "submitting";
+    item.error = undefined;
+    const task = await store.runApp(await buildInputs(item), props.taskGroupId);
+    if (!task) {
+      item.status = "failed";
+      item.error = store.error.value || "运行应用失败";
+      if (store.error.value) toast.error(store.error.value);
+      return;
+    }
+
+    item.status = "submitted";
+    item.taskId = task.id;
+    toast.success(`图片任务 #${task.id} 已提交`);
+    const nextItem = batchItems.value.find(
+      (candidate) => candidate.id !== item.id && candidate.status !== "submitted",
+    );
+    if (nextItem) selectBatchItem(nextItem.id);
+  } catch (error) {
+    item.status = "failed";
+    item.error = error instanceof Error ? error.message : "运行应用失败";
+    toast.error(item.error);
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function buildInputs(state: RunFormState) {
   const inputs: Record<string, unknown> = {};
   for (const variable of store.userInputVariables.value) {
     if (variable.type === "IMAGE") {
-      const file = fileValues.value[variable.key];
-      const libraryAsset = libraryAssetValues.value[variable.key];
-      const previousImage = previousImageValues.value[variable.key];
+      const file = state.fileValues[variable.key];
+      const libraryAsset = state.libraryAssetValues[variable.key];
+      const previousImage = state.previousImageValues[variable.key];
       
       if (file) {
         inputs[variable.key] = await appApi.uploadComfyImage(file);
@@ -164,13 +386,13 @@ async function buildInputs() {
     if (variable.type === "LORA_LIST") {
       inputs[variable.key] = normalizeLoraListInput(
         variable,
-        loraListValues.value[variable.key] || [],
+        state.loraListValues[variable.key] || [],
       );
       continue;
     }
 
     inputs[variable.key] = parseInputValue(
-      textValues.value[variable.key] ?? "",
+      state.textValues[variable.key] ?? "",
       variable.type,
     );
   }
@@ -194,14 +416,14 @@ async function loadLoras(refresh = false) {
   }
 }
 
-function validateInputs() {
+function validateInputs(state: RunFormState) {
   for (const variable of store.userInputVariables.value) {
     if (!variable.required) continue;
     if (variable.type === "IMAGE") {
       if (
-        !fileValues.value[variable.key] &&
-        !libraryAssetValues.value[variable.key] &&
-        !previousImageValues.value[variable.key] &&
+        !state.fileValues[variable.key] &&
+        !state.libraryAssetValues[variable.key] &&
+        !state.previousImageValues[variable.key] &&
         isEmptyValue(variable.default)
       )
         return `应用输入 $${variable.key} 不能为空`;
@@ -209,7 +431,7 @@ function validateInputs() {
     }
 
     if (variable.type === "LORA_LIST") {
-      const loraList = loraListValues.value[variable.key];
+      const loraList = state.loraListValues[variable.key];
       if (!loraList || loraList.length === 0) {
         if (isEmptyValue(variable.default))
           return `应用输入 $${variable.key} 不能为空`;
@@ -217,7 +439,7 @@ function validateInputs() {
       continue;
     }
 
-    if (isEmptyValue(textValues.value[variable.key]))
+    if (isEmptyValue(state.textValues[variable.key]))
       return `应用输入 $${variable.key} 不能为空`;
   }
   return "";
@@ -225,10 +447,19 @@ function validateInputs() {
 
 function setFile(variable: AppVariable, event: Event) {
   const input = event.target as HTMLInputElement;
-  fileValues.value[variable.key] = input.files?.[0] ?? null;
-  if (input.files?.[0]) {
+  const file = input.files?.[0] ?? null;
+  fileValues.value[variable.key] = file;
+  if (file) {
     libraryAssetValues.value[variable.key] = null;
     previousImageValues.value[variable.key] = null;
+    if (batchMode.value && variable.key === batchImageVariable.value?.key && activeBatchItem.value) {
+      URL.revokeObjectURL(activeBatchItem.value.previewUrl);
+      activeBatchItem.value.file = file;
+      activeBatchItem.value.previewUrl = URL.createObjectURL(file);
+      activeBatchItem.value.status = "draft";
+      activeBatchItem.value.taskId = undefined;
+      activeBatchItem.value.error = undefined;
+    }
   }
 }
 
@@ -400,7 +631,9 @@ function openSaveStringPresetDialog(variableKey: string) {
 
 <template>
   <Sheet :open="props.open" @update:open="emit('update:open', $event)">
-    <SheetContent class="w-full overflow-y-auto sm:max-w-md">
+    <SheetContent
+      :class="batchMode ? 'w-full overflow-hidden sm:max-w-3xl' : 'w-full overflow-y-auto sm:max-w-md'"
+    >
       <SheetHeader>
         <SheetTitle>运行应用</SheetTitle>
         <SheetDescription>
@@ -410,7 +643,66 @@ function openSaveStringPresetDialog(variableKey: string) {
         </SheetDescription>
       </SheetHeader>
 
-      <form class="flex flex-1 flex-col gap-5 px-4" @submit.prevent="submitRun">
+      <form
+        class="flex min-h-0 flex-1 gap-5 px-4"
+        :class="batchMode ? 'flex-row' : 'flex-col'"
+        @submit.prevent="submitRun"
+      >
+        <aside
+          v-if="batchMode"
+          class="flex min-h-0 w-24 shrink-0 flex-col gap-2 border-r pr-3"
+        >
+          <div class="text-xs font-medium text-slate-500">批量图片</div>
+          <div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <button
+              v-for="(item, index) in batchItems"
+              :key="item.id"
+              type="button"
+              class="group relative w-full overflow-hidden rounded-lg border p-1 text-left transition"
+              :class="batchItemClass(item)"
+              @click="selectBatchItem(item.id)"
+            >
+              <img :src="item.previewUrl" :alt="item.file.name" class="aspect-square w-full rounded object-cover" />
+              <div class="mt-1 truncate text-[11px] text-slate-600">
+                {{ index + 1 }} · {{ batchItemStatusLabel(item) }}
+              </div>
+              <Button
+                as="span"
+                variant="ghost"
+                size="icon"
+                class="absolute right-1 top-1 size-6 bg-white/80 opacity-0 group-hover:opacity-100"
+                @click.stop="removeBatchItem(item.id)"
+              >
+                <Trash2 class="size-3.5" />
+              </Button>
+            </button>
+          </div>
+        </aside>
+
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-5">
+          <div class="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+          <div v-if="batchImageVariable" class="space-y-2 rounded-lg border bg-slate-50 p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-sm font-medium">批量运行</div>
+                <div class="text-xs text-slate-500">
+                  使用 ${{ batchImageVariable.key }} 多选图片，每张图可单独调整参数后提交。
+                </div>
+              </div>
+              <Button type="button" variant="outline" @click="openBatchFilePicker">
+                <Images class="size-4" />
+                批量选择图片
+              </Button>
+            </div>
+            <input
+              ref="batchFileInput"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              class="hidden"
+              @change="setBatchFiles"
+            />
+          </div>
         <div
           v-if="store.userInputVariables.value.length === 0"
           class="rounded-lg border border-dashed p-4 text-sm text-slate-500"
@@ -519,7 +811,21 @@ function openSaveStringPresetDialog(variableKey: string) {
           </div>
 
           <div v-else-if="variable.type === 'IMAGE'" class="space-y-2">
-            <div class="flex gap-2">
+            <div
+              v-if="batchMode && variable.key === batchImageVariable?.key && activeBatchItem"
+              class="flex items-center gap-3 rounded-lg border bg-slate-50 p-3"
+            >
+              <img
+                :src="activeBatchItem.previewUrl"
+                :alt="activeBatchItem.file.name"
+                class="h-14 w-14 rounded object-cover"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium">{{ activeBatchItem.file.name }}</p>
+                <p class="text-xs text-slate-500">当前批量图片</p>
+              </div>
+            </div>
+            <div v-else class="flex gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -550,9 +856,10 @@ function openSaveStringPresetDialog(variableKey: string) {
 
             <div
               v-if="
-                fileValues[variable.key] ||
-                libraryAssetValues[variable.key] ||
-                previousImageValues[variable.key]
+                !(batchMode && variable.key === batchImageVariable?.key) &&
+                (fileValues[variable.key] ||
+                  libraryAssetValues[variable.key] ||
+                  previousImageValues[variable.key])
               "
               class="relative rounded-lg border bg-slate-50 p-3"
             >
@@ -661,6 +968,8 @@ function openSaveStringPresetDialog(variableKey: string) {
           </div>
         </div>
 
+          </div>
+
         <Dialog v-model:open="showSaveStringPresetDialog">
           <DialogContent class="sm:max-w-md">
             <DialogHeader>
@@ -711,11 +1020,13 @@ function openSaveStringPresetDialog(variableKey: string) {
           </Button>
           <Button
             type="submit"
-            :disabled="submitting || store.running.value || !props.taskGroupId"
+            :disabled="submitting || store.running.value || !props.taskGroupId || (batchMode && !activeBatchItem)"
           >
-            提交运行
+            <Loader2 v-if="submitting || store.running.value" class="size-4 animate-spin" />
+            {{ batchMode ? "提交当前图片" : "提交运行" }}
           </Button>
         </SheetFooter>
+        </div>
       </form>
     </SheetContent>
   </Sheet>

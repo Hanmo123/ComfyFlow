@@ -70,6 +70,7 @@ export default class AppService {
 
   private validateVariables(variables: AppVariable[]) {
     const keys = new Set<string>()
+    let batchImageVariableCount = 0
     for (const variable of variables) {
       if (!variable.key || !variable.name || !variable.type) {
         throw invalidApp('应用变量的标识、名称和类型不能为空')
@@ -77,9 +78,16 @@ export default class AppService {
       if (!['user_input', 'computed'].includes(variable.source)) {
         throw invalidApp(`应用变量 ${variable.name} 的来源无效`)
       }
+      if (variable.batch) {
+        if (variable.source !== 'user_input' || variable.type !== 'IMAGE') {
+          throw invalidApp('只有图片用户输入变量可以开启批量')
+        }
+        batchImageVariableCount += 1
+      }
       if (keys.has(variable.key)) throw invalidApp(`应用变量 $${variable.key} 重复`)
       keys.add(variable.key)
     }
+    if (batchImageVariableCount > 1) throw invalidApp('最多只能有一个批量图片输入变量')
   }
 
   private async validateGraph(graph: AppGraph, variables: AppVariable[]) {

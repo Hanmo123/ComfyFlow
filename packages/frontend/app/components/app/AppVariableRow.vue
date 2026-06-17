@@ -15,6 +15,9 @@ const store = useAppDesignerStore();
 const editingName = ref(false);
 const draftName = ref(props.variable.name);
 const nameInput = ref<HTMLInputElement | null>(null);
+const canBatch = computed(
+  () => props.variable.source === "user_input" && props.variable.type === "IMAGE",
+);
 
 watch(
   () => props.variable.name,
@@ -49,7 +52,20 @@ function cancelNameEdit() {
 function updateType(value: string) {
   store.updateAppVariable(props.variable.key, {
     type: value as (typeof APP_VARIABLE_TYPES)[number],
+    batch: value === "IMAGE" ? props.variable.batch : undefined,
   });
+}
+
+function updateBatch(value: boolean) {
+  if (!canBatch.value) return;
+  if (value) {
+    for (const variable of store.userInputVariables.value) {
+      if (variable.key !== props.variable.key && variable.batch) {
+        store.updateAppVariable(variable.key, { batch: undefined });
+      }
+    }
+  }
+  store.updateAppVariable(props.variable.key, { batch: value || undefined });
 }
 </script>
 
@@ -85,6 +101,20 @@ function updateType(value: string) {
     <button v-else type="button" class="min-w-0 truncate text-left text-sm" @click="startNameEdit">
       {{ props.variable.name }}
     </button>
+
+    <div class="flex items-center justify-end">
+      <label
+        v-if="canBatch"
+        class="flex items-center gap-1.5 text-xs text-slate-500"
+        title="在运行面板中允许多图批量提交"
+      >
+        <Switch
+          :model-value="Boolean(props.variable.batch)"
+          @update:model-value="updateBatch(Boolean($event))"
+        />
+        批量
+      </label>
+    </div>
 
     <div>
       <button type="button" class="text-red-500" @click="store.removeAppVariable(props.variable.key)">

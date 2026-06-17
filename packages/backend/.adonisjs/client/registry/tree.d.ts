@@ -58,6 +58,7 @@ export interface ApiDefinition {
       show: typeof routes['tasks.tasks.show']
       retry: typeof routes['tasks.tasks.retry']
       retryNode: typeof routes['tasks.tasks.retry_node']
+      destroy: typeof routes['tasks.tasks.destroy']
     }
   }
   comfy: {

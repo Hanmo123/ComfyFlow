@@ -32,6 +32,7 @@ export type ScannedRoutes = {
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
+    'tasks.tasks.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
     'library.library_assets.index': { paramsTuple?: []; params?: {} }
@@ -100,6 +101,7 @@ export type ScannedRoutes = {
     'workflows.workflows.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.apps.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'apps.app_input_presets.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'appId': ParamValue,'id': ParamValue} }
+    'tasks.tasks.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }

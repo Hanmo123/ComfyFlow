@@ -3,15 +3,19 @@ import type AppTask from '#models/app_task'
 import type { AppTaskNodeRun } from '#models/app_task'
 import type Workflow from '#models/workflow'
 import type { LoraItem } from '#comfy_nodes/types'
+import { getNodeDefinition } from '#comfy_nodes/index'
 import AppRepository from '#repositories/app_repository'
 import AppTaskRepository from '#repositories/app_task_repository'
 import WorkflowRepository from '#repositories/workflow_repository'
 import TaskGroupService from '#services/task_group_service'
 import { Exception } from '@adonisjs/core/exceptions'
+import { randomInt } from 'node:crypto'
 import { DateTime } from 'luxon'
 import ComfyService from './comfy_service.js'
 import { normalizeComfyApiJson } from './comfy_parser.js'
 import MediaAssetService from './media_asset_service.js'
+
+type SeedGenerator = () => number
 
 export default class AppTaskService {
   private static queue = Promise.resolve()
@@ -22,7 +26,8 @@ export default class AppTaskService {
     private workflowRepository = new WorkflowRepository(),
     private taskGroupService = new TaskGroupService(),
     private comfyService = new ComfyService(),
-    private mediaAssetService = new MediaAssetService()
+    private mediaAssetService = new MediaAssetService(),
+    private seedGenerator: SeedGenerator = randomSeed
   ) {}
 
   async run(appId: number, taskGroupId: number, inputs: Record<string, unknown> = {}) {
@@ -356,11 +361,17 @@ export default class AppTaskService {
       throw new Exception(`工作流节点 ${node.id} 未选择工作流`, { status: 422 })
 
     const workflow = await this.workflowRepository.findOrFail(node.data.workflowId)
-    const inputs = resolveWorkflowInputs(workflow, node, task.variables)
+    const inputs = resolveWorkflowInputs(workflow, node, task.variables, this.seedGenerator)
     markNodeRun(task, node.id, 'running', { inputs })
     await this.persistProgress(task)
 
-    const prompt = await buildWorkflowPrompt(workflow, inputs, task.variables, this.mediaAssetService)
+    const prompt = await buildWorkflowPrompt(
+      workflow,
+      inputs,
+      task.variables,
+      this.mediaAssetService,
+      this.seedGenerator
+    )
     const workflowOutputs = await this.localizeWorkflowOutputs(
       await this.comfyService.runWorkflow(prompt, workflow.results)
     )
@@ -499,14 +510,24 @@ function collectMediaHashesFromValue(value: unknown, hashes: Set<string>) {
 function resolveWorkflowInputs(
   workflow: Workflow,
   node: WorkflowRunNode,
-  variables: Record<string, unknown>
+  variables: Record<string, unknown>,
+  seedGenerator: SeedGenerator
 ) {
   const inputs: Record<string, unknown> = {}
   for (const parameter of workflow.parameters) {
+    if (parameter.type === 'SEED') {
+      inputs[parameter.key] = seedGenerator()
+      continue
+    }
+
     const binding = node.data.inputBindings?.[parameter.key]
     inputs[parameter.key] = resolveBinding(binding, variables, parameter.default)
   }
   return inputs
+}
+
+function randomSeed() {
+  return randomInt(0, 2 ** 32)
 }
 
 function resolveBinding(
@@ -523,9 +544,11 @@ async function buildWorkflowPrompt(
   workflow: Workflow,
   inputs: Record<string, unknown>,
   variables: Record<string, unknown>,
-  mediaAssetService: MediaAssetService
+  mediaAssetService: MediaAssetService,
+  seedGenerator: SeedGenerator
 ) {
   const prompt = normalizeComfyApiJson(workflow.rawJson)
+  randomizePromptSeedInputs(prompt, workflow, seedGenerator)
   
   // 收集需要扩展的 LORA_LIST 节点
   const loraExpansions: Array<{
@@ -570,6 +593,31 @@ async function buildWorkflowPrompt(
   }
   
   return prompt
+}
+
+function randomizePromptSeedInputs(
+  prompt: Record<string, any>,
+  workflow: Workflow,
+  seedGenerator: SeedGenerator
+) {
+  const exposedSeedFields = new Set(
+    workflow.parameters
+      .filter((parameter) => parameter.type === 'SEED')
+      .map((parameter) => `${parameter.nodeId}:${parameter.field}`)
+  )
+
+  for (const [nodeId, node] of Object.entries(prompt)) {
+    if (!isPromptNode(node)) continue
+    const definition = getNodeDefinition(node.class_type)
+    if (!definition) continue
+
+    for (const [field, input] of Object.entries(definition.inputs)) {
+      if (input.type !== 'SEED') continue
+      if (!(field in node.inputs)) continue
+      if (exposedSeedFields.has(`${nodeId}:${field}`)) continue
+      node.inputs[field] = seedGenerator()
+    }
+  }
 }
 
 function bypassLoraNode(prompt: Record<string, any>, nodeId: string, hasClip: boolean) {

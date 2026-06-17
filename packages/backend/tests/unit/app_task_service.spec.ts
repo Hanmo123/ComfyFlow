@@ -112,6 +112,71 @@ test.group('AppTaskService', () => {
     assert.equal((workflowRuns[0] as Record<string, any>)['1'].inputs.text, '去除丝袜和内裤')
   })
 
+  test('randomizes seed parameters when running workflow nodes', async ({ assert }) => {
+    const task = createWorkflowTask({ seed: 'fixed-seed', steps: 30 })
+    const workflowRuns: unknown[] = []
+    const service = createService(
+      task,
+      workflowRuns,
+      {
+        rawJson: {
+          1: {
+            class_type: 'KSampler',
+            inputs: { seed: 42, steps: 20 },
+          },
+        },
+        parameters: [
+          { key: 'input:seed', nodeId: '1', field: 'seed', name: 'seed', type: 'SEED' },
+          { key: 'input:steps', nodeId: '1', field: 'steps', name: 'steps', type: 'INT' },
+        ],
+      },
+      () => 123456
+    )
+
+    await executeTask(service, task.id)
+
+    const prompt = workflowRuns[0] as Record<string, any>
+    const seed = prompt['1'].inputs.seed
+    const workflowRun = task.nodeRuns.find((nodeRun) => nodeRun.nodeId === 'workflow')
+
+    assert.equal(seed, 123456)
+    assert.equal(prompt['1'].inputs.steps, 30)
+    assert.equal(workflowRun?.inputs?.['input:seed'], seed)
+  })
+
+  test('randomizes unexposed seed inputs when retrying workflow nodes', async ({ assert }) => {
+    const task = createWorkflowTask({ steps: 30 })
+    const workflowRuns: unknown[] = []
+    const seeds = [111, 222]
+    const service = createService(
+      task,
+      workflowRuns,
+      {
+        rawJson: {
+          1: {
+            class_type: 'KSampler',
+            inputs: { seed: 42, steps: 20 },
+          },
+        },
+        parameters: [
+          { key: 'input:steps', nodeId: '1', field: 'steps', name: 'steps', type: 'INT' },
+        ],
+      },
+      () => seeds.shift() ?? 333
+    )
+
+    await executeTask(service, task.id)
+    ;(service as unknown as { enqueue(taskId: number): void }).enqueue = () => {}
+
+    await service.retryNode(task.id, 'workflow')
+    await executeTask(service, task.id)
+
+    assert.equal(workflowRuns.length, 2)
+    assert.equal((workflowRuns[0] as Record<string, any>)['1'].inputs.seed, 111)
+    assert.equal((workflowRuns[1] as Record<string, any>)['1'].inputs.seed, 222)
+    assert.equal((workflowRuns[1] as Record<string, any>)['1'].inputs.steps, 30)
+  })
+
   test('normalizes and expands chained lora nodes before running workflow', async ({ assert }) => {
     const task = createWorkflowTask({
       loras: [
@@ -196,7 +261,8 @@ test.group('AppTaskService', () => {
 function createService(
   task: AppTask,
   workflowRuns: unknown[],
-  workflowPatch: Partial<Workflow> = {}
+  workflowPatch: Partial<Workflow> = {},
+  seedGenerator?: () => number
 ) {
   type AppTaskServiceArgs = ConstructorParameters<typeof AppTaskService>
   const taskRepository = {
@@ -235,7 +301,8 @@ function createService(
     workflowRepository as AppTaskServiceArgs[2],
     {} as AppTaskServiceArgs[3],
     comfyService as unknown as AppTaskServiceArgs[4],
-    {} as AppTaskServiceArgs[5]
+    {} as AppTaskServiceArgs[5],
+    seedGenerator
   )
 }
 

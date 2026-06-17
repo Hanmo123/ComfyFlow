@@ -20,6 +20,7 @@ export interface AppVariable {
   source: AppVariableSource
   required?: boolean
   default?: unknown
+  batch?: boolean
 }
 
 export interface AppEdge {
