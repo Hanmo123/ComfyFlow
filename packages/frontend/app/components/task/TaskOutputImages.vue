@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import type { AppTaskRecord } from '@/lib/app'
+import ImageViewer from '@/components/ImageViewer.vue'
 
 const props = defineProps<{
   task: AppTaskRecord | null
 }>()
+
+const viewerOpen = ref(false)
+const viewerImages = ref<Array<{ url: string; name: string }>>([])
+const viewerInitialIndex = ref(0)
+
+function openViewer(images: Array<{ url: string; name: string }>, index: number) {
+  viewerImages.value = images
+  viewerInitialIndex.value = index
+  viewerOpen.value = true
+}
 
 const imageGroups = computed(() => {
   if (!props.task) return []
@@ -90,18 +101,19 @@ function imageName(value: unknown, index: number) {
         <section v-for="group in imageGroups" :key="group.nodeId" class="space-y-3">
           <div class="text-xs font-medium text-slate-500">{{ group.nodeId }} · ${{ group.varKey }}</div>
           <div class="grid grid-cols-2 gap-3">
-            <a
-              v-for="image in group.images"
+            <button
+              v-for="(image, index) in group.images"
               :key="`${group.nodeId}-${image.url}`"
-              :href="image.url"
-              target="_blank"
-              class="group overflow-hidden rounded-lg border bg-slate-50"
+              class="group overflow-hidden rounded-lg border bg-slate-50 transition hover:border-slate-300"
+              @click="openViewer(group.images, index)"
             >
               <img :src="image.url" :alt="image.name" class="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
-            </a>
+            </button>
           </div>
         </section>
       </div>
     </div>
+
+    <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
   </aside>
 </template>

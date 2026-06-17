@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
 import { Images, Plus, Search, Trash2, Upload } from 'lucide-vue-next'
+import ImageViewer from '@/components/ImageViewer.vue'
 import type { LibraryAsset } from '~/lib/library'
 
 const libraryApi = useLibraryApi()
@@ -16,6 +17,19 @@ const uploadDisplayName = ref('')
 const uploadDescription = ref('')
 const uploadTags = ref('')
 const uploading = ref(false)
+
+const viewerOpen = ref(false)
+const viewerImages = ref<Array<{ url: string; name: string }>>([])
+const viewerInitialIndex = ref(0)
+
+function openViewer(index: number) {
+  viewerImages.value = assets.value.map((asset) => ({
+    url: asset.mediaAsset.localUrl,
+    name: asset.displayName,
+  }))
+  viewerInitialIndex.value = index
+  viewerOpen.value = true
+}
 
 async function loadAssets() {
   try {
@@ -147,17 +161,17 @@ onMounted(() => {
 
       <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         <div
-          v-for="asset in assets"
+          v-for="(asset, index) in assets"
           :key="asset.id"
           class="group relative overflow-hidden rounded-lg border bg-white transition-shadow hover:shadow-md"
         >
-          <div class="aspect-square overflow-hidden bg-slate-100">
+          <button class="aspect-square overflow-hidden bg-slate-100 w-full" @click="openViewer(index)">
             <img
               :src="asset.mediaAsset.localUrl"
               :alt="asset.displayName"
-              class="h-full w-full object-cover"
+              class="h-full w-full object-cover transition group-hover:scale-105"
             />
-          </div>
+          </button>
 
           <div class="p-3">
             <h3 class="truncate text-sm font-medium text-slate-950" :title="asset.displayName">
@@ -172,7 +186,7 @@ onMounted(() => {
             variant="destructive"
             size="icon"
             class="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100"
-            @click="handleDelete(asset)"
+            @click.stop="handleDelete(asset)"
           >
             <Trash2 class="size-4" />
           </Button>
@@ -257,5 +271,7 @@ onMounted(() => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
   </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
 import { Check, CirclePause, FileInput, GitBranch, GitMerge, GitPullRequest, Image, ImageDown, Images, RotateCw, Type, Workflow } from 'lucide-vue-next'
+import ImageViewer from '@/components/ImageViewer.vue'
 import {
   APP_VARIABLE_TYPE_LABELS,
   nodeTypeLabel,
@@ -23,6 +24,16 @@ const props = defineProps<{
     onResume: (nodeId: string) => void
   }
 }>()
+
+const viewerOpen = ref(false)
+const viewerImages = ref<Array<{ url: string; name: string }>>([])
+const viewerInitialIndex = ref(0)
+
+function openViewer(images: Array<{ url: string; name: string }>, index: number) {
+  viewerImages.value = images
+  viewerInitialIndex.value = index
+  viewerOpen.value = true
+}
 
 const nodeIcons = {
   input_collect: FileInput,
@@ -177,15 +188,14 @@ function formatValue(value: unknown) {
             </div>
 
             <div v-if="item.images.length" class="grid grid-cols-2 gap-2">
-              <a
-                v-for="image in item.images"
+              <button
+                v-for="(image, index) in item.images"
                 :key="`${item.varKey}-${image.url}`"
-                :href="image.url"
-                target="_blank"
-                class="overflow-hidden rounded-md border bg-slate-50"
+                class="overflow-hidden rounded-md border bg-slate-50 transition hover:border-slate-300"
+                @click.stop="openViewer(item.images, index)"
               >
                 <img :src="image.url" :alt="image.name" class="aspect-square w-full object-cover" />
-              </a>
+              </button>
             </div>
             <div v-else class="max-h-24 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-600">
               {{ item.text }}
@@ -208,5 +218,7 @@ function formatValue(value: unknown) {
     </div>
 
     <Handle type="source" :position="Position.Right" class="!bg-slate-500" />
+
+    <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
   </div>
 </template>
