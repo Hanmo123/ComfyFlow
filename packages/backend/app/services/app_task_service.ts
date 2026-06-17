@@ -511,14 +511,14 @@ export default class AppTaskService {
 
     let offset = 0
     const composite = resizedImages.map((image) => {
-        const currentOffset = offset
-        offset += horizontal ? image.width : image.height
-        return {
-          input: image.input,
-          left: horizontal ? currentOffset : 0,
-          top: horizontal ? 0 : currentOffset,
-        }
-      })
+      const currentOffset = offset
+      offset += horizontal ? image.width : image.height
+      return {
+        input: image.input,
+        left: horizontal ? currentOffset : 0,
+        top: horizontal ? 0 : currentOffset,
+      }
+    })
 
     const buffer = await sharp({
       create: {

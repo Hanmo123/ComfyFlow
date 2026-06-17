@@ -181,9 +181,6 @@ export default class AppService {
         for (const input of node.data.inputs ?? []) {
           if (!input.varKey) continue
           if (!variableKeys.has(input.varKey)) throw invalidApp(`节点 ${node.id} 引用了不存在的应用变量`)
-          if (!readableVariables.get(node.id)?.has(input.varKey)) {
-            throw invalidApp(`节点 ${node.id} 引用了尚未在上游赋值的应用变量 $${input.varKey}`)
-          }
           const inputVariable = variables.find((item) => item.key === input.varKey)
           if (inputVariable && !isCompatibleVariableType(inputVariable.type, 'IMAGE')) {
             throw invalidApp(`节点 ${node.id} 的输入变量类型应为 IMAGE`)
