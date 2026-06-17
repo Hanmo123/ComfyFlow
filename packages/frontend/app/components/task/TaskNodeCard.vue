@@ -154,9 +154,10 @@ function formatValue(value: unknown) {
           variant="outline"
           size="icon"
           type="button"
-          class="size-8 bg-white"
+          class="nodrag nopan size-8 bg-white"
           :disabled="!props.data.canRetry || props.data.retrying"
           aria-label="重试节点"
+          @pointerdown.stop
           @click.stop="props.data.onRetry(props.data.node.id, $event)"
         >
           <RotateCw class="size-4" :class="props.data.retrying ? 'animate-spin' : ''" />
@@ -191,7 +192,8 @@ function formatValue(value: unknown) {
               <button
                 v-for="(image, index) in item.images"
                 :key="`${item.varKey}-${image.url}`"
-                class="overflow-hidden rounded-md border bg-slate-50 transition hover:border-slate-300"
+                class="nodrag nopan overflow-hidden rounded-md border bg-slate-50 transition hover:border-slate-300"
+                @pointerdown.stop
                 @click.stop="openViewer(item.images, index)"
               >
                 <img :src="image.url" :alt="image.name" class="aspect-square w-full object-cover" />
@@ -208,8 +210,9 @@ function formatValue(value: unknown) {
     <div v-if="showResumeButton" class="px-1 pb-1 pt-2">
       <Button
         type="button"
-        class="h-11 w-full bg-amber-600 text-sm font-semibold text-white hover:bg-amber-700"
+        class="nodrag nopan h-11 w-full bg-amber-600 text-sm font-semibold text-white hover:bg-amber-700"
         :disabled="!props.data.canResume || props.data.resuming"
+        @pointerdown.stop
         @click.stop="props.data.onResume(props.data.node.id)"
       >
         <Check class="size-4" />
