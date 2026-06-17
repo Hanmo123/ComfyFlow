@@ -15,6 +15,7 @@ export interface CreateAppTaskPayload {
 
 export interface UpdateAppTaskPayload {
   status?: AppTaskStatus
+  taskGroupId?: number
   inputs?: Record<string, unknown>
   variables?: Record<string, unknown>
   outputs?: Record<string, unknown>

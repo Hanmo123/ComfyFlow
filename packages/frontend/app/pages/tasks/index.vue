@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { ArrowLeft, FolderOpen, Image, LayoutGrid, Pencil, RotateCw, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, FolderOpen, Image, LayoutGrid, MoreVertical, Pencil, RotateCw, Trash2 } from 'lucide-vue-next'
 import TaskFlowGraph from '@/components/task/TaskFlowGraph.vue'
 import TaskOutputImages from '@/components/task/TaskOutputImages.vue'
 import { APP_VARIABLE_TYPE_LABELS, type AppTaskRecord, type AppVariable, type TaskGroupRecord } from '@/lib/app'
@@ -24,6 +24,7 @@ const editFileValues = ref<Record<string, File | null>>({})
 const editPreviousImageValues = ref<Record<string, unknown | null>>({})
 const retryingNodeId = ref<string | null>(null)
 const resumingNodeId = ref<string | null>(null)
+const movingTaskToGroup = ref(false)
 let pollTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const selectedGroup = computed(() => taskGroups.value.find((group) => group.id === selectedGroupId.value) ?? null)
@@ -379,6 +380,23 @@ function statusLabel(status: AppTaskRecord['status']) {
   }
   return labels[status]
 }
+
+async function moveTaskToGroupAction(targetGroupId: number) {
+  if (!selectedTask.value || movingTaskToGroup.value || targetGroupId === selectedGroupId.value) return
+  try {
+    movingTaskToGroup.value = true
+    await appApi.moveTaskToGroup(selectedTask.value.id, targetGroupId)
+    tasks.value = tasks.value.filter((task) => task.id !== selectedTask.value!.id)
+    selectedTaskId.value = tasks.value[0]?.id ?? null
+    await syncTaskRoute()
+    const targetGroup = taskGroups.value.find((group) => group.id === targetGroupId)
+    toast.success(`任务已移动到 ${targetGroup?.name ?? '目标分组'}`)
+  } catch (moveError) {
+    toast.error(moveError instanceof Error ? moveError.message : '移动任务失败')
+  } finally {
+    movingTaskToGroup.value = false
+  }
+}
 </script>
 
 <template>
@@ -465,6 +483,26 @@ function statusLabel(status: AppTaskRecord['status']) {
             <Trash2 class="size-4" />
             删除
           </Button>
+          <DropdownMenu v-if="selectedTask && !showingGroupPicker && taskGroups.length > 1">
+            <DropdownMenuTrigger as-child>
+              <Button type="button" variant="outline" :disabled="movingTaskToGroup">
+                <MoreVertical class="size-4" />
+                更多
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>移动到分组</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                v-for="group in taskGroups.filter((g) => g.id !== selectedGroupId)"
+                :key="group.id"
+                @click="moveTaskToGroupAction(group.id)"
+              >
+                <FolderOpen class="mr-2 size-4" />
+                {{ group.name }}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button v-if="!showingGroupPicker" type="button" variant="outline" @click="openGroupPicker">
             <ArrowLeft class="size-4" />
             返回分组

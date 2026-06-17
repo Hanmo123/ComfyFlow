@@ -70,6 +70,13 @@ export default class AppTaskService {
     return this.taskRepository.findForAppOrFail(appId, taskId)
   }
 
+  async moveToGroup(taskId: number, taskGroupId: number) {
+    await this.taskGroupService.ensureExists(taskGroupId)
+    const task = await this.taskRepository.findOrFail(taskId)
+    await this.taskRepository.update(task, { taskGroupId })
+    return task
+  }
+
   async getLatestTask(appId: number) {
     return this.taskRepository.findLatestByAppId(appId)
   }

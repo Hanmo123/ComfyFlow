@@ -83,6 +83,12 @@ export function useAppApi() {
       method: 'POST',
     })
 
+  const moveTaskToGroup = (taskId: number, taskGroupId: number) =>
+    $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/group`, {
+      method: 'PATCH',
+      body: { taskGroupId },
+    })
+
   const uploadComfyImage = (file: File) => {
     const formData = new FormData()
     formData.append('image', file)
@@ -142,6 +148,7 @@ export function useAppApi() {
     deleteTask,
     retryTask,
     retryTaskNode,
+    moveTaskToGroup,
     uploadComfyImage,
     listComfyLoras,
     getAppTask,

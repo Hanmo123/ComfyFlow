@@ -1,5 +1,5 @@
 import AppTaskService from '#services/app_task_service'
-import { retryTaskValidator } from '#validators/task'
+import { retryTaskValidator, moveTaskGroupValidator } from '#validators/task'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class TasksController {
@@ -21,6 +21,11 @@ export default class TasksController {
   async retry({ params, request }: HttpContext) {
     const payload = await request.validateUsing(retryTaskValidator)
     return this.taskService.retryTask(Number(params.id), normalizeOptionalInputs(payload.inputs))
+  }
+
+  async moveToGroup({ params, request }: HttpContext) {
+    const payload = await request.validateUsing(moveTaskGroupValidator)
+    return this.taskService.moveToGroup(Number(params.id), payload.taskGroupId)
   }
 
   async destroy({ params, request, response }: HttpContext) {
