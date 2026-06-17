@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { ArrowLeft, FolderOpen, Image, LayoutGrid, MoreVertical, Pencil, RotateCw, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, FolderOpen, Image, LayoutGrid, MoreVertical, Pencil, RefreshCw, RotateCw, Trash2 } from 'lucide-vue-next'
 import TaskFlowGraph from '@/components/task/TaskFlowGraph.vue'
 import TaskOutputImages from '@/components/task/TaskOutputImages.vue'
 import { APP_VARIABLE_TYPE_LABELS, type AppTaskRecord, type AppVariable, type TaskGroupRecord } from '@/lib/app'
@@ -18,6 +18,7 @@ const error = ref('')
 const retryingTask = ref(false)
 const savingInputs = ref(false)
 const deletingTask = ref(false)
+const syncingSnapshot = ref(false)
 const editingInputs = ref(false)
 const shiftPressed = ref(false)
 const editTextValues = ref<Record<string, string>>({})
@@ -33,6 +34,7 @@ const selectedTask = computed(() => tasks.value.find((task) => task.id === selec
 const selectedTaskBusy = computed(() => Boolean(selectedTask.value && ['queued', 'running'].includes(selectedTask.value.status)))
 const retryTaskDisabled = computed(() => retryingTask.value || (selectedTaskBusy.value && !shiftPressed.value))
 const deleteTaskDisabled = computed(() => deletingTask.value || (selectedTaskBusy.value && !shiftPressed.value))
+const syncSnapshotDisabled = computed(() => syncingSnapshot.value || (selectedTaskBusy.value && !shiftPressed.value))
 const userInputVariables = computed(() => selectedTask.value?.appSnapshot.variables.filter((variable) => variable.source === 'user_input') ?? [])
 
 onMounted(async () => {
@@ -250,6 +252,22 @@ async function deleteSelectedTask(event?: MouseEvent) {
     toast.error(deleteError instanceof Error ? deleteError.message : '删除任务失败')
   } finally {
     deletingTask.value = false
+  }
+}
+
+async function syncSelectedTaskSnapshot(event?: MouseEvent) {
+  if (!selectedTask.value || syncingSnapshot.value) return
+  const force = event?.shiftKey === true || shiftPressed.value
+  if (selectedTaskBusy.value && !force) return
+  try {
+    syncingSnapshot.value = true
+    const updated = await appApi.syncTaskSnapshot(selectedTask.value.id, force)
+    upsertTask(updated)
+    toast.success('任务快照已同步，可重试变更节点')
+  } catch (syncError) {
+    toast.error(syncError instanceof Error ? syncError.message : '同步任务快照失败')
+  } finally {
+    syncingSnapshot.value = false
   }
 }
 
@@ -550,6 +568,11 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>移动到分组</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem :disabled="syncSnapshotDisabled" @click="syncSelectedTaskSnapshot">
+                <RefreshCw class="mr-2 size-4" :class="syncingSnapshot ? 'animate-spin' : ''" />
+                同步当前应用快照
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 v-for="group in taskGroups.filter((g) => g.id !== selectedGroupId)"

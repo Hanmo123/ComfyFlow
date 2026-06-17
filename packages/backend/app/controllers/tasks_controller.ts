@@ -34,6 +34,10 @@ export default class TasksController {
     return this.taskService.updateTaskInputs(Number(params.id), normalizeInputs(payload.inputs))
   }
 
+  async syncSnapshot({ params, request }: HttpContext) {
+    return this.taskService.syncSnapshot(Number(params.id), isTruthy(request.input('force')))
+  }
+
   async moveToGroup({ params, request }: HttpContext) {
     const payload = await request.validateUsing(moveTaskGroupValidator)
     return this.taskService.moveToGroup(Number(params.id), payload.taskGroupId)

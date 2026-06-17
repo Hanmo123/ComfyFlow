@@ -106,8 +106,8 @@ export default class AppTaskService {
 
     const node = task.appSnapshot.graph.nodes.find((item) => item.id === nodeId)
     if (!node) throw new Exception('任务节点不存在', { status: 404, code: 'E_TASK_NODE_NOT_FOUND' })
-    if (node.type !== 'workflow_run') {
-      throw new Exception('只有工作流运行节点支持重试', {
+    if (!isRetryableNode(node)) {
+      throw new Exception('该节点不支持重试', {
         status: 422,
         code: 'E_TASK_NODE_NOT_RETRYABLE',
       })
@@ -168,6 +168,48 @@ export default class AppTaskService {
     await this.taskRepository.update(task, {
       inputs,
       variables: nextVariables,
+    })
+    return task
+  }
+
+  async syncSnapshot(taskId: number, force?: boolean) {
+    const task = await this.taskRepository.findOrFail(taskId)
+    if (!force && (task.status === 'queued' || task.status === 'running')) {
+      throw new Exception('任务正在执行，不能同步快照', { status: 422, code: 'E_TASK_BUSY' })
+    }
+
+    const app = await this.appRepository.findOrFail(task.appId)
+    const nextSnapshot = {
+      id: app.id,
+      name: app.name,
+      variables: app.variables,
+      graph: app.graph,
+    }
+    const changedNodeIds = collectChangedSnapshotNodeIds(
+      task.appSnapshot.graph.nodes,
+      task.appSnapshot.graph.edges,
+      nextSnapshot.graph.nodes,
+      nextSnapshot.graph.edges
+    )
+    const resetNodeIds = collectResetNodeIds(nextSnapshot.graph.nodes, nextSnapshot.graph.edges, changedNodeIds)
+    const nextNodeIds = new Set(nextSnapshot.graph.nodes.map((node) => node.id))
+
+    task.nodeRuns = task.nodeRuns.filter(
+      (nodeRun) => nextNodeIds.has(nodeRun.nodeId) && !resetNodeIds.has(nodeRun.nodeId)
+    )
+    const nextVariables = mergeSnapshotVariables(nextSnapshot.variables, task.variables, task.inputs)
+    const nextOutputs = filterOutputsForSnapshot(nextSnapshot.variables, task.outputs)
+
+    const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
+    await this.taskRepository.update(task, {
+      status: waitingNode ? 'waiting' : 'failed',
+      appSnapshot: nextSnapshot,
+      variables: nextVariables,
+      outputs: nextOutputs,
+      nodeRuns: task.nodeRuns,
+      waitingNodeId: waitingNode?.nodeId ?? null,
+      error: waitingNode ? null : '任务快照已同步，请重试变更节点或整个任务',
+      completedAt: null,
     })
     return task
   }
@@ -1141,6 +1183,87 @@ function collectBranchNodeIds(
     }
   }
   return result
+}
+
+function collectChangedSnapshotNodeIds(
+  previousNodes: AppGraphNode[],
+  previousEdges: { source: string; target: string; sourceHandle?: string; targetHandle?: string }[],
+  nextNodes: AppGraphNode[],
+  nextEdges: { source: string; target: string; sourceHandle?: string; targetHandle?: string }[]
+) {
+  const previousNodeById = new Map(previousNodes.map((node) => [node.id, node]))
+  const nextNodeById = new Map(nextNodes.map((node) => [node.id, node]))
+  const changed = new Set<string>()
+
+  for (const nextNode of nextNodes) {
+    const previousNode = previousNodeById.get(nextNode.id)
+    if (!previousNode || stableJson(previousNode) !== stableJson(nextNode)) changed.add(nextNode.id)
+  }
+
+  for (const previousNode of previousNodes) {
+    if (!nextNodeById.has(previousNode.id)) changed.add(previousNode.id)
+  }
+
+  for (const edge of changedEdges(previousEdges, nextEdges)) {
+    changed.add(edge.source)
+    changed.add(edge.target)
+  }
+
+  return changed
+}
+
+function collectResetNodeIds(
+  nodes: AppGraphNode[],
+  edges: { source: string; target: string }[],
+  changedNodeIds: Set<string>
+) {
+  const result = new Set<string>()
+  for (const nodeId of changedNodeIds) {
+    for (const resetNodeId of collectDownstreamNodeIds(nodes, edges, nodeId)) result.add(resetNodeId)
+  }
+  return result
+}
+
+function changedEdges(
+  previousEdges: { id?: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }[],
+  nextEdges: { id?: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }[]
+) {
+  const previous = new Map(previousEdges.map((edge) => [edgeKey(edge), stableJson(edge)]))
+  const next = new Map(nextEdges.map((edge) => [edgeKey(edge), stableJson(edge)]))
+  return [...nextEdges.filter((edge) => previous.get(edgeKey(edge)) !== stableJson(edge)), ...previousEdges.filter((edge) => !next.has(edgeKey(edge)))]
+}
+
+function edgeKey(edge: { id?: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }) {
+  return edge.id ?? `${edge.source}:${edge.sourceHandle ?? ''}->${edge.target}:${edge.targetHandle ?? ''}`
+}
+
+function mergeSnapshotVariables(
+  variables: AppTask['appSnapshot']['variables'],
+  currentVariables: Record<string, unknown>,
+  inputs: Record<string, unknown>
+) {
+  const variableKeys = new Set(variables.map((variable) => variable.key))
+  const nextVariables: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(currentVariables)) {
+    if (variableKeys.has(key)) nextVariables[key] = value
+  }
+  return mergeUserInputVariables(variables, nextVariables, inputs)
+}
+
+function filterOutputsForSnapshot(
+  variables: AppTask['appSnapshot']['variables'],
+  outputs: Record<string, unknown>
+) {
+  const variableKeys = new Set(variables.map((variable) => variable.key))
+  return Object.fromEntries(Object.entries(outputs).filter(([key]) => variableKeys.has(key)))
+}
+
+function stableJson(value: unknown) {
+  return JSON.stringify(value)
+}
+
+function isRetryableNode(node: AppGraphNode) {
+  return node.type === 'workflow_run' || node.type === 'image_concat'
 }
 
 function mergeOutputValue(nodeType: AppGraphNode['type'], previous: unknown, next: unknown) {

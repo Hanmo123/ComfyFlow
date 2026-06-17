@@ -308,6 +308,7 @@ test.group('AppTaskService', () => {
     try {
       const firstImagePath = join(tmpDir, 'first.png')
       const secondImagePath = join(tmpDir, 'second.png')
+      const thirdImagePath = join(tmpDir, 'third.png')
       await sharp({
         create: { width: 100, height: 200, channels: 4, background: '#ff0000' },
       })
@@ -318,12 +319,19 @@ test.group('AppTaskService', () => {
       })
         .png()
         .toFile(secondImagePath)
+      await sharp({
+        create: { width: 25, height: 50, channels: 4, background: '#00ff00' },
+      })
+        .png()
+        .toFile(thirdImagePath)
 
       let generatedBuffer: Buffer | null = null
       const task = createImageConcatTask()
       const service = createService(task, [], {}, undefined, {
         async existingLocalPathForHash(hash: string) {
-          return hash === 'first' ? firstImagePath : secondImagePath
+          if (hash === 'first') return firstImagePath
+          if (hash === 'second') return secondImagePath
+          return thirdImagePath
         },
         async saveGeneratedImage({ buffer }: { buffer: Buffer }) {
           generatedBuffer = buffer
@@ -349,12 +357,48 @@ test.group('AppTaskService', () => {
       if (!generatedBuffer) throw new Error('Expected generated concat image')
       const metadata = await sharp(generatedBuffer).metadata()
       const concatRun = task.nodeRuns.find((nodeRun) => nodeRun.nodeId === 'concat')
-      assert.equal(metadata.width, 200)
+      assert.equal(metadata.width, 300)
       assert.equal(metadata.height, 200)
+      assert.equal(concatRun?.inputs?.imageCount, 3)
       assert.equal(concatRun?.inputs?.direction, 'horizontal')
     } finally {
       await rm(tmpDir, { recursive: true, force: true })
     }
+  })
+
+  test('syncs task snapshot and clears changed concat node runs', async ({ assert }) => {
+    const task = createImageConcatTask()
+    const nextNodes = structuredClone(task.appSnapshot.graph.nodes)
+    const nextConcatNode = nextNodes.find((node) => node.id === 'concat')
+    if (nextConcatNode?.type === 'image_concat') {
+      nextConcatNode.data.inputs = [{ varKey: 'first_image' }, { varKey: 'second_image' }, { varKey: 'third_image' }]
+    }
+    const app = {
+      id: task.appId,
+      name: 'updated app',
+      variables: task.appSnapshot.variables,
+      graph: { nodes: nextNodes, edges: task.appSnapshot.graph.edges },
+    }
+    const concatNode = task.appSnapshot.graph.nodes.find((node) => node.id === 'concat')
+    if (concatNode?.type === 'image_concat') {
+      concatNode.data.inputs = [{ varKey: 'first_image' }, { varKey: 'second_image' }]
+    }
+    task.nodeRuns = [
+      { nodeId: 'input', type: 'input_collect', status: 'completed' },
+      { nodeId: 'concat', type: 'image_concat', status: 'completed' },
+    ]
+    task.status = 'completed'
+
+    const service = createService(task, [], {}, undefined, {}, app)
+    await service.syncSnapshot(task.id)
+
+    const syncedConcatNode = task.appSnapshot.graph.nodes.find((node) => node.id === 'concat')
+    assert.deepEqual(
+      syncedConcatNode?.type === 'image_concat' ? syncedConcatNode.data.inputs : [],
+      [{ varKey: 'first_image' }, { varKey: 'second_image' }, { varKey: 'third_image' }]
+    )
+    assert.deepEqual(task.nodeRuns.map((nodeRun) => nodeRun.nodeId), ['input'])
+    assert.equal(task.status, 'failed')
   })
 })
 
@@ -363,9 +407,21 @@ function createService(
   workflowRuns: unknown[],
   workflowPatch: Partial<Workflow> = {},
   seedGenerator?: () => number,
-  mediaAssetService: Partial<ConstructorParameters<typeof AppTaskService>[5]> = {}
+  mediaAssetService: Partial<ConstructorParameters<typeof AppTaskService>[5]> = {},
+  appPatch: { id?: number; name?: string; variables?: AppTask['appSnapshot']['variables']; graph?: AppTask['appSnapshot']['graph'] } = {}
 ) {
   type AppTaskServiceArgs = ConstructorParameters<typeof AppTaskService>
+  const appRepository = {
+    async findOrFail(id: number) {
+      return {
+        id,
+        name: task.appSnapshot.name,
+        variables: task.appSnapshot.variables,
+        graph: task.appSnapshot.graph,
+        ...appPatch,
+      }
+    },
+  }
   const taskRepository = {
     async findOrFail(id: number) {
       if (id !== task.id) throw new Error(`Unexpected task id ${id}`)
@@ -397,7 +453,7 @@ function createService(
   }
 
   return new AppTaskService(
-    {} as AppTaskServiceArgs[0],
+    appRepository as AppTaskServiceArgs[0],
     taskRepository as AppTaskServiceArgs[1],
     workflowRepository as AppTaskServiceArgs[2],
     {} as AppTaskServiceArgs[3],
@@ -463,7 +519,7 @@ function createImageConcatTask() {
       id: 'concat',
       type: 'image_concat',
       position: { x: 200, y: 0 },
-      data: { inputs: [{ varKey: 'first_image' }, { varKey: 'second_image' }], outputValue: 'result' },
+      data: { inputs: [{ varKey: 'first_image' }, { varKey: 'second_image' }, { varKey: 'third_image' }], outputValue: 'result' },
     },
   ]
 
@@ -476,6 +532,7 @@ function createImageConcatTask() {
     variables: {
       first_image: { hash: 'first' },
       second_image: { hash: 'second' },
+      third_image: { hash: 'third' },
     },
     outputs: {},
     appSnapshot: {
@@ -484,6 +541,7 @@ function createImageConcatTask() {
       variables: [
         { key: 'first_image', name: 'first_image', type: 'IMAGE', source: 'computed' },
         { key: 'second_image', name: 'second_image', type: 'IMAGE', source: 'computed' },
+        { key: 'third_image', name: 'third_image', type: 'IMAGE', source: 'computed' },
         { key: 'result', name: 'result', type: 'IMAGE', source: 'computed' },
       ],
       graph: {

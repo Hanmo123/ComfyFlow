@@ -90,6 +90,12 @@ export function useAppApi() {
       body: force ? { force } : undefined,
     })
 
+  const syncTaskSnapshot = (taskId: number, force?: boolean) =>
+    $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/sync-snapshot`, {
+      method: 'POST',
+      body: force ? { force } : undefined,
+    })
+
   const moveTaskToGroup = (taskId: number, taskGroupId: number) =>
     $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/group`, {
       method: 'PATCH',
@@ -156,6 +162,7 @@ export function useAppApi() {
     retryTask,
     updateTaskInputs,
     retryTaskNode,
+    syncTaskSnapshot,
     moveTaskToGroup,
     uploadComfyImage,
     listComfyLoras,

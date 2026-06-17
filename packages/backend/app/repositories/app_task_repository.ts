@@ -19,6 +19,7 @@ export interface UpdateAppTaskPayload {
   inputs?: Record<string, unknown>
   variables?: Record<string, unknown>
   outputs?: Record<string, unknown>
+  appSnapshot?: AppTaskSnapshot
   nodeRuns?: AppTaskNodeRun[]
   waitingNodeId?: string | null
   error?: string | null

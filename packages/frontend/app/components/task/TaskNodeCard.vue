@@ -196,7 +196,7 @@ function formatValue(value: unknown) {
           </div>
         </div>
         <Button
-          v-if="props.data.node.type === 'workflow_run'"
+          v-if="props.data.node.type === 'workflow_run' || props.data.node.type === 'image_concat'"
           variant="outline"
           size="icon"
           type="button"
