@@ -335,12 +335,24 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/api/v1/tasks/:id/nodes/:nodeId/retry'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/task').retryTaskNodeValidator)>>
       paramsTuple: [ParamValue, ParamValue]
       params: { id: ParamValue; nodeId: ParamValue }
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/task').retryTaskNodeValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'tasks.tasks.move_to_group': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/tasks/:id/group'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/task').moveTaskGroupValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/task').moveTaskGroupValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['moveToGroup']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['moveToGroup']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'tasks.tasks.destroy': {

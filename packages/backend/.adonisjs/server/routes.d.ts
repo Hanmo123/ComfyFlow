@@ -32,6 +32,7 @@ export type ScannedRoutes = {
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
+    'tasks.tasks.move_to_group': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
@@ -108,6 +109,7 @@ export type ScannedRoutes = {
     'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PATCH: {
+    'tasks.tasks.move_to_group': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.updateStar': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
 }

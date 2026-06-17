@@ -97,12 +97,27 @@ export default class MediaAssetService {
       })
     }
 
+    const extension = normalizeExtension(undefined, image.filename)
     const buffer = Buffer.from(await response.arrayBuffer())
     const hash = hashBuffer(buffer)
     const existing = await this.repository.findByHash(hash)
-    if (existing) return mergeComfyImageReference(image, serializeMediaAsset(existing))
+    if (existing) {
+      const fileExists = await checkFileExists(existing.localPath)
+      if (!fileExists) {
+        const localPath = await persistImageBuffer(buffer, hash, existing.extension ?? extension)
+        existing.merge({
+          originalName: image.filename,
+          extension: existing.extension ?? extension,
+          mimeType: response.headers.get('content-type') ?? existing.mimeType,
+          size: buffer.byteLength,
+          localPath,
+        })
+        await existing.save()
+      }
 
-    const extension = normalizeExtension(undefined, image.filename)
+      return mergeComfyImageReference(image, serializeMediaAsset(existing))
+    }
+
     const localPath = await persistImageBuffer(buffer, hash, extension)
     const asset = await this.repository.create({
       hash,
@@ -122,11 +137,26 @@ export default class MediaAssetService {
   }
 
   async saveGeneratedImage(options: { buffer: Buffer; originalName: string; mimeType: string }) {
+    const extension = normalizeExtension(undefined, options.originalName)
     const hash = hashBuffer(options.buffer)
     const existing = await this.repository.findByHash(hash)
-    if (existing) return serializeMediaAsset(existing)
+    if (existing) {
+      const fileExists = await checkFileExists(existing.localPath)
+      if (!fileExists) {
+        const localPath = await persistImageBuffer(options.buffer, hash, existing.extension ?? extension)
+        existing.merge({
+          originalName: options.originalName,
+          extension: existing.extension ?? extension,
+          mimeType: options.mimeType,
+          size: options.buffer.byteLength,
+          localPath,
+        })
+        await existing.save()
+      }
 
-    const extension = normalizeExtension(undefined, options.originalName)
+      return serializeMediaAsset(existing)
+    }
+
     const localPath = await persistImageBuffer(options.buffer, hash, extension)
     const uploaded = await this.comfyService.uploadImage({
       clientName: extension ? `${hash}.${extension}` : hash,

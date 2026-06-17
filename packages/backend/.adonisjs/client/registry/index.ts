@@ -174,6 +174,12 @@ const routes = {
     tokens: [{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"nodes","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"nodeId","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"retry","end":""}],
     types: placeholder as Registry['tasks.tasks.retry_node']['types'],
   },
+  'tasks.tasks.move_to_group': {
+    methods: ["PATCH"],
+    pattern: '/api/v1/tasks/:id/group',
+    tokens: [{"old":"/api/v1/tasks/:id/group","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/group","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/group","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/group","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/group","type":0,"val":"group","end":""}],
+    types: placeholder as Registry['tasks.tasks.move_to_group']['types'],
+  },
   'tasks.tasks.destroy': {
     methods: ["DELETE"],
     pattern: '/api/v1/tasks/:id',
