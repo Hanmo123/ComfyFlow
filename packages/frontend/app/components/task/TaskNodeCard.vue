@@ -9,6 +9,7 @@ import {
   type AppTaskNodeRun,
   type AppVariable,
 } from '@/lib/app'
+import { findTaskImageIndex, type TaskImageItem } from '@/lib/task_images'
 
 const props = defineProps<{
   data: {
@@ -22,17 +23,23 @@ const props = defineProps<{
     resuming: boolean
     onRetry: (nodeId: string, event?: MouseEvent) => void
     onResume: (nodeId: string) => void
+    viewerImages: TaskImageItem[]
   }
 }>()
 
 const viewerOpen = ref(false)
-const viewerImages = ref<Array<{ url: string; name: string }>>([])
+const viewerImages = ref<TaskImageItem[]>([])
 const viewerInitialIndex = ref(0)
 
-function openViewer(images: Array<{ url: string; name: string }>, index: number) {
-  viewerImages.value = images
+function openViewer(index: number) {
+  viewerImages.value = props.data.viewerImages
   viewerInitialIndex.value = index
   viewerOpen.value = true
+}
+
+function openVarImageViewer(varKey: string, imageIndex: number) {
+  const viewerIndex = findTaskImageIndex(props.data.viewerImages, props.data.node.id, varKey, imageIndex)
+  openViewer(viewerIndex >= 0 ? viewerIndex : imageIndex)
 }
 
 const nodeIcons = {
@@ -79,10 +86,11 @@ const manualGateDisplayItems = computed(() => {
   return props.data.node.data.displayVars.map((varKey) => {
     const variable = variableByKey.value.get(varKey)
     const value = props.data.taskVariables[varKey]
+    const images = variable?.type === 'IMAGE' ? normalizeImages(value) : []
     return {
       varKey,
       variable,
-      images: variable?.type === 'IMAGE' ? normalizeImages(value) : [],
+      images,
       text: variable?.type === 'IMAGE' ? '' : formatValue(value),
     }
   })
@@ -194,7 +202,7 @@ function formatValue(value: unknown) {
                 :key="`${item.varKey}-${image.url}`"
                 class="nodrag nopan overflow-hidden rounded-md border bg-slate-50 transition hover:border-slate-300"
                 @pointerdown.stop
-                @click.stop="openViewer(item.images, index)"
+                @click.stop="openVarImageViewer(item.varKey, index)"
               >
                 <img :src="image.url" :alt="image.name" class="aspect-square w-full object-cover" />
               </button>

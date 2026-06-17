@@ -4,6 +4,7 @@ import { Controls } from '@vue-flow/controls'
 import { VueFlow, type Edge, type Node } from '@vue-flow/core'
 import TaskNodeCard from '@/components/task/TaskNodeCard.vue'
 import type { AppTaskRecord } from '@/lib/app'
+import { buildTaskImageGroups, flattenTaskImageGroups } from '@/lib/task_images'
 
 const props = defineProps<{
   task: AppTaskRecord | null
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 const nodeRunById = computed(() => new Map((props.task?.nodeRuns ?? []).map((nodeRun) => [nodeRun.nodeId, nodeRun])))
 const taskBusy = computed(() => Boolean(props.task && ['queued', 'running'].includes(props.task.status)))
 const canResume = computed(() => props.task?.status === 'waiting')
+const viewerImages = computed(() => (props.task ? flattenTaskImageGroups(buildTaskImageGroups(props.task)) : []))
 
 function canRetryNode(nodeId: string) {
   if (!props.task) return false
@@ -41,6 +43,7 @@ const flowNodes = computed<Node[]>(() =>
       retrying: props.retryingNodeId === node.id,
       canResume: canResume.value,
       resuming: props.resumingNodeId === node.id,
+      viewerImages: viewerImages.value,
       onRetry: (nodeId: string, event?: MouseEvent) => emit('retry', nodeId, event),
       onResume: (nodeId: string) => emit('resume', nodeId),
     },

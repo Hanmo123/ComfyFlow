@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { Play, Star } from 'lucide-vue-next'
-import type { AppTaskRecord } from '@/lib/app'
 import ImageViewer from '@/components/ImageViewer.vue'
-
-interface OutputImageItem {
-  url: string
-  name: string
-  hash: string | null
-  isStarred: boolean
-}
+import type { AppTaskRecord } from '@/lib/app'
+import {
+  buildTaskImageGroups,
+  findTaskImageIndex,
+  flattenTaskImageGroups,
+  type TaskImageItem,
+} from '@/lib/task_images'
 
 const props = defineProps<{
   task: AppTaskRecord | null
@@ -18,17 +17,42 @@ const props = defineProps<{
 const libraryApi = useLibraryApi()
 
 const viewerOpen = ref(false)
-const viewerImages = ref<OutputImageItem[]>([])
+const viewerImages = ref<TaskImageItem[]>([])
 const viewerInitialIndex = ref(0)
 const starredImageStates = ref<Record<string, boolean>>({})
 
-function openViewer(images: OutputImageItem[], index: number) {
+const imageGroups = computed(() => (props.task ? buildTaskImageGroups(props.task) : []))
+const taskViewerImages = computed(() => flattenTaskImageGroups(imageGroups.value))
+const groupImages = computed(() => {
+  const seenKeys = new Set<string>()
+  const images: TaskImageItem[] = []
+  for (const task of props.tasks ?? []) {
+    for (const group of buildTaskImageGroups(task)) {
+      for (const image of group.images) {
+        const key = image.hash ?? image.url
+        if (seenKeys.has(key)) continue
+        seenKeys.add(key)
+        images.push({ ...image, name: `#${task.id} · ${image.name}` })
+      }
+    }
+  }
+  return images
+})
+const allImages = computed(() => [...taskViewerImages.value, ...groupImages.value])
+
+function openViewer(images: TaskImageItem[], index: number) {
   viewerImages.value = images
   viewerInitialIndex.value = index
   viewerOpen.value = true
 }
 
-async function toggleStar(image: OutputImageItem) {
+function openTaskViewer(nodeId: string, varKey: string, imageIndex: number) {
+  const index = findTaskImageIndex(taskViewerImages.value, nodeId, varKey, imageIndex)
+  if (index < 0) return
+  openViewer(taskViewerImages.value, index)
+}
+
+async function toggleStar(image: TaskImageItem) {
   if (!image.hash) return
   const nextValue = !isStarred(image)
   starredImageStates.value = { ...starredImageStates.value, [image.hash]: nextValue }
@@ -41,22 +65,22 @@ async function toggleStar(image: OutputImageItem) {
   }
 }
 
-function isStarred(image: OutputImageItem) {
+function isStarred(image: TaskImageItem) {
   if (!image.hash) return image.isStarred
   return starredImageStates.value[image.hash] ?? image.isStarred
 }
 
-function starredImages(images: OutputImageItem[]) {
+function starredImages(images: TaskImageItem[]) {
   return images.filter((image) => isStarred(image))
 }
 
-function openStarredViewer(images: OutputImageItem[]) {
+function openStarredViewer(images: TaskImageItem[]) {
   const starred = starredImages(images)
   if (starred.length === 0) return
   openViewer(starred, 0)
 }
 
-function restoreStarredFlags(images: OutputImageItem[]) {
+function restoreStarredFlags(images: TaskImageItem[]) {
   return images.map((image) => {
     if (!image.hash) return image
     return {
@@ -64,51 +88,6 @@ function restoreStarredFlags(images: OutputImageItem[]) {
       isStarred: starredImageStates.value[image.hash] ?? image.isStarred,
     }
   })
-}
-
-const imageGroups = computed(() => {
-  return props.task ? buildImageGroups(props.task) : []
-})
-
-const groupImages = computed(() => {
-  const seenKeys = new Set<string>()
-  const images: OutputImageItem[] = []
-  for (const task of props.tasks ?? []) {
-    for (const group of buildImageGroups(task)) {
-      for (const image of group.images) {
-        const key = image.hash ?? image.url
-        if (seenKeys.has(key)) continue
-        seenKeys.add(key)
-        images.push({ ...image, name: `#${task.id} · ${image.name}` })
-      }
-    }
-  }
-  return images
-})
-
-const allImages = computed(() => [...imageGroups.value.flatMap((group) => group.images), ...groupImages.value])
-
-function buildImageGroups(task: AppTaskRecord) {
-  const imageVariableKeys = new Set(
-    task.appSnapshot.variables.filter((variable) => variable.type === 'IMAGE').map((variable) => variable.key),
-  )
-  const displayedVarKeys = new Set<string>()
-  const groups: Array<{ nodeId: string; varKey: string; images: OutputImageItem[] }> = []
-
-  for (const node of task.appSnapshot.graph.nodes) {
-    if (node.type !== 'output_image' || !node.data.varKey) continue
-    addImageGroup(task, groups, displayedVarKeys, node.id, node.data.varKey)
-  }
-
-  for (const node of task.appSnapshot.graph.nodes) {
-    if (node.type !== 'manual_gate') continue
-    for (const varKey of node.data.displayVars) {
-      if (!imageVariableKeys.has(varKey)) continue
-      addImageGroup(task, groups, displayedVarKeys, node.id, varKey)
-    }
-  }
-
-  return groups
 }
 
 watch(
@@ -133,64 +112,6 @@ watch(
   },
   { immediate: true },
 )
-
-function addImageGroup(
-  task: AppTaskRecord,
-  groups: Array<{ nodeId: string; varKey: string; images: OutputImageItem[] }>,
-  displayedVarKeys: Set<string>,
-  nodeId: string,
-  varKey: string,
-) {
-  if (displayedVarKeys.has(varKey)) return
-  const images = normalizeImages(task.outputs[varKey] ?? task.variables[varKey])
-  if (images.length === 0) return
-  groups.push({ nodeId, varKey, images })
-  displayedVarKeys.add(varKey)
-}
-
-function normalizeImages(value: unknown): OutputImageItem[] {
-  const items = Array.isArray(value) ? value : value ? [value] : []
-  return items.flatMap((item, index) => {
-    if (Array.isArray(item)) return normalizeImages(item)
-    const url = imageUrl(item)
-    return url ? [{ url, name: imageName(item, index), hash: imageHash(item), isStarred: imageIsStarred(item) }] : []
-  })
-}
-
-function imageUrl(value: unknown) {
-  if (typeof value === 'string') return value
-  if (!value || typeof value !== 'object') return ''
-  const image = value as Record<string, unknown>
-  
-  // 优先使用代理图片
-  if (image.proxy && typeof image.proxy === 'object') {
-    const proxy = image.proxy as Record<string, unknown>
-    if (typeof proxy.localUrl === 'string') return proxy.localUrl
-    if (typeof proxy.url === 'string') return proxy.url
-  }
-  
-  // 降级到原图
-  if (typeof image.localUrl === 'string') return image.localUrl
-  return typeof image.url === 'string' ? image.url : ''
-}
-
-function imageName(value: unknown, index: number) {
-  if (!value || typeof value !== 'object') return `图片 ${index + 1}`
-  const image = value as Record<string, unknown>
-  return String(image.filename ?? image.name ?? `图片 ${index + 1}`)
-}
-
-function imageHash(value: unknown) {
-  if (!value || typeof value !== 'object') return null
-  const image = value as Record<string, unknown>
-  return typeof image.hash === 'string' ? image.hash : null
-}
-
-function imageIsStarred(value: unknown) {
-  if (!value || typeof value !== 'object') return false
-  const image = value as Record<string, unknown>
-  return image.isStarred === true
-}
 </script>
 
 <template>
@@ -228,7 +149,7 @@ function imageIsStarred(value: unknown) {
               :key="`${group.nodeId}-${image.url}`"
               class="group relative overflow-hidden rounded-lg border bg-slate-50 transition hover:border-slate-300"
             >
-              <button class="block w-full" type="button" @click="openViewer(group.images, index)">
+              <button class="block w-full" type="button" @click="openTaskViewer(group.nodeId, group.varKey, index)">
                 <img :src="image.url" :alt="image.name" class="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
               </button>
               <button
