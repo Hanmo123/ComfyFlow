@@ -42,6 +42,9 @@ export default class AppTask extends BaseModel {
   @column()
   declare status: AppTaskStatus
 
+  @column()
+  declare requiresManualAction: boolean
+
   @column({ prepare: stringifyJson, consume: parseJson })
   declare inputs: Record<string, unknown>
 

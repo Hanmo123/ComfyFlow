@@ -84,6 +84,7 @@ export default class AppTaskService {
     const task = await this.taskRepository.create({
       appId: app.id,
       taskGroupId,
+      requiresManualAction: app.graph.nodes.some((node) => node.type === 'manual_gate'),
       inputs,
       variables,
       appSnapshot: {

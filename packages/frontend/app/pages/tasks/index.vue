@@ -467,6 +467,16 @@ function taskFallbackClass(task: AppTaskRecord) {
   return classes[task.id % classes.length]
 }
 
+function taskButtonClass(task: AppTaskRecord) {
+  if (task.requiresManualAction) {
+    return selectedTaskId.value === task.id
+      ? 'border-yellow-400 ring-2 ring-slate-950'
+      : 'border-yellow-400 hover:border-yellow-500'
+  }
+
+  return selectedTaskId.value === task.id ? 'border-slate-950' : 'border-slate-200 hover:border-slate-400'
+}
+
 function statusLabel(status: AppTaskRecord['status']) {
   const labels = {
     queued: '排队',
@@ -517,7 +527,7 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             :key="task.id"
             type="button"
             class="relative size-14 overflow-hidden rounded-xl border transition"
-            :class="selectedTaskId === task.id ? 'border-slate-950' : 'border-slate-200 hover:border-slate-400'"
+            :class="taskButtonClass(task)"
             @click="selectTask(task.id)"
           >
             <img v-if="taskThumbnail(task)" :src="taskThumbnail(task)" :alt="`任务 #${task.id}`" class="h-full w-full object-cover" />

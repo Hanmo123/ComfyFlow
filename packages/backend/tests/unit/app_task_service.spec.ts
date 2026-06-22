@@ -2,7 +2,7 @@ import type { AppGraphNode } from '#models/app'
 import type AppTask from '#models/app_task'
 import type { AppTaskNodeStatus } from '#models/app_task'
 import type Workflow from '#models/workflow'
-import type { UpdateAppTaskPayload } from '#repositories/app_task_repository'
+import type { CreateAppTaskPayload, UpdateAppTaskPayload } from '#repositories/app_task_repository'
 import AppTaskService from '#services/app_task_service'
 import { test } from '@japa/runner'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -11,6 +11,48 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 test.group('AppTaskService', () => {
+  test('marks newly-created tasks that contain a manual gate', async ({ assert }) => {
+    let createdPayload: CreateAppTaskPayload | null = null
+    const appRepository = {
+      async findOrFail(id: number) {
+        return {
+          id,
+          name: 'manual app',
+          variables: [],
+          graph: {
+            nodes: [
+              { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+              { id: 'gate', type: 'manual_gate', position: { x: 200, y: 0 }, data: {} },
+            ],
+            edges: [],
+          },
+        }
+      },
+    }
+    const taskRepository = {
+      async create(payload: CreateAppTaskPayload) {
+        createdPayload = payload
+        return { id: 1, ...payload } as unknown as AppTask
+      },
+    }
+    const taskGroupService = {
+      async ensureExists() {},
+    }
+    type AppTaskServiceArgs = ConstructorParameters<typeof AppTaskService>
+    const service = new AppTaskService(
+      appRepository as unknown as AppTaskServiceArgs[0],
+      taskRepository as AppTaskServiceArgs[1],
+      {} as AppTaskServiceArgs[2],
+      taskGroupService as unknown as AppTaskServiceArgs[3]
+    )
+    ;(service as unknown as { enqueue(taskId: number): void }).enqueue = () => {}
+
+    await service.run(1, 1)
+
+    const payload = createdPayload as CreateAppTaskPayload | null
+    assert.isTrue(payload?.requiresManualAction)
+  })
+
   test('continues independent branches after a manual gate starts waiting', async ({ assert }) => {
     const task = createQueuedTask()
     const workflowRuns: unknown[] = []

@@ -247,6 +247,7 @@ export interface AppTaskRecord {
   appId: number;
   taskGroupId: number | null;
   status: AppTaskStatus;
+  requiresManualAction: boolean;
   inputs: Record<string, unknown>;
   variables: Record<string, unknown>;
   outputs: Record<string, unknown>;
