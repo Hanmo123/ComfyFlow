@@ -499,6 +499,18 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['show']>>>
     }
   }
+  'media.proxies': {
+    methods: ["POST"]
+    pattern: '/api/v1/media/proxies'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['proxies']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/media_assets_controller').default['proxies']>>>
+    }
+  }
   'media.starStates': {
     methods: ["POST"]
     pattern: '/api/v1/media/star-states'

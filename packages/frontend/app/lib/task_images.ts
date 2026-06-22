@@ -13,6 +13,7 @@ export interface TaskImageItem {
 export interface TaskImageGroup {
   nodeId: string
   varKey: string
+  label?: string
   images: TaskImageItem[]
 }
 
@@ -34,6 +35,20 @@ export function buildTaskImageGroups(task: AppTaskRecord) {
       if (!imageVariableKeys.has(varKey)) continue
       addImageGroup(task, groups, displayedVarKeys, node.id, varKey)
     }
+  }
+
+  return groups
+}
+
+export function buildTaskInputImageGroups(task: AppTaskRecord) {
+  const groups: TaskImageGroup[] = []
+
+  for (const variable of task.appSnapshot.variables) {
+    if (variable.source !== 'user_input' || variable.type !== 'IMAGE') continue
+    const value = task.inputs[variable.key] ?? task.variables[variable.key] ?? variable.default
+    const images = normalizeImages(value, 'inputs', variable.key)
+    if (images.length === 0) continue
+    groups.push({ nodeId: 'inputs', varKey: variable.key, label: variable.name || variable.key, images })
   }
 
   return groups

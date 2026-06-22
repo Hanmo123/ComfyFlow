@@ -252,6 +252,12 @@ const routes = {
     tokens: [{"old":"/api/v1/media/:hash","type":0,"val":"api","end":""},{"old":"/api/v1/media/:hash","type":0,"val":"v1","end":""},{"old":"/api/v1/media/:hash","type":0,"val":"media","end":""},{"old":"/api/v1/media/:hash","type":1,"val":"hash","end":""}],
     types: placeholder as Registry['media.show']['types'],
   },
+  'media.proxies': {
+    methods: ["POST"],
+    pattern: '/api/v1/media/proxies',
+    tokens: [{"old":"/api/v1/media/proxies","type":0,"val":"api","end":""},{"old":"/api/v1/media/proxies","type":0,"val":"v1","end":""},{"old":"/api/v1/media/proxies","type":0,"val":"media","end":""},{"old":"/api/v1/media/proxies","type":0,"val":"proxies","end":""}],
+    types: placeholder as Registry['media.proxies']['types'],
+  },
   'media.starStates': {
     methods: ["POST"],
     pattern: '/api/v1/media/star-states',

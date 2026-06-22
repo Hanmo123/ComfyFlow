@@ -117,6 +117,7 @@ router
       .as('library')
 
     router.get('media/:hash', [MediaAssetsController, 'show']).as('media.show')
+    router.post('media/proxies', [MediaAssetsController, 'proxies']).as('media.proxies')
     router.post('media/star-states', [MediaAssetsController, 'starStates']).as('media.starStates')
     router.patch('media/:hash/star', [MediaAssetsController, 'updateStar']).as('media.updateStar')
   })

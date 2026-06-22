@@ -20,4 +20,10 @@ export default class MediaAssetsController {
     const states = await this.mediaAssetService.listStarStates(Array.isArray(hashes) ? hashes.map(String) : [])
     return response.ok(states)
   }
+
+  async proxies({ request, response }: HttpContext) {
+    const hashes = request.input('hashes', [])
+    const proxies = await this.mediaAssetService.listProxiesByOriginalHashes(Array.isArray(hashes) ? hashes.map(String) : [])
+    return response.ok(proxies)
+  }
 }

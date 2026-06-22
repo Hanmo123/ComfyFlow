@@ -3,6 +3,7 @@ import { Play, Star } from 'lucide-vue-next'
 import ImageViewer from '@/components/ImageViewer.vue'
 import type { AppTaskRecord } from '@/lib/app'
 import {
+  buildTaskInputImageGroups,
   buildTaskImageGroups,
   findTaskImageIndex,
   flattenTaskImageGroups,
@@ -20,9 +21,23 @@ const viewerOpen = ref(false)
 const viewerImages = ref<TaskImageItem[]>([])
 const viewerInitialIndex = ref(0)
 const starredImageStates = ref<Record<string, boolean>>({})
+const inputImageProxies = ref<Record<string, { hash: string; url: string; localUrl: string }>>({})
 
 const imageGroups = computed(() => (props.task ? buildTaskImageGroups(props.task) : []))
+const inputImageGroups = computed(() => (props.task ? buildTaskInputImageGroups(props.task) : []))
+const proxiedInputImageGroups = computed(() =>
+  inputImageGroups.value.map((group) => ({
+    ...group,
+    images: group.images.map((image) => ({ ...image, url: inputProxyUrl(image) ?? image.url })),
+  })),
+)
 const taskViewerImages = computed(() => flattenTaskImageGroups(imageGroups.value))
+const inputViewerImages = computed(() => flattenTaskImageGroups(proxiedInputImageGroups.value))
+const currentTaskViewerImages = computed(() => [...inputViewerImages.value, ...taskViewerImages.value])
+const inputImageHashes = computed(() => {
+  const hashes = inputImageGroups.value.map((group) => group.images.map((image) => image.hash)).flat()
+  return [...new Set(hashes.filter((hash): hash is string => Boolean(hash)))]
+})
 const groupImages = computed(() => {
   const seenKeys = new Set<string>()
   const images: TaskImageItem[] = []
@@ -47,9 +62,21 @@ function openViewer(images: TaskImageItem[], index: number) {
 }
 
 function openTaskViewer(nodeId: string, varKey: string, imageIndex: number) {
-  const index = findTaskImageIndex(taskViewerImages.value, nodeId, varKey, imageIndex)
+  const index = findTaskImageIndex(currentTaskViewerImages.value, nodeId, varKey, imageIndex)
   if (index < 0) return
-  openViewer(taskViewerImages.value, index)
+  openViewer(currentTaskViewerImages.value, index)
+}
+
+function openInputViewer(varKey: string, imageIndex: number) {
+  const index = findTaskImageIndex(currentTaskViewerImages.value, 'inputs', varKey, imageIndex)
+  if (index < 0) return
+  openViewer(currentTaskViewerImages.value, index)
+}
+
+function inputProxyUrl(image: TaskImageItem) {
+  if (!image.hash) return null
+  const proxy = inputImageProxies.value[image.hash]
+  return proxy?.localUrl ?? proxy?.url ?? null
 }
 
 async function toggleStar(image: TaskImageItem) {
@@ -94,7 +121,22 @@ watch(
   () => props.task?.id,
   () => {
     starredImageStates.value = {}
+    inputImageProxies.value = {}
   },
+)
+
+watch(
+  inputImageHashes,
+  async (hashes) => {
+    inputImageProxies.value = {}
+    if (hashes.length === 0) return
+    try {
+      inputImageProxies.value = await libraryApi.getMediaAssetProxies(hashes)
+    } catch (error) {
+      console.error(error)
+    }
+  },
+  { immediate: true },
 )
 
 watch(
@@ -136,6 +178,24 @@ watch(
       </div>
     </div>
     <div class="flex-1 overflow-y-auto p-4">
+      <div v-if="proxiedInputImageGroups.length" class="mb-5 space-y-3">
+        <div class="text-xs font-medium text-slate-500">输入图</div>
+        <div class="grid grid-cols-3 gap-2">
+          <template v-for="group in proxiedInputImageGroups" :key="group.varKey">
+            <button
+              v-for="(image, index) in group.images"
+              :key="`${group.varKey}-${image.url}`"
+              class="group overflow-hidden rounded-lg border bg-slate-50 text-left transition hover:border-slate-300"
+              type="button"
+              @click="openInputViewer(group.varKey, index)"
+            >
+              <img :src="image.url" :alt="group.label ?? image.name" class="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+              <div class="truncate px-2 py-1.5 text-[11px] text-slate-500">{{ group.label ?? group.varKey }}</div>
+            </button>
+          </template>
+        </div>
+      </div>
+
       <div v-if="imageGroups.length === 0" class="rounded-xl border border-dashed p-6 text-center text-sm text-slate-500">
         暂无输出图片
       </div>

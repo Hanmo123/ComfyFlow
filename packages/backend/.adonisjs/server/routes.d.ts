@@ -45,6 +45,7 @@ export type ScannedRoutes = {
     'library.library_assets.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.show': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
+    'media.proxies': { paramsTuple?: []; params?: {} }
     'media.starStates': { paramsTuple?: []; params?: {} }
     'media.updateStar': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }
@@ -98,6 +99,7 @@ export type ScannedRoutes = {
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
     'library.library_assets.store': { paramsTuple?: []; params?: {} }
+    'media.proxies': { paramsTuple?: []; params?: {} }
     'media.starStates': { paramsTuple?: []; params?: {} }
   }
   PUT: {

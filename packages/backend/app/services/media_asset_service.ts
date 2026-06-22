@@ -235,6 +235,26 @@ export default class MediaAssetService {
     return this.repository.listStarStates(uniqueHashes)
   }
 
+  async listProxiesByOriginalHashes(hashes: string[]) {
+    const uniqueHashes = [...new Set(hashes.filter(Boolean))]
+    const originalAssets = await this.repository.listByHashes(uniqueHashes)
+    const proxyAssets = await this.repository.listByProxyForIds(originalAssets.map((asset) => asset.id))
+    const proxyByOriginalId = new Map<number, MediaAsset>()
+
+    for (const proxyAsset of proxyAssets) {
+      if (!proxyAsset.proxyForId) continue
+      const current = proxyByOriginalId.get(proxyAsset.proxyForId)
+      if (!current || proxyAsset.size < current.size) proxyByOriginalId.set(proxyAsset.proxyForId, proxyAsset)
+    }
+
+    return Object.fromEntries(
+      originalAssets.flatMap((asset) => {
+        const proxy = proxyByOriginalId.get(asset.id)
+        return proxy ? [[asset.hash, serializeMediaAsset(proxy)]] : []
+      })
+    )
+  }
+
   async compressToAvif(options: {
     originalHash: string
     quality: number

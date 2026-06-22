@@ -82,6 +82,7 @@ export interface ApiDefinition {
   }
   media: {
     show: typeof routes['media.show']
+    proxies: typeof routes['media.proxies']
     starStates: typeof routes['media.starStates']
     updateStar: typeof routes['media.updateStar']
   }
