@@ -632,7 +632,7 @@ function openSaveStringPresetDialog(variableKey: string) {
 <template>
   <Sheet :open="props.open" @update:open="emit('update:open', $event)">
     <SheetContent
-      :class="batchMode ? 'w-full overflow-hidden sm:max-w-5xl' : 'w-full overflow-y-auto sm:max-w-md'"
+      :class="batchMode ? 'w-screen max-w-none overflow-hidden sm:max-w-none' : 'w-full overflow-y-auto sm:max-w-md'"
     >
       <SheetHeader>
         <SheetTitle>运行应用</SheetTitle>
@@ -650,7 +650,7 @@ function openSaveStringPresetDialog(variableKey: string) {
       >
         <section
           v-if="batchMode && activeBatchItem"
-          class="hidden min-h-0 w-[360px] shrink-0 flex-col gap-3 lg:flex"
+          class="hidden min-h-0 min-w-[420px] flex-[1.4] flex-col gap-3 lg:flex"
         >
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
@@ -663,7 +663,7 @@ function openSaveStringPresetDialog(variableKey: string) {
               {{ batchItemStatusLabel(activeBatchItem) }}
             </div>
           </div>
-          <div class="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-xl border bg-slate-950/95 p-3">
+          <div class="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border bg-slate-950/95 p-3">
             <img
               :src="activeBatchItem.previewUrl"
               :alt="activeBatchItem.file.name"
