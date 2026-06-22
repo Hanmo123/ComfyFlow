@@ -8,6 +8,7 @@ import { APP_VARIABLE_TYPE_LABELS, type AppTaskRecord, type AppVariable, type Ta
 const route = useRoute()
 const router = useRouter()
 const appApi = useAppApi()
+const { loadPreferredTaskGroupId, setPreferredTaskGroupId } = useTaskGroupPreference()
 
 const taskGroups = ref<TaskGroupRecord[]>([])
 const tasks = ref<AppTaskRecord[]>([])
@@ -93,7 +94,9 @@ async function initializePage() {
 function initialGroupId() {
   const routeGroupId = Number(route.query.groupId)
   const queryGroup = taskGroups.value.find((group) => group.id === routeGroupId)
-  return queryGroup?.id ?? taskGroups.value[0]?.id ?? null
+  const preferredGroupId = loadPreferredTaskGroupId()
+  const preferredGroup = taskGroups.value.find((group) => group.id === preferredGroupId)
+  return queryGroup?.id ?? preferredGroup?.id ?? taskGroups.value[0]?.id ?? null
 }
 
 function queryTaskId() {
@@ -117,6 +120,7 @@ async function openGroupPicker() {
 
 async function selectGroup(groupId: number, taskId?: number) {
   selectedGroupId.value = groupId
+  setPreferredTaskGroupId(groupId)
   selectedTaskId.value = null
   showingGroupPicker.value = false
   await router.replace({ path: '/tasks', query: { groupId, ...(taskId ? { taskId } : {}) } })
@@ -595,7 +599,7 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             <div class="mx-auto max-w-4xl">
               <div class="mb-5">
                 <h1 class="text-xl font-semibold">选择任务分组</h1>
-                <p class="mt-1 text-sm text-slate-500">默认进入第一个分组，也可以从这里切换到其他分组。</p>
+                <p class="mt-1 text-sm text-slate-500">会自动进入上次选择的分组，也可以从这里切换到其他分组。</p>
               </div>
 
               <div v-if="taskGroups.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

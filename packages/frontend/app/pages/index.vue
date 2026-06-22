@@ -5,6 +5,7 @@ import type { TaskGroupRecord } from '@/lib/app'
 
 const store = useAppDesignerStore()
 const appApi = useAppApi()
+const { loadPreferredTaskGroupId, setPreferredTaskGroupId } = useTaskGroupPreference()
 const runSheetOpen = ref(false)
 const taskGroups = ref<TaskGroupRecord[]>([])
 const selectedTaskGroupId = ref<number | null>(null)
@@ -36,11 +37,17 @@ async function loadTaskGroups() {
   try {
     loadingTaskGroups.value = true
     taskGroups.value = await appApi.listTaskGroups()
-    if (!selectedTaskGroupId.value || !taskGroups.value.some((group) => group.id === selectedTaskGroupId.value)) {
+    const preferredGroupId = loadPreferredTaskGroupId()
+    const nextGroupId = selectedTaskGroupId.value ?? preferredGroupId
+    if (nextGroupId && taskGroups.value.some((group) => group.id === nextGroupId)) {
+      selectedTaskGroupId.value = nextGroupId
+    } else {
       selectedTaskGroupId.value = taskGroups.value[0]?.id ?? null
     }
+    setPreferredTaskGroupId(selectedTaskGroupId.value)
   } catch (error) {
     selectedTaskGroupId.value = null
+    setPreferredTaskGroupId(null)
     toast.error(error instanceof Error ? error.message : '加载任务分组失败')
   } finally {
     loadingTaskGroups.value = false
@@ -57,6 +64,7 @@ async function createTaskGroup() {
     const group = await appApi.createTaskGroup(name)
     taskGroups.value = [...taskGroups.value, group].sort((left, right) => left.sortOrder - right.sortOrder || left.id - right.id)
     selectedTaskGroupId.value = group.id
+    setPreferredTaskGroupId(group.id)
     toast.success('任务分组已创建')
   } catch (error) {
     toast.error(error instanceof Error ? error.message : '创建任务分组失败')
@@ -68,6 +76,7 @@ async function createTaskGroup() {
 function updateSelectedTaskGroup(value: unknown) {
   const nextId = Number(value)
   selectedTaskGroupId.value = Number.isFinite(nextId) ? nextId : null
+  setPreferredTaskGroupId(selectedTaskGroupId.value)
 }
 
 function handleKeyDown(event: KeyboardEvent) {
