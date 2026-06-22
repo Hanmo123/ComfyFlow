@@ -513,34 +513,38 @@ async function moveTaskToGroupAction(targetGroupId: number) {
 <template>
   <main class="h-svh overflow-hidden bg-white text-slate-950">
     <div class="flex h-full">
-      <aside class="flex w-20 shrink-0 flex-col items-center gap-3 border-r bg-slate-50 px-2 py-4">
-        <LayoutAppNavigationMenu />
-        <div class="h-px w-full bg-slate-200" />
-        <button
-          v-if="!showingGroupPicker"
-          type="button"
-          class="flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-slate-400 hover:text-slate-950"
-          title="返回分组"
-          @click="openGroupPicker"
-        >
-          <ArrowLeft class="size-4" />
-        </button>
-        <template v-if="!showingGroupPicker">
+      <aside class="flex w-20 shrink-0 flex-col items-center gap-3 border-r bg-slate-50 py-4">
+        <div class="flex w-full flex-col items-center gap-3 px-2">
+          <LayoutAppNavigationMenu />
+          <div class="h-px w-full bg-slate-200" />
           <button
-            v-for="task in tasks"
-            :key="task.id"
+            v-if="!showingGroupPicker"
             type="button"
-            class="relative size-14 overflow-hidden rounded-xl border transition"
-            :class="taskButtonClass(task)"
-            @click="selectTask(task.id)"
+            class="flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-slate-400 hover:text-slate-950"
+            title="返回分组"
+            @click="openGroupPicker"
           >
-            <img v-if="taskThumbnail(task)" :src="taskThumbnail(task)" :alt="`任务 #${task.id}`" class="h-full w-full object-cover" />
-            <div v-else class="flex h-full w-full items-center justify-center" :class="taskFallbackClass(task)">
-              <Image class="size-5 text-slate-600" />
-            </div>
-            <span class="absolute bottom-0 left-0 right-0 bg-white/85 text-[10px] font-medium text-slate-700">#{{ task.id }}</span>
+            <ArrowLeft class="size-4" />
           </button>
-        </template>
+        </div>
+        <div v-if="!showingGroupPicker" class="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
+          <div class="flex w-full flex-col items-center gap-3 px-2">
+            <button
+              v-for="task in tasks"
+              :key="task.id"
+              type="button"
+              class="relative size-14 shrink-0 overflow-hidden rounded-xl border transition"
+              :class="taskButtonClass(task)"
+              @click="selectTask(task.id)"
+            >
+              <img v-if="taskThumbnail(task)" :src="taskThumbnail(task)" :alt="`任务 #${task.id}`" class="h-full w-full object-cover" />
+              <div v-else class="flex h-full w-full items-center justify-center" :class="taskFallbackClass(task)">
+                <Image class="size-5 text-slate-600" />
+              </div>
+              <span class="absolute bottom-0 left-0 right-0 bg-white/85 text-[10px] font-medium text-slate-700">#{{ task.id }}</span>
+            </button>
+          </div>
+        </div>
       </aside>
 
       <section class="flex min-w-0 flex-1 flex-col">
