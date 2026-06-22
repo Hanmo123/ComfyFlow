@@ -31,7 +31,10 @@ export type ScannedRoutes = {
     'tasks.tasks.index': { paramsTuple?: []; params?: {} }
     'tasks.tasks.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'tasks.tasks.sync_snapshot': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'tasks.tasks.repair_logic': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
+    'tasks.tasks.update_inputs': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.move_to_group': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'comfy.comfy.list_loras': { paramsTuple?: []; params?: {} }
@@ -90,6 +93,8 @@ export type ScannedRoutes = {
     'apps.app_input_presets.store': { paramsTuple: [ParamValue]; params: {'appId': ParamValue} }
     'taskGroups.task_groups.store': { paramsTuple?: []; params?: {} }
     'tasks.tasks.retry': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'tasks.tasks.sync_snapshot': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'tasks.tasks.repair_logic': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.retry_node': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'nodeId': ParamValue} }
     'comfy.comfy.upload_image': { paramsTuple?: []; params?: {} }
     'library.library_assets.store': { paramsTuple?: []; params?: {} }
@@ -109,6 +114,7 @@ export type ScannedRoutes = {
     'library.library_assets.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PATCH: {
+    'tasks.tasks.update_inputs': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'tasks.tasks.move_to_group': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'media.updateStar': { paramsTuple: [ParamValue]; params: {'hash': ParamValue} }
   }

@@ -38,6 +38,10 @@ export default class TasksController {
     return this.taskService.syncSnapshot(Number(params.id), isTruthy(request.input('force')))
   }
 
+  async repairLogic({ params }: HttpContext) {
+    return this.taskService.repairLogic(Number(params.id))
+  }
+
   async moveToGroup({ params, request }: HttpContext) {
     const payload = await request.validateUsing(moveTaskGroupValidator)
     return this.taskService.moveToGroup(Number(params.id), payload.taskGroupId)

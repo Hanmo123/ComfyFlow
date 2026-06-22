@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { ArrowLeft, FolderOpen, Image, LayoutGrid, MoreVertical, Pencil, RefreshCw, RotateCw, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, FolderOpen, Image, LayoutGrid, MoreVertical, Pencil, RefreshCw, RotateCw, Trash2, Wrench } from 'lucide-vue-next'
 import TaskFlowGraph from '@/components/task/TaskFlowGraph.vue'
 import TaskOutputImages from '@/components/task/TaskOutputImages.vue'
 import { APP_VARIABLE_TYPE_LABELS, type AppTaskRecord, type AppVariable, type TaskGroupRecord } from '@/lib/app'
@@ -20,6 +20,7 @@ const retryingTask = ref(false)
 const savingInputs = ref(false)
 const deletingTask = ref(false)
 const syncingSnapshot = ref(false)
+const repairingLogic = ref(false)
 const editingInputs = ref(false)
 const shiftPressed = ref(false)
 const editTextValues = ref<Record<string, string>>({})
@@ -36,6 +37,7 @@ const selectedTaskBusy = computed(() => Boolean(selectedTask.value && ['queued',
 const retryTaskDisabled = computed(() => retryingTask.value || (selectedTaskBusy.value && !shiftPressed.value))
 const deleteTaskDisabled = computed(() => deletingTask.value || (selectedTaskBusy.value && !shiftPressed.value))
 const syncSnapshotDisabled = computed(() => syncingSnapshot.value || (selectedTaskBusy.value && !shiftPressed.value))
+const repairLogicDisabled = computed(() => repairingLogic.value || selectedTaskBusy.value)
 const userInputVariables = computed(() => selectedTask.value?.appSnapshot.variables.filter((variable) => variable.source === 'user_input') ?? [])
 
 onMounted(async () => {
@@ -272,6 +274,21 @@ async function syncSelectedTaskSnapshot(event?: MouseEvent) {
     toast.error(syncError instanceof Error ? syncError.message : '同步任务快照失败')
   } finally {
     syncingSnapshot.value = false
+  }
+}
+
+async function repairSelectedTaskLogic() {
+  if (!selectedTask.value || repairingLogic.value || selectedTaskBusy.value) return
+  try {
+    repairingLogic.value = true
+    const updated = await appApi.repairTaskLogic(selectedTask.value.id)
+    upsertTask(updated)
+    toast.success('任务逻辑已重新推进')
+    startPolling()
+  } catch (repairError) {
+    toast.error(repairError instanceof Error ? repairError.message : '修复任务逻辑失败')
+  } finally {
+    repairingLogic.value = false
   }
 }
 
@@ -541,6 +558,16 @@ async function moveTaskToGroupAction(targetGroupId: number) {
           >
             <RotateCw class="size-4" :class="retryingTask ? 'animate-spin' : ''" />
             重试
+          </Button>
+          <Button
+            v-if="selectedTask && !showingGroupPicker && shiftPressed"
+            type="button"
+            variant="outline"
+            :disabled="repairLogicDisabled"
+            @click="repairSelectedTaskLogic"
+          >
+            <Wrench class="size-4" :class="repairingLogic ? 'animate-pulse' : ''" />
+            修复逻辑
           </Button>
           <Button
             v-if="selectedTask && !showingGroupPicker"

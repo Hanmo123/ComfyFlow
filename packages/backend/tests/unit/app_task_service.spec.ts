@@ -232,6 +232,89 @@ test.group('AppTaskService', () => {
     assert.deepEqual(waitRun?.outputs, { canContinue: true })
   })
 
+  test('keeps wait-for-previous reachable from an independent predecessor', async ({ assert }) => {
+    const task = createConditionalWaitWithIndependentParentTask(false)
+    const service = createService(task, [])
+
+    await executeTask(service, task.id)
+
+    const waitRun = task.nodeRuns.find((nodeRun) => nodeRun.nodeId === 'wait')
+
+    assert.equal(task.status, 'completed')
+    assert.equal(nodeStatus(task, 'true_workflow'), 'skipped')
+    assert.equal(nodeStatus(task, 'true_output'), 'skipped')
+    assert.equal(nodeStatus(task, 'main_output'), 'completed')
+    assert.equal(nodeStatus(task, 'wait'), 'completed')
+    assert.equal(nodeStatus(task, 'final_output'), 'completed')
+    assert.deepEqual(waitRun?.inputs, {
+      arrivedParentIds: ['true_output', 'main_output'],
+      arrivedCount: 2,
+      expectedCount: 2,
+    })
+    assert.deepEqual(waitRun?.outputs, { canContinue: true })
+  })
+
+  test('repairs stale skipped logic without rerunning workflow nodes', async ({ assert }) => {
+    const task = createConditionalWaitWithIndependentParentTask(false)
+    task.status = 'completed'
+    task.nodeRuns = [
+      { nodeId: 'input', type: 'input_collect', status: 'completed' },
+      {
+        nodeId: 'condition',
+        type: 'conditional',
+        status: 'completed',
+        outputs: { conditionMet: false },
+      },
+      { nodeId: 'true_workflow', type: 'workflow_run', status: 'skipped' },
+      { nodeId: 'true_output', type: 'output_text', status: 'skipped' },
+      { nodeId: 'main_output', type: 'output_text', status: 'completed' },
+      { nodeId: 'wait', type: 'wait_for_previous', status: 'skipped' },
+      { nodeId: 'final_output', type: 'output_text', status: 'skipped' },
+    ]
+    const workflowRuns: unknown[] = []
+    const service = createService(task, workflowRuns)
+    let enqueuedTaskId: number | null = null
+    ;(service as unknown as { enqueue(taskId: number): void }).enqueue = (taskId) => {
+      enqueuedTaskId = taskId
+    }
+
+    await service.repairLogic(task.id)
+    await executeTask(service, task.id)
+
+    assert.equal(enqueuedTaskId, task.id)
+    assert.equal(workflowRuns.length, 0)
+    assert.equal(task.status, 'completed')
+    assert.equal(nodeStatus(task, 'true_workflow'), 'skipped')
+    assert.equal(nodeStatus(task, 'true_output'), 'skipped')
+    assert.equal(nodeStatus(task, 'main_output'), 'completed')
+    assert.equal(nodeStatus(task, 'wait'), 'completed')
+    assert.equal(nodeStatus(task, 'final_output'), 'completed')
+  })
+
+  test('refuses logic repair when a workflow node would need to run', async ({ assert }) => {
+    const task = createConditionalWaitWithIndependentParentTask(true)
+    task.status = 'completed'
+    task.nodeRuns = [
+      { nodeId: 'input', type: 'input_collect', status: 'completed' },
+      {
+        nodeId: 'condition',
+        type: 'conditional',
+        status: 'completed',
+        outputs: { conditionMet: true },
+      },
+      { nodeId: 'main_output', type: 'output_text', status: 'completed' },
+    ]
+    const workflowRuns: unknown[] = []
+    const service = createService(task, workflowRuns)
+
+    await assert.rejects(
+      () => service.repairLogic(task.id),
+      /不能在不重跑工作流的前提下修复逻辑/
+    )
+
+    assert.equal(workflowRuns.length, 0)
+  })
+
   test('injects prompt placeholder from task variables without explicit binding', async ({ assert }) => {
     const task = createWorkflowTask({ 提示词: '去除丝袜和内裤' })
     const workflowRuns: unknown[] = []
@@ -1056,6 +1139,102 @@ function createConditionalWaitTask(conditionValue: unknown) {
             target: 'wait',
             sourceHandle: 'false',
           },
+          { id: 'wait-final_output', source: 'wait', target: 'final_output' },
+        ],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
+}
+
+function createConditionalWaitWithIndependentParentTask(conditionValue: unknown) {
+  const nodes: AppGraphNode[] = [
+    { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+    {
+      id: 'condition',
+      type: 'conditional',
+      position: { x: 200, y: -80 },
+      data: { conditionVarKey: 'flag' },
+    },
+    {
+      id: 'true_workflow',
+      type: 'workflow_run',
+      position: { x: 420, y: -160 },
+      data: {
+        workflowId: 1,
+        inputBindings: {},
+        outputAssignments: { result: 'generated_result' },
+      },
+    },
+    {
+      id: 'true_output',
+      type: 'output_text',
+      position: { x: 640, y: -160 },
+      data: { varKey: 'generated_result' },
+    },
+    {
+      id: 'main_output',
+      type: 'output_text',
+      position: { x: 640, y: 40 },
+      data: { varKey: 'main_result' },
+    },
+    {
+      id: 'wait',
+      type: 'wait_for_previous',
+      position: { x: 860, y: 0 },
+      data: {},
+    },
+    {
+      id: 'final_output',
+      type: 'output_text',
+      position: { x: 1080, y: 0 },
+      data: { varKey: 'main_result' },
+    },
+  ]
+
+  return {
+    id: 7,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: { flag: conditionValue },
+    variables: {
+      flag: conditionValue,
+      main_result: 'ready',
+    },
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'conditional wait independent parent app',
+      variables: [
+        { key: 'flag', name: 'flag', type: 'BOOL', source: 'user_input', required: true },
+        { key: 'generated_result', name: 'generated_result', type: 'STRING', source: 'computed' },
+        { key: 'main_result', name: 'main_result', type: 'STRING', source: 'computed' },
+      ],
+      graph: {
+        nodes,
+        edges: [
+          { id: 'input-condition', source: 'input', target: 'condition' },
+          { id: 'input-main_output', source: 'input', target: 'main_output' },
+          {
+            id: 'condition-true-true_workflow-default',
+            source: 'condition',
+            target: 'true_workflow',
+            sourceHandle: 'true',
+          },
+          {
+            id: 'true_workflow-true_output',
+            source: 'true_workflow',
+            target: 'true_output',
+          },
+          { id: 'true_output-wait', source: 'true_output', target: 'wait' },
+          { id: 'main_output-wait', source: 'main_output', target: 'wait' },
           { id: 'wait-final_output', source: 'wait', target: 'final_output' },
         ],
       },

@@ -96,6 +96,11 @@ export function useAppApi() {
       body: force ? { force } : undefined,
     })
 
+  const repairTaskLogic = (taskId: number) =>
+    $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/repair-logic`, {
+      method: 'POST',
+    })
+
   const moveTaskToGroup = (taskId: number, taskGroupId: number) =>
     $fetch<AppTaskRecord>(`${API_BASE}/tasks/${taskId}/group`, {
       method: 'PATCH',
@@ -163,6 +168,7 @@ export function useAppApi() {
     updateTaskInputs,
     retryTaskNode,
     syncTaskSnapshot,
+    repairTaskLogic,
     moveTaskToGroup,
     uploadComfyImage,
     listComfyLoras,

@@ -331,6 +331,30 @@ export interface Registry {
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retry']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'tasks.tasks.sync_snapshot': {
+    methods: ["POST"]
+    pattern: '/api/v1/tasks/:id/sync-snapshot'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['syncSnapshot']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['syncSnapshot']>>>
+    }
+  }
+  'tasks.tasks.repair_logic': {
+    methods: ["POST"]
+    pattern: '/api/v1/tasks/:id/repair-logic'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['repairLogic']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['repairLogic']>>>
+    }
+  }
   'tasks.tasks.retry_node': {
     methods: ["POST"]
     pattern: '/api/v1/tasks/:id/nodes/:nodeId/retry'
@@ -341,6 +365,18 @@ export interface Registry {
       query: ExtractQuery<InferInput<(typeof import('#validators/task').retryTaskNodeValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['retryNode']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'tasks.tasks.update_inputs': {
+    methods: ["PATCH"]
+    pattern: '/api/v1/tasks/:id/inputs'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/task').updateTaskInputsValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/task').updateTaskInputsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['updateInputs']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/tasks_controller').default['updateInputs']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'tasks.tasks.move_to_group': {

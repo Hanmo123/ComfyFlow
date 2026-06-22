@@ -168,11 +168,29 @@ const routes = {
     tokens: [{"old":"/api/v1/tasks/:id/retry","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/retry","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/retry","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/retry","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/retry","type":0,"val":"retry","end":""}],
     types: placeholder as Registry['tasks.tasks.retry']['types'],
   },
+  'tasks.tasks.sync_snapshot': {
+    methods: ["POST"],
+    pattern: '/api/v1/tasks/:id/sync-snapshot',
+    tokens: [{"old":"/api/v1/tasks/:id/sync-snapshot","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/sync-snapshot","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/sync-snapshot","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/sync-snapshot","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/sync-snapshot","type":0,"val":"sync-snapshot","end":""}],
+    types: placeholder as Registry['tasks.tasks.sync_snapshot']['types'],
+  },
+  'tasks.tasks.repair_logic': {
+    methods: ["POST"],
+    pattern: '/api/v1/tasks/:id/repair-logic',
+    tokens: [{"old":"/api/v1/tasks/:id/repair-logic","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/repair-logic","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/repair-logic","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/repair-logic","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/repair-logic","type":0,"val":"repair-logic","end":""}],
+    types: placeholder as Registry['tasks.tasks.repair_logic']['types'],
+  },
   'tasks.tasks.retry_node': {
     methods: ["POST"],
     pattern: '/api/v1/tasks/:id/nodes/:nodeId/retry',
     tokens: [{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"nodes","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":1,"val":"nodeId","end":""},{"old":"/api/v1/tasks/:id/nodes/:nodeId/retry","type":0,"val":"retry","end":""}],
     types: placeholder as Registry['tasks.tasks.retry_node']['types'],
+  },
+  'tasks.tasks.update_inputs': {
+    methods: ["PATCH"],
+    pattern: '/api/v1/tasks/:id/inputs',
+    tokens: [{"old":"/api/v1/tasks/:id/inputs","type":0,"val":"api","end":""},{"old":"/api/v1/tasks/:id/inputs","type":0,"val":"v1","end":""},{"old":"/api/v1/tasks/:id/inputs","type":0,"val":"tasks","end":""},{"old":"/api/v1/tasks/:id/inputs","type":1,"val":"id","end":""},{"old":"/api/v1/tasks/:id/inputs","type":0,"val":"inputs","end":""}],
+    types: placeholder as Registry['tasks.tasks.update_inputs']['types'],
   },
   'tasks.tasks.move_to_group': {
     methods: ["PATCH"],

@@ -88,6 +88,7 @@ router
         router.get(':id', [TasksController, 'show'])
         router.post(':id/retry', [TasksController, 'retry'])
         router.post(':id/sync-snapshot', [TasksController, 'syncSnapshot'])
+        router.post(':id/repair-logic', [TasksController, 'repairLogic'])
         router.post(':id/nodes/:nodeId/retry', [TasksController, 'retryNode'])
         router.patch(':id/inputs', [TasksController, 'updateInputs'])
         router.patch(':id/group', [TasksController, 'moveToGroup'])

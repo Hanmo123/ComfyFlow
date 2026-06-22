@@ -254,6 +254,40 @@ export default class AppTaskService {
     return task
   }
 
+  async repairLogic(taskId: number) {
+    const task = await this.taskRepository.findOrFail(taskId)
+    if (task.status === 'queued' || task.status === 'running') {
+      throw new Exception('任务正在执行，不能修复逻辑', { status: 422, code: 'E_TASK_BUSY' })
+    }
+
+    rebuildConditionalSkips(task)
+    const unsafeWorkflowNodeIds = task.appSnapshot.graph.nodes
+      .filter((node) => node.type === 'workflow_run')
+      .filter((node) => {
+        const status = nodeRunStatus(task, node.id)
+        return status !== 'completed' && status !== 'skipped'
+      })
+      .map((node) => node.id)
+
+    if (unsafeWorkflowNodeIds.length > 0) {
+      throw new Exception('任务包含未完成的工作流节点，不能在不重跑工作流的前提下修复逻辑', {
+        status: 422,
+        code: 'E_TASK_REPAIR_WORKFLOW_RERUN_RISK',
+      })
+    }
+
+    const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
+    await this.taskRepository.update(task, {
+      status: 'queued',
+      waitingNodeId: waitingNode?.nodeId ?? null,
+      error: null,
+      nodeRuns: task.nodeRuns,
+      completedAt: null,
+    })
+    this.enqueue(task.id)
+    return task
+  }
+
   async deleteTask(taskId: number, options: { force?: boolean } = {}) {
     const task = await this.taskRepository.findOrFail(taskId)
     if (!options.force && (task.status === 'queued' || task.status === 'running')) {
@@ -452,28 +486,31 @@ export default class AppTaskService {
           (edge) => edge.source === node.id && edge.sourceHandle === branchToSkip
         )
 
-        for (const edge of edgesToSkip) {
-          const downstreamNodeIds = collectDownstreamNodeIds(
-            task.appSnapshot.graph.nodes,
-            task.appSnapshot.graph.edges,
-            edge.target
+        const downstreamNodeIds = collectSkippableBranchNodeIds(
+          task.appSnapshot.graph.nodes,
+          task.appSnapshot.graph.edges,
+          edgesToSkip,
+          activeBranchNodeIds,
+          new Set(
+            task.nodeRuns
+              .filter((nodeRun) => nodeRun.status === 'skipped')
+              .map((nodeRun) => nodeRun.nodeId)
           )
+        )
 
-          for (const downstreamId of downstreamNodeIds) {
-            if (activeBranchNodeIds.has(downstreamId)) continue
-            const existingRun = task.nodeRuns.find((run) => run.nodeId === downstreamId)
-            if (!existingRun) {
-              const downstreamNode = task.appSnapshot.graph.nodes.find((n) => n.id === downstreamId)
-              if (downstreamNode) {
-                task.nodeRuns.push({
-                  nodeId: downstreamId,
-                  type: downstreamNode.type,
-                  status: 'skipped',
-                })
-              }
-            } else if (existingRun.status !== 'completed') {
-              existingRun.status = 'skipped'
+        for (const downstreamId of downstreamNodeIds) {
+          const existingRun = task.nodeRuns.find((run) => run.nodeId === downstreamId)
+          if (!existingRun) {
+            const downstreamNode = task.appSnapshot.graph.nodes.find((n) => n.id === downstreamId)
+            if (downstreamNode) {
+              task.nodeRuns.push({
+                nodeId: downstreamId,
+                type: downstreamNode.type,
+                status: 'skipped',
+              })
             }
+          } else if (existingRun.status !== 'completed') {
+            existingRun.status = 'skipped'
           }
         }
 
@@ -1253,6 +1290,86 @@ function collectBranchNodeIds(
     }
   }
   return result
+}
+
+function collectSkippableBranchNodeIds(
+  nodes: AppGraphNode[],
+  edges: { id?: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }[],
+  skippedEdges: { id?: string; source: string; target: string; sourceHandle?: string; targetHandle?: string }[],
+  protectedNodeIds: Set<string>,
+  alreadySkippedNodeIds: Set<string>
+) {
+  const candidates = new Set<string>()
+  for (const edge of skippedEdges) {
+    for (const downstreamId of collectDownstreamNodeIds(nodes, edges, edge.target)) {
+      if (!protectedNodeIds.has(downstreamId)) candidates.add(downstreamId)
+    }
+  }
+
+  const skippedEdgeKeys = new Set(skippedEdges.map(edgeKey))
+  const incoming = new Map<string, typeof edges>()
+  for (const edge of edges) {
+    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge])
+  }
+
+  const result = new Set<string>()
+  for (const node of topologicalSort(nodes, edges)) {
+    if (!candidates.has(node.id)) continue
+
+    const incomingEdges = incoming.get(node.id) ?? []
+    const onlySkippedInputs = incomingEdges.every(
+      (edge) =>
+        skippedEdgeKeys.has(edgeKey(edge)) ||
+        result.has(edge.source) ||
+        alreadySkippedNodeIds.has(edge.source)
+    )
+    if (onlySkippedInputs) result.add(node.id)
+  }
+
+  return result
+}
+
+function rebuildConditionalSkips(task: AppTask) {
+  task.nodeRuns = task.nodeRuns.filter((nodeRun) => nodeRun.status !== 'skipped')
+
+  for (const node of topologicalSort(task.appSnapshot.graph.nodes, task.appSnapshot.graph.edges)) {
+    if (node.type !== 'conditional') continue
+
+    const nodeRun = task.nodeRuns.find(
+      (item) => item.nodeId === node.id && item.status === 'completed'
+    )
+    if (!nodeRun) continue
+
+    const conditionMet =
+      typeof nodeRun.outputs?.conditionMet === 'boolean'
+        ? nodeRun.outputs.conditionMet
+        : resolveConditionValue(node.data.conditionVarKey ? task.variables[node.data.conditionVarKey] : false)
+    const branchToSkip = conditionMet ? 'false' : 'true'
+    const branchToRun = conditionMet ? 'true' : 'false'
+    const activeBranchNodeIds = collectBranchNodeIds(
+      task.appSnapshot.graph.nodes,
+      task.appSnapshot.graph.edges,
+      node.id,
+      branchToRun
+    )
+    const edgesToSkip = task.appSnapshot.graph.edges.filter(
+      (edge) => edge.source === node.id && edge.sourceHandle === branchToSkip
+    )
+    const skippedNodeIds = collectSkippableBranchNodeIds(
+      task.appSnapshot.graph.nodes,
+      task.appSnapshot.graph.edges,
+      edgesToSkip,
+      activeBranchNodeIds,
+      new Set(
+        task.nodeRuns.filter((item) => item.status === 'skipped').map((item) => item.nodeId)
+      )
+    )
+
+    for (const skippedNodeId of skippedNodeIds) {
+      const existingRun = task.nodeRuns.find((item) => item.nodeId === skippedNodeId)
+      if (!existingRun || existingRun.status !== 'completed') markNodeRun(task, skippedNodeId, 'skipped')
+    }
+  }
 }
 
 function collectChangedSnapshotNodeIds(

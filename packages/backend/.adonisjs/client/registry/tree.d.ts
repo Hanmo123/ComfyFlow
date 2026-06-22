@@ -57,7 +57,10 @@ export interface ApiDefinition {
       index: typeof routes['tasks.tasks.index']
       show: typeof routes['tasks.tasks.show']
       retry: typeof routes['tasks.tasks.retry']
+      syncSnapshot: typeof routes['tasks.tasks.sync_snapshot']
+      repairLogic: typeof routes['tasks.tasks.repair_logic']
       retryNode: typeof routes['tasks.tasks.retry_node']
+      updateInputs: typeof routes['tasks.tasks.update_inputs']
       moveToGroup: typeof routes['tasks.tasks.move_to_group']
       destroy: typeof routes['tasks.tasks.destroy']
     }
