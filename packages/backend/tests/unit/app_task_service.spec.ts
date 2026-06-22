@@ -49,6 +49,98 @@ test.group('AppTaskService', () => {
     assert.equal(nodeStatus(task, 'blocked_output'), 'completed')
   })
 
+  test('does not let a blocked workflow task hold the task scheduler', async ({ assert }) => {
+    const previousTaskConcurrency = process.env.APP_TASK_CONCURRENCY
+    const previousComfyConcurrency = process.env.COMFY_CONCURRENCY
+    process.env.APP_TASK_CONCURRENCY = '2'
+    process.env.COMFY_CONCURRENCY = '1'
+
+    const slowTask = createWorkflowTask({})
+    slowTask.id = 11
+    const fastTask = createOutputOnlyTask(12)
+    const slowStarted = deferred<void>()
+    const slowWorkflow = deferred<Record<string, unknown>>()
+    const slowService = createService(slowTask, [], {}, undefined, {}, {}, {
+      async runWorkflow() {
+        slowStarted.resolve()
+        return slowWorkflow.promise
+      },
+    })
+    const fastService = createService(fastTask, [])
+
+    try {
+      enqueueTask(slowService, slowTask.id)
+      await slowStarted.promise
+
+      enqueueTask(fastService, fastTask.id)
+      await waitFor(() => fastTask.status === 'completed')
+
+      assert.equal(slowTask.status, 'running')
+      assert.equal(fastTask.outputs.result, 'ready')
+
+      slowWorkflow.resolve({ result: 'done' })
+      await waitFor(() => slowTask.status === 'completed')
+    } finally {
+      slowWorkflow.resolve({ result: 'done' })
+      restoreEnv('APP_TASK_CONCURRENCY', previousTaskConcurrency)
+      restoreEnv('COMFY_CONCURRENCY', previousComfyConcurrency)
+    }
+  })
+
+  test('keeps Comfy workflow calls serialized across concurrent tasks', async ({ assert }) => {
+    const previousTaskConcurrency = process.env.APP_TASK_CONCURRENCY
+    const previousComfyConcurrency = process.env.COMFY_CONCURRENCY
+    process.env.APP_TASK_CONCURRENCY = '2'
+    process.env.COMFY_CONCURRENCY = '1'
+
+    const firstTask = createWorkflowTask({})
+    const secondTask = createWorkflowTask({})
+    firstTask.id = 21
+    secondTask.id = 22
+    const workflowResults = [deferred<Record<string, unknown>>(), deferred<Record<string, unknown>>()]
+    let startedCount = 0
+    let activeCount = 0
+    let maxActiveCount = 0
+    const comfyService = {
+      async runWorkflow() {
+        const callIndex = startedCount
+        startedCount += 1
+        activeCount += 1
+        maxActiveCount = Math.max(maxActiveCount, activeCount)
+        try {
+          return await workflowResults[callIndex].promise
+        } finally {
+          activeCount -= 1
+        }
+      },
+    }
+    const firstService = createService(firstTask, [], {}, undefined, {}, {}, comfyService)
+    const secondService = createService(secondTask, [], {}, undefined, {}, {}, comfyService)
+
+    try {
+      enqueueTask(firstService, firstTask.id)
+      enqueueTask(secondService, secondTask.id)
+      await waitFor(() => startedCount === 1)
+      await sleep(20)
+
+      assert.equal(startedCount, 1)
+      assert.equal(maxActiveCount, 1)
+
+      workflowResults[0].resolve({ result: 'first' })
+      await waitFor(() => startedCount === 2)
+      assert.equal(maxActiveCount, 1)
+
+      workflowResults[1].resolve({ result: 'second' })
+      await waitFor(() => firstTask.status === 'completed' && secondTask.status === 'completed')
+      assert.equal(maxActiveCount, 1)
+    } finally {
+      workflowResults[0].resolve({ result: 'first' })
+      workflowResults[1].resolve({ result: 'second' })
+      restoreEnv('APP_TASK_CONCURRENCY', previousTaskConcurrency)
+      restoreEnv('COMFY_CONCURRENCY', previousComfyConcurrency)
+    }
+  })
+
   test('resets an existing task with replacement inputs when retrying the whole task', async ({
     assert,
   }) => {
@@ -408,7 +500,8 @@ function createService(
   workflowPatch: Partial<Workflow> = {},
   seedGenerator?: () => number,
   mediaAssetService: Partial<ConstructorParameters<typeof AppTaskService>[5]> = {},
-  appPatch: { id?: number; name?: string; variables?: AppTask['appSnapshot']['variables']; graph?: AppTask['appSnapshot']['graph'] } = {}
+  appPatch: { id?: number; name?: string; variables?: AppTask['appSnapshot']['variables']; graph?: AppTask['appSnapshot']['graph'] } = {},
+  comfyServicePatch: Partial<ConstructorParameters<typeof AppTaskService>[4]> = {}
 ) {
   type AppTaskServiceArgs = ConstructorParameters<typeof AppTaskService>
   const appRepository = {
@@ -450,6 +543,7 @@ function createService(
       workflowRuns.push(prompt)
       return { result: 'normal value' }
     },
+    ...comfyServicePatch,
   }
 
   return new AppTaskService(
@@ -561,6 +655,69 @@ function createImageConcatTask() {
 
 async function executeTask(service: AppTaskService, taskId: number) {
   await (service as unknown as { execute(taskId: number): Promise<void> }).execute(taskId)
+}
+
+function enqueueTask(service: AppTaskService, taskId: number) {
+  ;(service as unknown as { enqueue(taskId: number): void }).enqueue(taskId)
+}
+
+function createOutputOnlyTask(id: number) {
+  return {
+    id,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: {},
+    variables: { result: 'ready' },
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'output only app',
+      variables: [{ key: 'result', name: 'result', type: 'STRING', source: 'computed' }],
+      graph: {
+        nodes: [
+          { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+          { id: 'output', type: 'output_text', position: { x: 200, y: 0 }, data: { varKey: 'result' } },
+        ],
+        edges: [{ id: 'input-output', source: 'input', target: 'output' }],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+  return { promise, resolve, reject }
+}
+
+async function waitFor(assertion: () => boolean, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (assertion()) return
+    await sleep(5)
+  }
+  throw new Error('Timed out waiting for assertion')
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name]
+  else process.env[name] = value
 }
 
 function createQueuedTask() {

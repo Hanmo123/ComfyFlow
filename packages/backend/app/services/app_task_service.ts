@@ -23,9 +23,49 @@ import { normalizeComfyApiJson } from './comfy_parser.js'
 import MediaAssetService from './media_asset_service.js'
 
 type SeedGenerator = () => number
+type PendingTask = { taskId: number; service: AppTaskService }
+
+class AsyncLimiter {
+  private activeCount = 0
+  private queue: Array<() => void> = []
+
+  constructor(private getConcurrency: () => number) {}
+
+  async run<T>(handler: () => Promise<T>) {
+    await this.acquire()
+    try {
+      return await handler()
+    } finally {
+      this.release()
+    }
+  }
+
+  private acquire() {
+    if (this.activeCount < this.getConcurrency()) {
+      this.activeCount += 1
+      return Promise.resolve()
+    }
+
+    return new Promise<void>((resolve) => {
+      this.queue.push(() => {
+        this.activeCount += 1
+        resolve()
+      })
+    })
+  }
+
+  private release() {
+    this.activeCount -= 1
+    const next = this.queue.shift()
+    if (next) next()
+  }
+}
 
 export default class AppTaskService {
-  private static queue = Promise.resolve()
+  private static pendingTasks = new Map<number, PendingTask>()
+  private static runningTaskIds = new Set<number>()
+  private static isDraining = false
+  private static comfyLimiter = new AsyncLimiter(() => readConcurrency('COMFY_CONCURRENCY', 1))
 
   constructor(
     private appRepository = new AppRepository(),
@@ -226,11 +266,41 @@ export default class AppTaskService {
   }
 
   private enqueue(taskId: number) {
-    AppTaskService.queue = AppTaskService.queue
-      .then(() => this.execute(taskId))
-      .catch(() => {
-        // execute persists task failure; keep the in-memory queue alive for the next task.
-      })
+    AppTaskService.pendingTasks.set(taskId, { taskId, service: this })
+    AppTaskService.scheduleDrain()
+  }
+
+  private static scheduleDrain() {
+    if (AppTaskService.isDraining) return
+    AppTaskService.isDraining = true
+    queueMicrotask(() => {
+      AppTaskService.isDraining = false
+      AppTaskService.drain()
+    })
+  }
+
+  private static drain() {
+    const concurrency = readConcurrency('APP_TASK_CONCURRENCY', 4)
+    while (AppTaskService.runningTaskIds.size < concurrency) {
+      const pendingEntry = [...AppTaskService.pendingTasks.entries()].find(
+        ([taskId]) => !AppTaskService.runningTaskIds.has(taskId)
+      )
+      if (!pendingEntry) return
+
+      const [taskId, pendingTask] = pendingEntry
+      AppTaskService.pendingTasks.delete(taskId)
+      AppTaskService.runningTaskIds.add(taskId)
+
+      void pendingTask.service
+        .execute(taskId)
+        .catch(() => {
+          // execute persists task failure when possible; keep the in-memory scheduler alive.
+        })
+        .finally(() => {
+          AppTaskService.runningTaskIds.delete(taskId)
+          AppTaskService.drain()
+        })
+    }
   }
 
   private async execute(taskId: number) {
@@ -460,7 +530,7 @@ export default class AppTaskService {
       this.seedGenerator
     )
     const workflowOutputs = await this.localizeWorkflowOutputs(
-      await this.comfyService.runWorkflow(prompt, workflow.results)
+      await AppTaskService.comfyLimiter.run(() => this.comfyService.runWorkflow(prompt, workflow.results))
     )
     for (const [resultKey, varKey] of Object.entries(node.data.outputAssignments ?? {})) {
       if (varKey) task.variables[varKey] = workflowOutputs[resultKey]
@@ -1331,4 +1401,10 @@ function isComfyImageReference(
 
 function isEmptyValue(value: unknown) {
   return value === undefined || value === null || value === ''
+}
+
+function readConcurrency(name: string, fallback: number) {
+  const value = Number.parseInt(process.env[name] ?? '', 10)
+  if (!Number.isFinite(value) || value < 1) return fallback
+  return value
 }
