@@ -27,7 +27,7 @@ export class AppInputPresetSchema extends BaseModel {
 }
 
 export class AppTaskSchema extends BaseModel {
-  static $columns = ['appId', 'appSnapshot', 'completedAt', 'createdAt', 'error', 'id', 'inputs', 'nodeRuns', 'outputs', 'startedAt', 'status', 'taskGroupId', 'updatedAt', 'variables', 'waitingNodeId'] as const
+  static $columns = ['appId', 'appSnapshot', 'completedAt', 'createdAt', 'error', 'id', 'inputs', 'nodeRuns', 'outputs', 'requiresManualAction', 'startedAt', 'status', 'taskGroupId', 'updatedAt', 'variables', 'waitingNodeId'] as const
   $columns = AppTaskSchema.$columns
   @column()
   declare appId: number
@@ -47,6 +47,8 @@ export class AppTaskSchema extends BaseModel {
   declare nodeRuns: any
   @column()
   declare outputs: any
+  @column()
+  declare requiresManualAction: boolean
   @column.dateTime()
   declare startedAt: DateTime | null
   @column()

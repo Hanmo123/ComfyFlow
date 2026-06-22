@@ -322,7 +322,7 @@ export function useAppDesignerStore() {
       running.value = true
       error.value = ''
       latestTask.value = await appApi.resumeAppTask(activeApp.value.id, latestTask.value.id)
-      await pollLatestTask()
+      await waitForLatestTask()
     } catch (resumeError) {
       error.value = resumeError instanceof Error ? resumeError.message : '继续任务失败'
     } finally {
@@ -330,12 +330,39 @@ export function useAppDesignerStore() {
     }
   }
 
-  async function pollLatestTask() {
+  async function waitForLatestTask() {
     if (!activeApp.value || !latestTask.value) return
-    while (latestTask.value && ['queued', 'running'].includes(latestTask.value.status)) {
-      await sleep(1200)
-      latestTask.value = await appApi.getAppTask(activeApp.value.id, latestTask.value.id)
-    }
+    if (!['queued', 'running'].includes(latestTask.value.status)) return
+
+    const taskId = latestTask.value.id
+    await new Promise<void>((resolve) => {
+      let realtime: ReturnType<typeof useTaskRealtime>
+      const finishIfTerminal = (task: AppTaskRecord | null) => {
+        if (task && ['queued', 'running'].includes(task.status)) return false
+        realtime.close()
+        resolve()
+        return true
+      }
+      realtime = useTaskRealtime({
+        onOpen() {
+          void appApi.getAppTask(activeApp.value!.id, taskId).then((task) => {
+            latestTask.value = task
+            finishIfTerminal(task)
+          }).catch(() => {})
+        },
+        onTaskUpdated(task) {
+          if (task.id !== taskId) return
+          latestTask.value = task
+          finishIfTerminal(task)
+        },
+        onTaskDeleted({ taskId: deletedTaskId }) {
+          if (deletedTaskId !== taskId) return
+          latestTask.value = null
+          finishIfTerminal(null)
+        },
+      })
+      realtime.subscribe({ taskId })
+    })
   }
 
   function workflowOf(node: AppGraphNode) {
@@ -477,8 +504,4 @@ function clonePlain<T>(value: T): T {
 
 function isAppVariableType(type: string | undefined): type is AppVariable['type'] {
   return APP_VARIABLE_TYPES.includes(type as AppVariable['type'])
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

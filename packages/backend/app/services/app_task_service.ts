@@ -21,6 +21,7 @@ import sharp from 'sharp'
 import ComfyService from './comfy_service.js'
 import { normalizeComfyApiJson } from './comfy_parser.js'
 import MediaAssetService from './media_asset_service.js'
+import TaskRealtimeService from './task_realtime_service.js'
 
 type SeedGenerator = () => number
 type PendingTask = { taskId: number; service: AppTaskService }
@@ -81,7 +82,7 @@ export default class AppTaskService {
     await this.taskGroupService.ensureExists(taskGroupId)
     const app = await this.appRepository.findOrFail(appId)
     const variables = buildInitialVariables(app.variables, inputs)
-    const task = await this.taskRepository.create({
+    const task = await this.createTask({
       appId: app.id,
       taskGroupId,
       requiresManualAction: app.graph.nodes.some((node) => node.type === 'manual_gate'),
@@ -114,7 +115,7 @@ export default class AppTaskService {
   async moveToGroup(taskId: number, taskGroupId: number) {
     await this.taskGroupService.ensureExists(taskGroupId)
     const task = await this.taskRepository.findOrFail(taskId)
-    await this.taskRepository.update(task, { taskGroupId })
+    await this.updateTask(task, { taskGroupId })
     return task
   }
 
@@ -129,7 +130,7 @@ export default class AppTaskService {
     }
 
     markNodeRun(task, task.waitingNodeId, 'completed')
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       status: 'queued',
       waitingNodeId: null,
       nodeRuns: task.nodeRuns,
@@ -161,7 +162,7 @@ export default class AppTaskService {
     )
     task.nodeRuns = task.nodeRuns.filter((nodeRun) => !resetNodeIds.has(nodeRun.nodeId))
 
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       status: 'queued',
       waitingNodeId: null,
       error: null,
@@ -179,7 +180,7 @@ export default class AppTaskService {
     }
 
     const nextInputs = inputs ?? task.inputs
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       status: 'queued',
       inputs: nextInputs,
       variables: buildInitialVariables(task.appSnapshot.variables, nextInputs),
@@ -206,7 +207,7 @@ export default class AppTaskService {
       inputs
     )
 
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       inputs,
       variables: nextVariables,
     })
@@ -242,7 +243,7 @@ export default class AppTaskService {
     const nextOutputs = filterOutputsForSnapshot(nextSnapshot.variables, task.outputs)
 
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       status: waitingNode ? 'waiting' : 'failed',
       appSnapshot: nextSnapshot,
       variables: nextVariables,
@@ -278,7 +279,7 @@ export default class AppTaskService {
     }
 
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       status: 'queued',
       waitingNodeId: waitingNode?.nodeId ?? null,
       error: null,
@@ -296,8 +297,27 @@ export default class AppTaskService {
     }
 
     const mediaHashes = collectMediaHashes([task.inputs, task.variables, task.outputs, task.nodeRuns])
-    await this.taskRepository.delete(task)
+    await this.deleteTaskRecord(task)
     await this.mediaAssetService.deleteOrphanedByHashes(mediaHashes, { force: options.force ?? false })
+  }
+
+  private async createTask(payload: Parameters<AppTaskRepository['create']>[0]) {
+    const task = await this.taskRepository.create(payload)
+    TaskRealtimeService.broadcastTaskCreated(task)
+    return task
+  }
+
+  private async updateTask(task: AppTask, payload: Parameters<AppTaskRepository['update']>[1]) {
+    const updated = await this.taskRepository.update(task, payload)
+    TaskRealtimeService.broadcastTaskUpdated(updated)
+    return updated
+  }
+
+  private async deleteTaskRecord(task: AppTask) {
+    const taskId = task.id
+    const taskGroupId = task.taskGroupId
+    await this.taskRepository.delete(task)
+    TaskRealtimeService.broadcastTaskDeleted(taskId, taskGroupId)
   }
 
   private enqueue(taskId: number) {
@@ -342,7 +362,7 @@ export default class AppTaskService {
     const task = await this.taskRepository.findOrFail(taskId)
     if (task.status !== 'queued') return
 
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       status: 'running',
       startedAt: task.startedAt ?? DateTime.now(),
       completedAt: null,
@@ -359,7 +379,7 @@ export default class AppTaskService {
         runningNode.completedAt = new Date().toISOString()
         runningNode.error = message
       }
-      await this.taskRepository.update(task, {
+      await this.updateTask(task, {
         status: 'failed',
         error: message,
         nodeRuns: task.nodeRuns,
@@ -532,7 +552,7 @@ export default class AppTaskService {
 
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
     if (waitingNode) {
-      await this.taskRepository.update(task, {
+      await this.updateTask(task, {
         status: 'waiting',
         waitingNodeId: task.waitingNodeId ?? waitingNode.nodeId,
         variables: task.variables,
@@ -542,7 +562,7 @@ export default class AppTaskService {
       return
     }
 
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       status: 'completed',
       variables: task.variables,
       outputs: task.outputs,
@@ -751,7 +771,7 @@ export default class AppTaskService {
   }
 
   private async persistProgress(task: AppTask) {
-    await this.taskRepository.update(task, {
+    await this.updateTask(task, {
       variables: task.variables,
       outputs: task.outputs,
       nodeRuns: task.nodeRuns,

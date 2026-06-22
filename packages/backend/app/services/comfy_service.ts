@@ -1,6 +1,8 @@
 import type { WorkflowResult } from '#models/workflow'
 import { Exception } from '@adonisjs/core/exceptions'
+import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
+import WebSocket from 'ws'
 
 interface UploadableImage {
   clientName: string
@@ -27,6 +29,16 @@ interface ComfyHistoryItem {
   outputs?: Record<string, Record<string, unknown>>
 }
 
+interface ComfyWebSocketMessage {
+  type?: string
+  data?: {
+    prompt_id?: string
+    node?: string | null
+    exception_message?: string
+    exception_type?: string
+  }
+}
+
 interface ComfyLoraCache {
   items: string[]
   fetchedAt: number
@@ -46,9 +58,14 @@ export default class ComfyService {
     }
 
     const buffer = await readFile(file.tmpPath)
-    const contentType = file.type && file.subtype ? `${file.type}/${file.subtype}` : 'application/octet-stream'
+    const contentType =
+      file.type && file.subtype ? `${file.type}/${file.subtype}` : 'application/octet-stream'
     const formData = new FormData()
-    formData.append('image', new Blob([new Uint8Array(buffer)], { type: contentType }), file.clientName)
+    formData.append(
+      'image',
+      new Blob([new Uint8Array(buffer)], { type: contentType }),
+      file.clientName
+    )
     formData.append('type', 'input')
     formData.append('overwrite', 'true')
 
@@ -78,9 +95,15 @@ export default class ComfyService {
   }
 
   async runWorkflow(prompt: Record<string, unknown>, results: WorkflowResult[]) {
-    const promptId = await this.queuePrompt(prompt)
-    const history = await this.waitForHistory(promptId)
-    return extractWorkflowResults(history.outputs ?? {}, results, this.baseUrl)
+    const clientId = `comfyui-tools-${randomUUID()}`
+    const socket = await this.connectSocket(clientId)
+    try {
+      const promptId = await this.queuePrompt(prompt, clientId)
+      const history = await this.waitForExecution(socket, promptId)
+      return extractWorkflowResults(history.outputs ?? {}, results, this.baseUrl)
+    } finally {
+      socket.close()
+    }
   }
 
   async listLoras(options: { refresh?: boolean } = {}) {
@@ -125,50 +148,161 @@ export default class ComfyService {
     }
   }
 
-  private async queuePrompt(prompt: Record<string, unknown>) {
+  private async queuePrompt(prompt: Record<string, unknown>, clientId: string) {
     const response = await fetch(`${this.baseUrl}/prompt`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt, client_id: `comfyui-tools-${Date.now()}` }),
+      body: JSON.stringify({ prompt, client_id: clientId }),
     })
 
     const body = (await response.json().catch(() => ({}))) as PromptResponse
     if (!response.ok || !body.prompt_id) {
-      throw new Exception(`ComfyUI 提交失败：${formatComfyError(body.error) || response.statusText}`, {
-        status: 502,
-        code: 'E_COMFY_PROMPT_FAILED',
-      })
+      throw new Exception(
+        `ComfyUI 提交失败：${formatComfyError(body.error) || response.statusText}`,
+        {
+          status: 502,
+          code: 'E_COMFY_PROMPT_FAILED',
+        }
+      )
     }
 
     return body.prompt_id
   }
 
-  private async waitForHistory(promptId: string) {
+  private async connectSocket(clientId: string) {
+    return new Promise<WebSocket>((resolve, reject) => {
+      const socket = new WebSocket(this.comfyWebSocketUrl(clientId))
+      const timer = setTimeout(() => {
+        socket.terminate()
+        reject(
+          new Exception('ComfyUI WebSocket 连接超时', { status: 504, code: 'E_COMFY_WS_TIMEOUT' })
+        )
+      }, 30_000)
+
+      socket.once('open', () => {
+        clearTimeout(timer)
+        resolve(socket)
+      })
+      socket.once('error', (error) => {
+        clearTimeout(timer)
+        reject(
+          new Exception(`ComfyUI WebSocket 连接失败：${formatErrorMessage(error)}`, {
+            status: 502,
+            code: 'E_COMFY_WS_FAILED',
+          })
+        )
+      })
+    })
+  }
+
+  private comfyWebSocketUrl(clientId: string) {
+    const baseUrl = this.baseUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+    return `${baseUrl}/ws?clientId=${encodeURIComponent(clientId)}`
+  }
+
+  private async waitForExecution(socket: WebSocket, promptId: string) {
     const deadline = Date.now() + 30 * 60 * 1000
-    while (Date.now() < deadline) {
-      const response = await fetch(`${this.baseUrl}/history/${promptId}`)
-      if (!response.ok) {
-        throw new Exception(`ComfyUI 查询任务失败：${response.statusText}`, {
-          status: 502,
-          code: 'E_COMFY_HISTORY_FAILED',
-        })
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(
+        () => {
+          cleanup()
+          reject(new Exception('ComfyUI 工作流执行超时', { status: 504, code: 'E_COMFY_TIMEOUT' }))
+        },
+        Math.max(0, deadline - Date.now())
+      )
+
+      const cleanup = () => {
+        clearTimeout(timer)
+        socket.off('message', handleMessage)
+        socket.off('close', handleClose)
+        socket.off('error', handleError)
       }
 
-      const history = (await response.json()) as Record<string, ComfyHistoryItem>
-      const item = history[promptId]
-      if (item?.status?.completed) return item
-      if (item?.status?.status_str === 'error') {
-        throw new Exception('ComfyUI 工作流执行失败', { status: 502, code: 'E_COMFY_EXECUTION_FAILED' })
+      const handleMessage = (data: WebSocket.RawData) => {
+        const message = parseComfyMessage(data)
+        if (!message) return
+        if (isPromptExecutionMessage(message) && message.data?.prompt_id !== promptId) return
+
+        if (message.type === 'execution_error' || message.type === 'execution_interrupted') {
+          cleanup()
+          reject(
+            new Exception(`ComfyUI 工作流执行失败：${formatComfyExecutionError(message)}`, {
+              status: 502,
+              code: 'E_COMFY_EXECUTION_FAILED',
+            })
+          )
+          return
+        }
+
+        if (message.type === 'execution_success') {
+          cleanup()
+          resolve()
+          return
+        }
+
+        if (message.type === 'executing' && message.data?.node === null) {
+          cleanup()
+          resolve()
+        }
       }
 
-      await sleep(1000)
+      const handleClose = () => {
+        cleanup()
+        reject(
+          new Exception('ComfyUI WebSocket 连接已关闭', { status: 502, code: 'E_COMFY_WS_CLOSED' })
+        )
+      }
+
+      const handleError = (error: Error) => {
+        cleanup()
+        reject(
+          new Exception(`ComfyUI WebSocket 错误：${formatErrorMessage(error)}`, {
+            status: 502,
+            code: 'E_COMFY_WS_FAILED',
+          })
+        )
+      }
+
+      socket.on('message', handleMessage)
+      socket.on('close', handleClose)
+      socket.on('error', handleError)
+    })
+
+    return this.fetchHistory(promptId)
+  }
+
+  private async fetchHistory(promptId: string) {
+    const response = await fetch(`${this.baseUrl}/history/${promptId}`)
+    if (!response.ok) {
+      throw new Exception(`ComfyUI 查询任务失败：${response.statusText}`, {
+        status: 502,
+        code: 'E_COMFY_HISTORY_FAILED',
+      })
     }
 
-    throw new Exception('ComfyUI 工作流执行超时', { status: 504, code: 'E_COMFY_TIMEOUT' })
+    const history = (await response.json()) as Record<string, ComfyHistoryItem>
+    const item = history[promptId]
+    if (item?.status?.status_str === 'error') {
+      throw new Exception('ComfyUI 工作流执行失败', {
+        status: 502,
+        code: 'E_COMFY_EXECUTION_FAILED',
+      })
+    }
+    if (!item) {
+      throw new Exception('ComfyUI 未返回任务历史', {
+        status: 502,
+        code: 'E_COMFY_HISTORY_MISSING',
+      })
+    }
+    return item
   }
 }
 
-function extractWorkflowResults(outputs: Record<string, Record<string, unknown>>, results: WorkflowResult[], baseUrl: string) {
+function extractWorkflowResults(
+  outputs: Record<string, Record<string, unknown>>,
+  results: WorkflowResult[],
+  baseUrl: string
+) {
   const extracted: Record<string, unknown> = {}
   for (const result of results) {
     const nodeOutput = outputs[result.nodeId]
@@ -200,8 +334,33 @@ function normalizeNodeOutput(output: Record<string, unknown>, baseUrl: string) {
 function formatComfyError(error: unknown) {
   if (!error) return ''
   if (typeof error === 'string') return error
-  if (typeof error === 'object' && 'message' in error) return String((error as { message?: unknown }).message)
+  if (typeof error === 'object' && 'message' in error)
+    return String((error as { message?: unknown }).message)
   return JSON.stringify(error)
+}
+
+function parseComfyMessage(data: WebSocket.RawData): ComfyWebSocketMessage | null {
+  try {
+    const text = Array.isArray(data) ? Buffer.concat(data).toString('utf8') : data.toString()
+    const parsed = JSON.parse(text) as unknown
+    return parsed && typeof parsed === 'object' ? (parsed as ComfyWebSocketMessage) : null
+  } catch {
+    return null
+  }
+}
+
+function formatComfyExecutionError(message: ComfyWebSocketMessage) {
+  return message.data?.exception_message ?? message.data?.exception_type ?? '执行失败'
+}
+
+function isPromptExecutionMessage(message: ComfyWebSocketMessage) {
+  return ['executing', 'execution_success', 'execution_error', 'execution_interrupted'].includes(
+    message.type ?? ''
+  )
+}
+
+function formatErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function normalizeLoraNames(value: unknown): string[] | null {
@@ -242,8 +401,4 @@ function formatLoraListResponse(cache: ComfyLoraCache, cached: boolean) {
     fetchedAt: new Date(cache.fetchedAt).toISOString(),
     expiresAt: new Date(cache.expiresAt).toISOString(),
   }
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

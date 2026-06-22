@@ -29,7 +29,14 @@ const editPreviousImageValues = ref<Record<string, unknown | null>>({})
 const retryingNodeId = ref<string | null>(null)
 const resumingNodeId = ref<string | null>(null)
 const movingTaskToGroup = ref(false)
-let pollTimer: ReturnType<typeof window.setTimeout> | null = null
+const taskRealtime = useTaskRealtime({
+  onOpen: () => {
+    if (selectedGroupId.value && !showingGroupPicker.value) void refreshTasks()
+  },
+  onTaskCreated: (task) => upsertTask(task),
+  onTaskUpdated: (task) => upsertTask(task),
+  onTaskDeleted: ({ taskId, taskGroupId }) => removeTask(taskId, taskGroupId),
+})
 
 const selectedGroup = computed(() => taskGroups.value.find((group) => group.id === selectedGroupId.value) ?? null)
 const selectedTask = computed(() => tasks.value.find((task) => task.id === selectedTaskId.value) ?? null)
@@ -51,11 +58,11 @@ onUnmounted(() => {
   window.removeEventListener('keydown', updateShiftPressed)
   window.removeEventListener('keyup', updateShiftPressed)
   window.removeEventListener('blur', clearShiftPressed)
-  stopPolling()
+  stopRealtime()
 })
 
-watch(selectedTaskId, () => {
-  startPolling()
+watch(selectedGroupId, () => {
+  startRealtime()
 })
 
 async function refreshTasks() {
@@ -114,7 +121,7 @@ function selectInitialTask() {
 }
 
 async function openGroupPicker() {
-  stopPolling()
+  stopRealtime()
   showingGroupPicker.value = true
   selectedTaskId.value = null
   await router.replace({ path: '/tasks' })
@@ -127,7 +134,7 @@ async function selectGroup(groupId: number, taskId?: number) {
   showingGroupPicker.value = false
   await router.replace({ path: '/tasks', query: { groupId, ...(taskId ? { taskId } : {}) } })
   await refreshTasks()
-  startPolling()
+  startRealtime()
 }
 
 async function selectTask(taskId: number) {
@@ -152,9 +159,9 @@ async function retryNode(nodeId: string, event?: MouseEvent) {
   try {
     retryingNodeId.value = nodeId
     const updated = await appApi.retryTaskNode(selectedTask.value.id, nodeId, force)
-    upsertTask(updated)
+    upsertTask(updated, { select: true })
     toast.success(userForced ? '节点已强制重新提交' : '节点已重新提交')
-    startPolling()
+    startRealtime()
   } catch (retryError) {
     toast.error(retryError instanceof Error ? retryError.message : '重试节点失败')
   } finally {
@@ -169,9 +176,9 @@ async function retryTask(event?: MouseEvent) {
   try {
     retryingTask.value = true
     const updated = await appApi.retryTask(selectedTask.value.id, undefined, force)
-    upsertTask(updated)
+    upsertTask(updated, { select: true })
     toast.success(force ? '任务已强制重新提交' : '任务已重新提交')
-    startPolling()
+    startRealtime()
   } catch (retryError) {
     toast.error(retryError instanceof Error ? retryError.message : '重试任务失败')
   } finally {
@@ -217,7 +224,7 @@ async function submitEditedInputs(action: 'save' | 'retry' = 'retry') {
     if (action === 'save') {
       savingInputs.value = true
       const updated = await appApi.updateTaskInputs(selectedTask.value.id, inputs)
-      upsertTask(updated)
+      upsertTask(updated, { select: true })
       editingInputs.value = false
       toast.success('任务参数已保存')
       return
@@ -225,10 +232,10 @@ async function submitEditedInputs(action: 'save' | 'retry' = 'retry') {
 
     retryingTask.value = true
     const updated = await appApi.retryTask(selectedTask.value.id, inputs)
-    upsertTask(updated)
+    upsertTask(updated, { select: true })
     editingInputs.value = false
     toast.success('任务已使用新参数重新提交')
-    startPolling()
+    startRealtime()
   } catch (retryError) {
     toast.error(retryError instanceof Error ? retryError.message : action === 'save' ? '保存任务参数失败' : '重新提交任务失败')
   } finally {
@@ -268,7 +275,7 @@ async function syncSelectedTaskSnapshot(event?: MouseEvent) {
   try {
     syncingSnapshot.value = true
     const updated = await appApi.syncTaskSnapshot(selectedTask.value.id, force)
-    upsertTask(updated)
+    upsertTask(updated, { select: true })
     toast.success('任务快照已同步，可重试变更节点')
   } catch (syncError) {
     toast.error(syncError instanceof Error ? syncError.message : '同步任务快照失败')
@@ -282,9 +289,9 @@ async function repairSelectedTaskLogic() {
   try {
     repairingLogic.value = true
     const updated = await appApi.repairTaskLogic(selectedTask.value.id)
-    upsertTask(updated)
+    upsertTask(updated, { select: true })
     toast.success('任务逻辑已重新推进')
-    startPolling()
+    startRealtime()
   } catch (repairError) {
     toast.error(repairError instanceof Error ? repairError.message : '修复任务逻辑失败')
   } finally {
@@ -305,9 +312,9 @@ async function resumeNode(nodeId: string) {
   try {
     resumingNodeId.value = nodeId
     const updated = await appApi.resumeAppTask(selectedTask.value.appId, selectedTask.value.id)
-    upsertTask(updated)
+    upsertTask(updated, { select: true })
     toast.success('任务已继续')
-    startPolling()
+    startRealtime()
   } catch (resumeError) {
     toast.error(resumeError instanceof Error ? resumeError.message : '继续任务失败')
   } finally {
@@ -315,34 +322,31 @@ async function resumeNode(nodeId: string) {
   }
 }
 
-function startPolling() {
-  stopPolling()
-  if (showingGroupPicker.value || !selectedTask.value || !['queued', 'running'].includes(selectedTask.value.status)) return
-  pollTimer = window.setTimeout(pollSelectedTask, 1200)
-}
-
-function stopPolling() {
-  if (pollTimer) window.clearTimeout(pollTimer)
-  pollTimer = null
-}
-
-async function pollSelectedTask() {
-  if (!selectedTaskId.value) return
-  try {
-    upsertTask(await appApi.getTask(selectedTaskId.value))
-  } catch {
-    await refreshTasks()
-  } finally {
-    startPolling()
+function startRealtime() {
+  if (showingGroupPicker.value || !selectedGroupId.value) {
+    stopRealtime()
+    return
   }
+  taskRealtime.subscribe({ groupId: selectedGroupId.value })
 }
 
-function upsertTask(task: AppTaskRecord) {
+function stopRealtime() {
+  taskRealtime.close()
+}
+
+function upsertTask(task: AppTaskRecord, options: { select?: boolean } = {}) {
   if (selectedGroupId.value && task.taskGroupId !== selectedGroupId.value) return
   const index = tasks.value.findIndex((item) => item.id === task.id)
   if (index >= 0) tasks.value[index] = task
   else tasks.value = [task, ...tasks.value]
-  selectedTaskId.value = task.id
+  if (options.select || !selectedTaskId.value) selectedTaskId.value = task.id
+}
+
+function removeTask(taskId: number, taskGroupId: number | null) {
+  if (selectedGroupId.value && taskGroupId !== selectedGroupId.value) return
+  tasks.value = tasks.value.filter((task) => task.id !== taskId)
+  if (selectedTaskId.value === taskId) selectedTaskId.value = tasks.value[0]?.id ?? null
+  void syncTaskRoute()
 }
 
 function taskThumbnail(task: AppTaskRecord) {
