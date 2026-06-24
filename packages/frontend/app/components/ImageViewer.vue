@@ -74,13 +74,6 @@ onUnmounted(() => {
       <X class="h-6 w-6" />
     </button>
 
-    <div
-      v-if="images.length > 1"
-      class="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-lg bg-white/10 px-4 py-2 text-sm text-white"
-    >
-      {{ currentIndex + 1 }} / {{ images.length }}
-    </div>
-
     <button
       v-if="images.length > 1 && hasPrev"
       class="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-lg bg-white/10 p-3 text-white transition hover:bg-white/20"
@@ -97,19 +90,21 @@ onUnmounted(() => {
       <ChevronRight class="h-8 w-8" />
     </button>
 
-    <div class="relative h-full w-full p-16">
-      <img
-        :src="currentImage.url"
-        :alt="currentImage.name || `Image ${currentIndex + 1}`"
-        class="h-full w-full object-contain"
-      />
-    </div>
+    <div class="relative flex h-dvh w-dvw items-center justify-center overflow-hidden">
+      <div class="relative h-dvh">
+        <div
+          v-if="images.length > 1"
+          class="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-lg bg-black/45 px-4 py-2 text-sm text-white backdrop-blur-sm"
+        >
+          {{ currentIndex + 1 }} / {{ images.length }}
+        </div>
 
-    <div
-      v-if="currentImage.name"
-      class="absolute bottom-4 left-1/2 z-10 max-w-2xl -translate-x-1/2 truncate rounded-lg bg-white/10 px-4 py-2 text-sm text-white"
-    >
-      {{ currentImage.name }}
+        <img
+          :src="currentImage.url"
+          :alt="currentImage.name || `Image ${currentIndex + 1}`"
+          class="h-dvh w-auto max-w-none object-contain"
+        />
+      </div>
     </div>
   </div>
 </template>
