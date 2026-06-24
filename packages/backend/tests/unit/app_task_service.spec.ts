@@ -375,6 +375,25 @@ test.group('AppTaskService', () => {
     assert.equal((workflowRuns[0] as Record<string, any>)['1'].inputs.text, '去除丝袜和内裤')
   })
 
+  test('uses matching image user input for unbound image workflow parameters', async ({ assert }) => {
+    const image = {
+      hash: 'original-hash',
+      filename: 'original.png',
+      type: 'input',
+      proxy: { hash: 'proxy-hash', filename: 'proxy.avif', type: 'input' },
+    }
+    const task = createImplicitImageWorkflowTask(image)
+    const workflowRuns: unknown[] = []
+    const service = createService(task, workflowRuns, createImageWorkflowPatch())
+
+    await executeTask(service, task.id)
+
+    const prompt = workflowRuns[0] as Record<string, any>
+    const workflowRun = task.nodeRuns.find((nodeRun) => nodeRun.nodeId === 'workflow')
+    assert.deepEqual(workflowRun?.inputs?.['input:470:image'], image)
+    assert.equal(prompt['1'].inputs.image, 'original.png')
+  })
+
   test('randomizes seed parameters when running workflow nodes', async ({ assert }) => {
     const task = createWorkflowTask({ seed: 'fixed-seed', steps: 30 })
     const workflowRuns: unknown[] = []
@@ -617,6 +636,30 @@ test.group('AppTaskService', () => {
     assert.deepEqual(task.nodeRuns.map((nodeRun) => nodeRun.nodeId), ['input'])
     assert.equal(task.status, 'failed')
   })
+
+  test('syncs task snapshot and clears workflow runs with changed resolved inputs', async ({ assert }) => {
+    const task = createImplicitImageWorkflowTask({
+      hash: 'current-hash',
+      filename: 'current.png',
+      type: 'input',
+    })
+    task.status = 'completed'
+    task.nodeRuns = [
+      { nodeId: 'input', type: 'input_collect', status: 'completed' },
+      {
+        nodeId: 'workflow',
+        type: 'workflow_run',
+        status: 'completed',
+        inputs: { 'input:470:image': 'stale-default.png' },
+      },
+    ]
+
+    const service = createService(task, [], createImageWorkflowPatch())
+    await service.syncSnapshot(task.id)
+
+    assert.deepEqual(task.nodeRuns.map((nodeRun) => nodeRun.nodeId), ['input'])
+    assert.equal(task.status, 'failed')
+  })
 })
 
 function createService(
@@ -729,6 +772,65 @@ function createWorkflowTask(variables: Record<string, unknown>) {
     createdAt: null,
     updatedAt: null,
   } as unknown as AppTask
+}
+
+function createImplicitImageWorkflowTask(image: Record<string, unknown>) {
+  return {
+    id: 8,
+    appId: 1,
+    taskGroupId: 1,
+    status: 'queued',
+    inputs: { 输入图: image },
+    variables: { 输入图: image },
+    outputs: {},
+    appSnapshot: {
+      id: 1,
+      name: 'implicit image app',
+      variables: [
+        { key: '输入图', name: '输入图', type: 'IMAGE', source: 'user_input', required: true },
+      ],
+      graph: {
+        nodes: [
+          { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
+          {
+            id: 'workflow',
+            type: 'workflow_run',
+            position: { x: 200, y: 0 },
+            data: { workflowId: 1, inputBindings: {}, outputAssignments: {} },
+          },
+        ],
+        edges: [{ id: 'input-workflow', source: 'input', target: 'workflow' }],
+      },
+    },
+    nodeRuns: [],
+    waitingNodeId: null,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  } as unknown as AppTask
+}
+
+function createImageWorkflowPatch(): Partial<Workflow> {
+  return {
+    rawJson: {
+      1: {
+        class_type: 'LoadImage',
+        inputs: { image: 'stale-default.png' },
+      },
+    },
+    parameters: [
+      {
+        key: 'input:470:image',
+        nodeId: '1',
+        field: 'image',
+        name: '输入图',
+        type: 'IMAGE',
+        default: 'stale-default.png',
+      },
+    ],
+  }
 }
 
 function createImageConcatTask() {

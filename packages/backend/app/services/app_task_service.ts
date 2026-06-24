@@ -233,13 +233,20 @@ export default class AppTaskService {
       nextSnapshot.graph.nodes,
       nextSnapshot.graph.edges
     )
+    const nextVariables = mergeSnapshotVariables(nextSnapshot.variables, task.variables, task.inputs)
+    for (const nodeId of await this.collectChangedWorkflowInputNodeIds(
+      nextSnapshot,
+      task.nodeRuns,
+      nextVariables
+    )) {
+      changedNodeIds.add(nodeId)
+    }
     const resetNodeIds = collectResetNodeIds(nextSnapshot.graph.nodes, nextSnapshot.graph.edges, changedNodeIds)
     const nextNodeIds = new Set(nextSnapshot.graph.nodes.map((node) => node.id))
 
     task.nodeRuns = task.nodeRuns.filter(
       (nodeRun) => nextNodeIds.has(nodeRun.nodeId) && !resetNodeIds.has(nodeRun.nodeId)
     )
-    const nextVariables = mergeSnapshotVariables(nextSnapshot.variables, task.variables, task.inputs)
     const nextOutputs = filterOutputsForSnapshot(nextSnapshot.variables, task.outputs)
 
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
@@ -576,7 +583,13 @@ export default class AppTaskService {
       throw new Exception(`工作流节点 ${node.id} 未选择工作流`, { status: 422 })
 
     const workflow = await this.workflowRepository.findOrFail(node.data.workflowId)
-    const inputs = resolveWorkflowInputs(workflow, node, task.variables, this.seedGenerator)
+    const inputs = resolveWorkflowInputs(
+      workflow,
+      node,
+      task.variables,
+      this.seedGenerator,
+      task.appSnapshot.variables
+    )
     markNodeRun(task, node.id, 'running', { inputs })
     await this.persistProgress(task)
 
@@ -778,6 +791,31 @@ export default class AppTaskService {
       waitingNodeId: task.waitingNodeId,
     })
   }
+
+  private async collectChangedWorkflowInputNodeIds(
+    snapshot: AppTask['appSnapshot'],
+    nodeRuns: AppTaskNodeRun[],
+    variables: Record<string, unknown>
+  ) {
+    const changed = new Set<string>()
+    const completedRuns = new Map(
+      nodeRuns
+        .filter((nodeRun) => nodeRun.status === 'completed' && nodeRun.type === 'workflow_run')
+        .map((nodeRun) => [nodeRun.nodeId, nodeRun])
+    )
+
+    for (const node of snapshot.graph.nodes) {
+      if (node.type !== 'workflow_run' || !node.data.workflowId) continue
+      const nodeRun = completedRuns.get(node.id)
+      if (!nodeRun) continue
+
+      const workflow = await this.workflowRepository.findOrFail(node.data.workflowId)
+      const nextInputs = resolveWorkflowInputs(workflow, node, variables, () => 0, snapshot.variables)
+      if (workflowInputsChanged(workflow, nodeRun.inputs ?? {}, nextInputs)) changed.add(node.id)
+    }
+
+    return changed
+  }
 }
 
 function buildInitialVariables(
@@ -863,7 +901,8 @@ function resolveWorkflowInputs(
   workflow: Workflow,
   node: WorkflowRunNode,
   variables: Record<string, unknown>,
-  seedGenerator: SeedGenerator
+  seedGenerator: SeedGenerator,
+  appVariables: AppTask['appSnapshot']['variables'] = []
 ) {
   const inputs: Record<string, unknown> = {}
   for (const parameter of workflow.parameters) {
@@ -872,10 +911,56 @@ function resolveWorkflowInputs(
       continue
     }
 
-    const binding = node.data.inputBindings?.[parameter.key]
+    const binding = node.data.inputBindings?.[parameter.key] ?? inferImplicitImageBinding(parameter, appVariables)
     inputs[parameter.key] = resolveBinding(binding, variables, parameter.default)
   }
   return inputs
+}
+
+function inferImplicitImageBinding(
+  parameter: Workflow['parameters'][number],
+  appVariables: AppTask['appSnapshot']['variables']
+): VariableBinding | undefined {
+  if (parameter.type !== 'IMAGE') return undefined
+
+  const parameterNames = new Set([
+    normalizePlaceholderName(parameter.key),
+    normalizePlaceholderName(parameter.name),
+  ])
+  const matches = appVariables.filter(
+    (variable) =>
+      variable.source === 'user_input' &&
+      variable.type === 'IMAGE' &&
+      (parameterNames.has(normalizePlaceholderName(variable.key)) ||
+        parameterNames.has(normalizePlaceholderName(variable.name)))
+  )
+
+  return matches.length === 1 ? { kind: 'variable', varKey: matches[0].key } : undefined
+}
+
+function workflowInputsChanged(
+  workflow: Workflow,
+  previousInputs: Record<string, unknown>,
+  nextInputs: Record<string, unknown>
+) {
+  const seedKeys = new Set(
+    workflow.parameters.filter((parameter) => parameter.type === 'SEED').map((parameter) => parameter.key)
+  )
+  const inputKeys = new Set(workflow.parameters.map((parameter) => parameter.key))
+
+  for (const parameter of workflow.parameters) {
+    if (parameter.type === 'SEED') continue
+    if (stableJson(previousInputs[parameter.key]) !== stableJson(nextInputs[parameter.key])) return true
+  }
+
+  for (const key of Object.keys(previousInputs)) {
+    if (!seedKeys.has(key) && !inputKeys.has(key)) return true
+  }
+  for (const key of Object.keys(nextInputs)) {
+    if (!seedKeys.has(key) && !inputKeys.has(key)) return true
+  }
+
+  return false
 }
 
 function randomSeed() {
@@ -1206,10 +1291,13 @@ async function resolvePromptImage(
   image: Record<string, unknown>,
   mediaAssetService: MediaAssetService
 ) {
+  if (typeof image.filename === 'string') return image
+  if (typeof image.hash === 'string') return mediaAssetService.ensureComfyUpload(image.hash)
+
   const proxy = image.proxy
   if (!proxy || typeof proxy !== 'object' || Array.isArray(proxy)) return image
-
   const proxyImage = proxy as Record<string, unknown>
+  if (typeof proxyImage.filename === 'string') return proxyImage
   if (typeof proxyImage.hash !== 'string') return proxyImage
   return mediaAssetService.ensureComfyUpload(proxyImage.hash)
 }
