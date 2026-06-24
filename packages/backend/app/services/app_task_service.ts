@@ -179,7 +179,7 @@ export default class AppTaskService {
       throw new Exception('任务正在执行，不能发起重试', { status: 422, code: 'E_TASK_BUSY' })
     }
 
-    const nextInputs = inputs ?? task.inputs
+    const nextInputs = preserveImageProxies(inputs ?? task.inputs, task.variables)
     await this.updateTask(task, {
       status: 'queued',
       inputs: nextInputs,
@@ -854,6 +854,37 @@ function mergeUserInputVariables(
   return nextVariables
 }
 
+function preserveImageProxies(
+  inputs: Record<string, unknown>,
+  currentVariables: Record<string, unknown>
+) {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(inputs)) {
+    result[key] = attachImageProxy(value, currentVariables[key])
+  }
+  return result
+}
+
+function attachImageProxy(value: unknown, currentValue: unknown): unknown {
+  if (Array.isArray(value)) {
+    const currentItems = Array.isArray(currentValue) ? currentValue : []
+    return value.map((item, index) => attachImageProxy(item, currentItems[index]))
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+
+  const image = value as Record<string, unknown>
+  if (image.proxy) return image
+
+  const currentImage =
+    currentValue && typeof currentValue === 'object' && !Array.isArray(currentValue)
+      ? (currentValue as Record<string, unknown>)
+      : null
+  if (!currentImage?.proxy) return image
+  if (typeof image.hash === 'string' && currentImage.hash !== image.hash) return image
+
+  return { ...image, proxy: currentImage.proxy }
+}
+
 function collectMediaHashes(values: unknown[]) {
   const hashes = new Set<string>()
   for (const value of values) collectMediaHashesFromValue(value, hashes)
@@ -1291,15 +1322,29 @@ async function resolvePromptImage(
   image: Record<string, unknown>,
   mediaAssetService: MediaAssetService
 ) {
-  if (typeof image.filename === 'string') return image
-  if (typeof image.hash === 'string') return mediaAssetService.ensureComfyUpload(image.hash)
+  const proxyImage = imageProxy(image)
+  if (typeof image.hash === 'string') {
+    const localPath = await mediaAssetService.existingLocalPathForHash(image.hash)
+    if (localPath) {
+      return typeof image.filename === 'string'
+        ? image
+        : mediaAssetService.ensureComfyUpload(image.hash)
+    }
 
+    if (proxyImage) return resolvePromptImage(proxyImage, mediaAssetService)
+    if (typeof image.filename === 'string') return image
+    return mediaAssetService.ensureComfyUpload(image.hash)
+  }
+
+  if (typeof image.filename === 'string') return image
+  if (proxyImage) return resolvePromptImage(proxyImage, mediaAssetService)
+  return image
+}
+
+function imageProxy(image: Record<string, unknown>) {
   const proxy = image.proxy
-  if (!proxy || typeof proxy !== 'object' || Array.isArray(proxy)) return image
-  const proxyImage = proxy as Record<string, unknown>
-  if (typeof proxyImage.filename === 'string') return proxyImage
-  if (typeof proxyImage.hash !== 'string') return proxyImage
-  return mediaAssetService.ensureComfyUpload(proxyImage.hash)
+  if (!proxy || typeof proxy !== 'object' || Array.isArray(proxy)) return null
+  return proxy as Record<string, unknown>
 }
 
 function topologicalSort(nodes: AppGraphNode[], edges: { source: string; target: string }[]) {

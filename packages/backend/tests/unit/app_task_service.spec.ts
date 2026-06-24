@@ -207,6 +207,25 @@ test.group('AppTaskService', () => {
     assert.equal(task.completedAt, null)
   })
 
+  test('preserves image proxy references when retrying the whole task', async ({ assert }) => {
+    const image = { hash: 'original-hash', filename: 'original.png', type: 'input' }
+    const proxy = { hash: 'proxy-hash', filename: 'proxy.avif', type: 'input' }
+    const task = createRetryableTask()
+    task.inputs = { image }
+    task.variables = { image: { ...image, proxy }, result: 'old result' }
+    task.appSnapshot.variables = [
+      { key: 'image', name: 'image', type: 'IMAGE', source: 'user_input', required: true },
+      { key: 'result', name: 'result', type: 'STRING', source: 'computed' },
+    ]
+    const service = createService(task, [])
+    ;(service as unknown as { enqueue(taskId: number): void }).enqueue = () => {}
+
+    await service.retryTask(task.id)
+
+    assert.deepEqual((task.inputs.image as Record<string, unknown>).proxy, proxy)
+    assert.deepEqual((task.variables.image as Record<string, unknown>).proxy, proxy)
+  })
+
   test('updates task inputs without resetting execution state', async ({ assert }) => {
     const task = createRetryableTask()
     const service = createService(task, [])
@@ -384,7 +403,11 @@ test.group('AppTaskService', () => {
     }
     const task = createImplicitImageWorkflowTask(image)
     const workflowRuns: unknown[] = []
-    const service = createService(task, workflowRuns, createImageWorkflowPatch())
+    const service = createService(task, workflowRuns, createImageWorkflowPatch(), undefined, {
+      async existingLocalPathForHash() {
+        return '/tmp/original.png'
+      },
+    })
 
     await executeTask(service, task.id)
 
@@ -392,6 +415,27 @@ test.group('AppTaskService', () => {
     const workflowRun = task.nodeRuns.find((nodeRun) => nodeRun.nodeId === 'workflow')
     assert.deepEqual(workflowRun?.inputs?.['input:470:image'], image)
     assert.equal(prompt['1'].inputs.image, 'original.png')
+  })
+
+  test('uses image proxy for workflow input when original media file is unavailable', async ({ assert }) => {
+    const image = {
+      hash: 'original-hash',
+      filename: 'original.png',
+      type: 'input',
+      proxy: { hash: 'proxy-hash', filename: 'proxy.avif', type: 'input' },
+    }
+    const task = createImplicitImageWorkflowTask(image)
+    const workflowRuns: unknown[] = []
+    const service = createService(task, workflowRuns, createImageWorkflowPatch(), undefined, {
+      async existingLocalPathForHash(hash: string) {
+        return hash === 'proxy-hash' ? '/tmp/proxy.avif' : null
+      },
+    })
+
+    await executeTask(service, task.id)
+
+    const prompt = workflowRuns[0] as Record<string, any>
+    assert.equal(prompt['1'].inputs.image, 'proxy.avif')
   })
 
   test('randomizes seed parameters when running workflow nodes', async ({ assert }) => {
