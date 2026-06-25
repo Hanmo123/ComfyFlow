@@ -8,6 +8,7 @@ import { APP_VARIABLE_TYPE_LABELS, type AppTaskRecord, type AppVariable, type Ta
 const route = useRoute()
 const router = useRouter()
 const appApi = useAppApi()
+const libraryApi = useLibraryApi()
 const { loadPreferredTaskGroupId, setPreferredTaskGroupId } = useTaskGroupPreference()
 
 const taskGroups = ref<TaskGroupRecord[]>([])
@@ -29,6 +30,7 @@ const editPreviousImageValues = ref<Record<string, unknown | null>>({})
 const retryingNodeId = ref<string | null>(null)
 const resumingNodeId = ref<string | null>(null)
 const movingTaskToGroup = ref(false)
+const thumbnailImageProxies = ref<Record<string, { hash: string; url: string; localUrl: string }>>({})
 const taskRealtime = useTaskRealtime({
   onOpen: () => {
     if (selectedGroupId.value && !showingGroupPicker.value) void refreshTasks()
@@ -46,6 +48,11 @@ const deleteTaskDisabled = computed(() => deletingTask.value || (selectedTaskBus
 const syncSnapshotDisabled = computed(() => syncingSnapshot.value || (selectedTaskBusy.value && !shiftPressed.value))
 const repairLogicDisabled = computed(() => repairingLogic.value || selectedTaskBusy.value)
 const userInputVariables = computed(() => selectedTask.value?.appSnapshot.variables.filter((variable) => variable.source === 'user_input') ?? [])
+const thumbnailImageHashes = computed(() => {
+  const hashes = new Set<string>()
+  for (const task of tasks.value) collectTaskImageHashes(task, hashes)
+  return [...hashes]
+})
 
 onMounted(async () => {
   window.addEventListener('keydown', updateShiftPressed)
@@ -64,6 +71,20 @@ onUnmounted(() => {
 watch(selectedGroupId, () => {
   startRealtime()
 })
+
+watch(
+  thumbnailImageHashes,
+  async (hashes) => {
+    thumbnailImageProxies.value = {}
+    if (hashes.length === 0) return
+    try {
+      thumbnailImageProxies.value = await libraryApi.getMediaAssetProxies(hashes)
+    } catch (proxyError) {
+      console.error(proxyError)
+    }
+  },
+  { immediate: true },
+)
 
 async function refreshTasks() {
   if (!selectedGroupId.value) {
@@ -353,6 +374,9 @@ function taskThumbnail(task: AppTaskRecord) {
   const proxiedImage = findTaskImage(task, hasProxyImageUrl)
   if (proxiedImage) return imageUrl(proxiedImage)
 
+  const storedProxyImage = findTaskImage(task, hasStoredProxyImageUrl)
+  if (storedProxyImage) return imageUrl(storedProxyImage)
+
   const imageInput = task.appSnapshot.variables.find((variable) => variable.source === 'user_input' && variable.type === 'IMAGE')
   if (imageInput) return imageUrl(task.variables[imageInput.key] ?? task.inputs[imageInput.key])
 
@@ -394,6 +418,13 @@ function hasProxyImageUrl(value: unknown) {
   return typeof proxy.localUrl === 'string' || typeof proxy.url === 'string'
 }
 
+function hasStoredProxyImageUrl(value: unknown) {
+  const hash = imageHash(value)
+  if (!hash) return false
+  const proxy = thumbnailImageProxies.value[hash]
+  return Boolean(proxy?.localUrl ?? proxy?.url)
+}
+
 function imageUrl(value: unknown) {
   if (typeof value === 'string' && /^https?:\/\//.test(value)) return value
   if (!value || typeof value !== 'object') return ''
@@ -403,8 +434,42 @@ function imageUrl(value: unknown) {
     if (typeof proxy.localUrl === 'string') return proxy.localUrl
     if (typeof proxy.url === 'string') return proxy.url
   }
+  const storedProxyUrl = storedProxyImageUrl(value)
+  if (storedProxyUrl) return storedProxyUrl
   if (typeof image.localUrl === 'string') return image.localUrl
   return typeof image.url === 'string' ? image.url : ''
+}
+
+function storedProxyImageUrl(value: unknown) {
+  const hash = imageHash(value)
+  if (!hash) return ''
+  const proxy = thumbnailImageProxies.value[hash]
+  return proxy?.localUrl ?? proxy?.url ?? ''
+}
+
+function imageHash(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const image = value as Record<string, unknown>
+  return typeof image.hash === 'string' ? image.hash : null
+}
+
+function collectTaskImageHashes(task: AppTaskRecord, hashes: Set<string>) {
+  const imageVariables = task.appSnapshot.variables.filter((variable) => variable.type === 'IMAGE')
+  for (const variable of imageVariables) {
+    collectImageHashes(task.outputs[variable.key], hashes)
+    collectImageHashes(task.variables[variable.key], hashes)
+    collectImageHashes(task.inputs[variable.key], hashes)
+  }
+}
+
+function collectImageHashes(value: unknown, hashes: Set<string>) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectImageHashes(item, hashes)
+    return
+  }
+
+  const hash = imageHash(value)
+  if (hash) hashes.add(hash)
 }
 
 function setEditFile(variable: AppVariable, event: Event) {
