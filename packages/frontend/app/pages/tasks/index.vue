@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { ArrowLeft, FolderOpen, Image, LayoutGrid, MoreVertical, Pencil, RefreshCw, RotateCw, Trash2, Wrench } from 'lucide-vue-next'
+import { ArrowLeft, ChevronDown, FolderOpen, Image, LayoutGrid, MoreVertical, Pencil, RefreshCw, RotateCw, Trash2, Wrench } from 'lucide-vue-next'
 import TaskFlowGraph from '@/components/task/TaskFlowGraph.vue'
 import TaskOutputImages from '@/components/task/TaskOutputImages.vue'
 import { APP_VARIABLE_TYPE_LABELS, type AppTaskRecord, type AppVariable, type TaskGroupRecord } from '@/lib/app'
@@ -525,15 +525,54 @@ async function moveTaskToGroupAction(targetGroupId: number) {
           任务分组
         </div>
         <div v-else-if="selectedTask" class="flex h-9 items-center gap-1.5 rounded-md border bg-white px-3 text-sm shadow-sm">
-          <span class="font-medium">{{ selectedGroup?.name ?? '未分组' }}</span>
+                    <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <button type="button" class="flex items-center gap-1 font-medium transition hover:text-slate-600 outline-none">
+                {{ selectedGroup?.name ?? '未分组' }}
+                <ChevronDown class="size-3 text-slate-400" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-48">
+              <DropdownMenuItem
+                v-for="group in taskGroups"
+                :key="group.id"
+                :class="group.id === selectedGroupId ? 'bg-slate-50 font-medium' : ''"
+                @select="selectGroup(group.id)"
+              >
+                <FolderOpen class="mr-2 size-4 text-slate-500" />
+                <span class="truncate">{{ group.name }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <span class="text-slate-300">/</span>
           <span>{{ selectedTask.appSnapshot.name }}</span>
           <span class="text-slate-300">/</span>
           <span class="text-slate-500">#{{ selectedTask.id }}</span>
           <span class="ml-1 rounded-full px-2 py-0.5 text-[10px] bg-slate-100 text-slate-600">{{ statusLabel(selectedTask.status) }}</span>
         </div>
-        <div v-else class="flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium shadow-sm">
-          {{ selectedGroup ? `${selectedGroup.name} · 任务列表` : '任务列表' }}
+                <div v-else class="flex h-9 items-center gap-1.5 rounded-md border bg-white px-3 text-sm shadow-sm">
+          <DropdownMenu v-if="selectedGroup">
+            <DropdownMenuTrigger as-child>
+              <button type="button" class="flex items-center gap-1 font-medium transition hover:text-slate-600 outline-none">
+                {{ selectedGroup.name }}
+                <ChevronDown class="size-3 text-slate-400" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-48">
+              <DropdownMenuItem
+                v-for="group in taskGroups"
+                :key="group.id"
+                :class="group.id === selectedGroupId ? 'bg-slate-50 font-medium' : ''"
+                @select="selectGroup(group.id)"
+              >
+                <FolderOpen class="mr-2 size-4 text-slate-500" />
+                <span class="truncate">{{ group.name }}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span v-else class="font-medium">未分组</span>
+          <span class="text-slate-300">/</span>
+          <span class="text-slate-500">任务列表</span>
         </div>
       </div>
 
