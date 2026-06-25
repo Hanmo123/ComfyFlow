@@ -630,13 +630,12 @@ async function moveTaskToGroupAction(targetGroupId: number) {
       <!-- 内容区 -->
       <div class="h-full w-full">
         <div v-if="showingGroupPicker" class="h-full overflow-auto pt-20 px-6 bg-slate-50">
-          <div class="mx-auto max-w-4xl">
             <div class="mb-5">
               <h1 class="text-xl font-semibold">选择任务分组</h1>
               <p class="mt-1 text-sm text-slate-500">会自动进入上次选择的分组，也可以从这里切换到其他分组。</p>
             </div>
 
-            <div v-if="taskGroups.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div v-if="taskGroups.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               <button
                 v-for="group in taskGroups"
                 :key="group.id"
@@ -659,7 +658,6 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             <div v-else class="rounded-lg border border-dashed p-8 text-center text-sm text-slate-500 bg-white">
               {{ error || '暂无任务分组' }}
             </div>
-          </div>
         </div>
         <TaskFlowGraph
           v-else-if="selectedTask"

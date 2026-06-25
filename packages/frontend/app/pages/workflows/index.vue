@@ -122,8 +122,7 @@ function formatDate(value: string | null) {
       </div>
 
       <div class="h-full overflow-auto pt-20 px-4 pb-6 sm:px-6 lg:px-8">
-        <div class="mx-auto w-full max-w-7xl">
-          <section>
+        <section class="h-full">
             <div v-if="workflows.length === 0" class="flex min-h-[420px] items-center justify-center rounded-xl border border-dashed bg-white">
               <div class="max-w-sm text-center">
                 <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100">
@@ -138,7 +137,7 @@ function formatDate(value: string | null) {
               </div>
             </div>
 
-            <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               <article
                 v-for="workflow in workflows"
                 :key="workflow.id"
@@ -196,7 +195,6 @@ function formatDate(value: string | null) {
         @close="renameDialogOpen = false"
         @save="renameWorkflow"
       />
-        </div>
       </div>
     </div>
   </main>
