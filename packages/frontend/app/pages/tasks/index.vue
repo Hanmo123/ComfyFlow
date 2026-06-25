@@ -512,7 +512,8 @@ async function moveTaskToGroupAction(targetGroupId: number) {
 
 <template>
   <main class="h-svh overflow-hidden bg-white text-slate-950">
-    <div class="relative h-full">
+    <div class="flex h-full">
+      <div class="relative min-w-0 flex-1">
       <!-- 悬浮导航/左上角 -->
       <div class="absolute left-4 top-4 z-30 flex items-center gap-2">
         <LayoutAppNavigationMenu />
@@ -710,6 +711,8 @@ async function moveTaskToGroupAction(targetGroupId: number) {
         <div v-else class="flex h-full items-center justify-center p-6 text-center text-sm text-slate-500 bg-slate-50">
           {{ error || '暂无任务' }}
         </div>
+      </div>
+
       </div>
 
       <TaskOutputImages v-if="!showingGroupPicker" :task="selectedTask" :tasks="tasks" />
