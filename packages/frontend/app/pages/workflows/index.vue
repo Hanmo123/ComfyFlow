@@ -104,80 +104,85 @@ function formatDate(value: string | null) {
 </script>
 
 <template>
-  <main class="min-h-svh bg-white text-slate-950">
-    <div class="mx-auto flex min-h-svh w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
-      <header class="flex items-center gap-3 border-b pb-4">
+  <main class="h-svh overflow-hidden bg-slate-50 text-slate-950">
+    <div class="relative h-full">
+      <div class="absolute left-4 top-4 z-30 flex items-center gap-2">
         <LayoutAppNavigationMenu />
-        <div class="min-w-0 flex-1">
-          <h1 class="truncate text-xl font-semibold">工作流管理</h1>
+        <div class="flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium shadow-sm">
+          工作流管理
         </div>
+      </div>
+
+      <div class="absolute right-4 top-4 z-30 flex items-center gap-2">
         <input ref="fileInput" class="hidden" type="file" accept="application/json,.json" @change="onFileChange" />
-        <Button type="button" :disabled="uploading" @click="fileInput?.click()">
+        <Button type="button" :disabled="uploading" class="shadow-sm" @click="fileInput?.click()">
           <Plus class="size-4" />
           添加工作流
         </Button>
-      </header>
+      </div>
 
-      <section class="flex-1 py-6">
-        <div v-if="workflows.length === 0" class="flex min-h-[420px] items-center justify-center rounded-xl border border-dashed">
-          <div class="max-w-sm text-center">
-            <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100">
-              <Workflow class="size-6 text-slate-500" />
-            </div>
-            <div class="mt-4 text-base font-medium">还没有工作流</div>
-            <p class="mt-2 text-sm text-slate-500">先添加一个 ComfyUI API JSON，随后进入详情页配置参数与结果。</p>
-            <Button class="mt-4" type="button" :disabled="uploading" @click="fileInput?.click()">
-              <Plus class="size-4" />
-              添加工作流
-            </Button>
-          </div>
-        </div>
-
-        <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <article
-            v-for="workflow in workflows"
-            :key="workflow.id"
-            class="group rounded-xl border bg-white p-4 transition hover:border-slate-400 hover:bg-slate-50"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <NuxtLink :to="`/workflows/${workflow.id}`" class="min-w-0 flex-1">
-                <div class="truncate text-base font-semibold text-slate-950">{{ workflowTitle(workflow) }}</div>
-                <div class="mt-1 text-xs text-slate-500">#{{ workflow.id }} · {{ workflow.status }}</div>
-              </NuxtLink>
-              <DropdownMenu>
-                <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon" type="button" :disabled="deletingId === workflow.id" aria-label="工作流操作">
-                    <MoreVertical class="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" class="w-36">
-                  <DropdownMenuItem @select="openRenameDialog(workflow)">
-                    <Pencil class="size-4" />
-                    重命名
-                  </DropdownMenuItem>
-                  <DropdownMenuItem class="text-red-600 focus:text-red-600" @select="deleteWorkflow(workflow)">
-                    <Trash2 class="size-4" />
-                    删除
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <NuxtLink :to="`/workflows/${workflow.id}`" class="mt-5 grid grid-cols-2 gap-2 text-sm">
-              <div class="rounded-lg border bg-white px-3 py-2">
-                <div class="text-lg font-semibold">{{ workflow.parameters.length }}</div>
-                <div class="text-xs text-slate-500">参数</div>
+      <div class="h-full overflow-auto pt-20 px-4 pb-6 sm:px-6 lg:px-8">
+        <div class="mx-auto w-full max-w-7xl">
+          <section>
+            <div v-if="workflows.length === 0" class="flex min-h-[420px] items-center justify-center rounded-xl border border-dashed bg-white">
+              <div class="max-w-sm text-center">
+                <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-slate-100">
+                  <Workflow class="size-6 text-slate-500" />
+                </div>
+                <div class="mt-4 text-base font-medium">还没有工作流</div>
+                <p class="mt-2 text-sm text-slate-500">先添加一个 ComfyUI API JSON，随后进入详情页配置参数与结果。</p>
+                <Button class="mt-4" type="button" :disabled="uploading" @click="fileInput?.click()">
+                  <Plus class="size-4" />
+                  添加工作流
+                </Button>
               </div>
-              <div class="rounded-lg border bg-white px-3 py-2">
-                <div class="text-lg font-semibold">{{ workflow.results.length }}</div>
-                <div class="text-xs text-slate-500">结果</div>
-              </div>
-            </NuxtLink>
-            <NuxtLink :to="`/workflows/${workflow.id}`" class="mt-4 block truncate text-xs text-slate-500">更新于 {{ formatDate(workflow.updatedAt ?? workflow.createdAt) }}</NuxtLink>
-          </article>
-        </div>
-      </section>
+            </div>
 
-      <div v-if="error" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <article
+                v-for="workflow in workflows"
+                :key="workflow.id"
+                class="group rounded-xl border bg-white p-4 transition hover:border-slate-400 hover:shadow-md"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <NuxtLink :to="`/workflows/${workflow.id}`" class="min-w-0 flex-1">
+                    <div class="truncate text-base font-semibold text-slate-950">{{ workflowTitle(workflow) }}</div>
+                    <div class="mt-1 text-xs text-slate-500">#{{ workflow.id }} · {{ workflow.status }}</div>
+                  </NuxtLink>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="ghost" size="icon" type="button" :disabled="deletingId === workflow.id" aria-label="工作流操作">
+                        <MoreVertical class="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-36">
+                      <DropdownMenuItem @select="openRenameDialog(workflow)">
+                        <Pencil class="size-4" />
+                        重命名
+                      </DropdownMenuItem>
+                      <DropdownMenuItem class="text-red-600 focus:text-red-600" @select="deleteWorkflow(workflow)">
+                        <Trash2 class="size-4" />
+                        删除
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <NuxtLink :to="`/workflows/${workflow.id}`" class="mt-5 grid grid-cols-2 gap-2 text-sm">
+                  <div class="rounded-lg border bg-slate-50 px-3 py-2">
+                    <div class="text-lg font-semibold">{{ workflow.parameters.length }}</div>
+                    <div class="text-xs text-slate-500">参数</div>
+                  </div>
+                  <div class="rounded-lg border bg-slate-50 px-3 py-2">
+                    <div class="text-lg font-semibold">{{ workflow.results.length }}</div>
+                    <div class="text-xs text-slate-500">结果</div>
+                  </div>
+                </NuxtLink>
+                <NuxtLink :to="`/workflows/${workflow.id}`" class="mt-4 block truncate text-xs text-slate-500">更新于 {{ formatDate(workflow.updatedAt ?? workflow.createdAt) }}</NuxtLink>
+              </article>
+            </div>
+          </section>
+
+          <div v-if="error" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
         {{ error }}
       </div>
 
@@ -191,6 +196,8 @@ function formatDate(value: string | null) {
         @close="renameDialogOpen = false"
         @save="renameWorkflow"
       />
+        </div>
+      </div>
     </div>
   </main>
 </template>

@@ -139,36 +139,36 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-slate-50">
-    <header class="flex items-center justify-between border-b bg-white px-6 py-4">
-      <div class="flex items-center gap-3">
+  <main class="h-svh overflow-hidden bg-slate-50 text-slate-950">
+    <div class="relative h-full">
+      <div class="absolute left-4 top-4 z-30 flex items-center gap-2">
         <LayoutAppNavigationMenu />
-        <Images class="size-6 text-slate-700" />
-        <h1 class="text-xl font-semibold text-slate-950">素材库</h1>
+        <div class="flex h-9 items-center gap-2 rounded-md border bg-white px-3 text-sm font-medium shadow-sm">
+          <Images class="size-4 text-slate-700" />
+          素材库
+        </div>
       </div>
-      
-      <Button @click="uploadDialogOpen = true">
-        <Plus class="size-4" />
-        上传素材
-      </Button>
-    </header>
 
-    <div class="flex items-center gap-3 border-b bg-white px-6 py-3">
-      <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-        <Input
-          v-model="keyword"
-          placeholder="搜索素材名称、描述或标签..."
-          class="pl-9"
-          @keydown.enter="handleSearch"
-        />
+      <div class="absolute right-4 top-4 z-30 flex items-center gap-2">
+        <div class="relative w-64 shadow-sm">
+          <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            v-model="keyword"
+            placeholder="搜索素材名称、描述或标签..."
+            class="pl-9 h-9"
+            @keydown.enter="handleSearch"
+          />
+        </div>
+        <Button variant="outline" class="shadow-sm" @click="handleSearch" :disabled="loading">
+          搜索
+        </Button>
+        <Button class="shadow-sm" @click="uploadDialogOpen = true">
+          <Plus class="size-4" />
+          上传素材
+        </Button>
       </div>
-      <Button variant="outline" @click="handleSearch" :disabled="loading">
-        搜索
-      </Button>
-    </div>
 
-    <main class="flex-1 overflow-auto p-6">
+      <div class="h-full overflow-auto pt-20 px-6 pb-6">
       <div v-if="loading" class="flex items-center justify-center py-12 text-slate-500">
         加载中...
       </div>
@@ -240,7 +240,7 @@ onMounted(() => {
           下一页
         </Button>
       </div>
-    </main>
+    </div>
 
     <Dialog v-model:open="uploadDialogOpen">
       <DialogContent class="sm:max-w-md">
@@ -301,5 +301,6 @@ onMounted(() => {
     </Dialog>
 
     <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
-  </div>
+    </div>
+  </main>
 </template>

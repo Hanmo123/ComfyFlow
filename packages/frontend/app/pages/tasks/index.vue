@@ -512,65 +512,38 @@ async function moveTaskToGroupAction(targetGroupId: number) {
 
 <template>
   <main class="h-svh overflow-hidden bg-white text-slate-950">
-    <div class="flex h-full">
-      <aside class="flex w-20 shrink-0 flex-col items-center gap-3 border-r bg-slate-50 py-4">
-        <div class="flex w-full flex-col items-center gap-3 px-2">
-          <LayoutAppNavigationMenu />
-          <div class="h-px w-full bg-slate-200" />
-          <button
-            v-if="!showingGroupPicker"
-            type="button"
-            class="flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-slate-400 hover:text-slate-950"
-            title="返回分组"
-            @click="openGroupPicker"
-          >
-            <ArrowLeft class="size-4" />
-          </button>
+    <div class="relative h-full">
+      <!-- 悬浮导航/左上角 -->
+      <div class="absolute left-4 top-4 z-30 flex items-center gap-2">
+        <LayoutAppNavigationMenu />
+        <Button v-if="!showingGroupPicker" type="button" variant="outline" class="shadow-sm bg-white" @click="openGroupPicker">
+          <ArrowLeft class="size-4" />
+          返回分组
+        </Button>
+        <div v-if="showingGroupPicker" class="flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium shadow-sm">
+          <FolderOpen class="mr-2 size-4 text-slate-500" />
+          任务分组
         </div>
-        <div v-if="!showingGroupPicker" class="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
-          <div class="flex w-full flex-col items-center gap-3 px-2">
-            <button
-              v-for="task in tasks"
-              :key="task.id"
-              type="button"
-              class="relative size-14 shrink-0 overflow-hidden rounded-xl border transition"
-              :class="taskButtonClass(task)"
-              @click="selectTask(task.id)"
-            >
-              <img v-if="taskThumbnail(task)" :src="taskThumbnail(task)" :alt="`任务 #${task.id}`" class="h-full w-full object-cover" />
-              <div v-else class="flex h-full w-full items-center justify-center" :class="taskFallbackClass(task)">
-                <Image class="size-5 text-slate-600" />
-              </div>
-              <span class="absolute bottom-0 left-0 right-0 bg-white/85 text-[10px] font-medium text-slate-700">#{{ task.id }}</span>
-            </button>
-          </div>
+        <div v-else-if="selectedTask" class="flex h-9 items-center gap-1.5 rounded-md border bg-white px-3 text-sm shadow-sm">
+          <span class="font-medium">{{ selectedGroup?.name ?? '未分组' }}</span>
+          <span class="text-slate-300">/</span>
+          <span>{{ selectedTask.appSnapshot.name }}</span>
+          <span class="text-slate-300">/</span>
+          <span class="text-slate-500">#{{ selectedTask.id }}</span>
+          <span class="ml-1 rounded-full px-2 py-0.5 text-[10px] bg-slate-100 text-slate-600">{{ statusLabel(selectedTask.status) }}</span>
         </div>
-      </aside>
+        <div v-else class="flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium shadow-sm">
+          {{ selectedGroup ? `${selectedGroup.name} · 任务列表` : '任务列表' }}
+        </div>
+      </div>
 
-      <section class="flex min-w-0 flex-1 flex-col">
-        <header class="flex h-16 shrink-0 items-center gap-3 border-b bg-white px-4">
-          <div class="rounded-lg border bg-slate-50 p-2 text-slate-600">
-            <FolderOpen v-if="showingGroupPicker" class="size-4" />
-            <LayoutGrid v-else class="size-4" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-semibold">
-              <template v-if="showingGroupPicker">任务分组</template>
-              <template v-else-if="selectedTask">
-                {{ `${selectedGroup?.name ?? '未分组'} · ${selectedTask.appSnapshot.name} · 任务 #${selectedTask.id}` }}
-              </template>
-              <template v-else>{{ selectedGroup ? `${selectedGroup.name} · 任务列表` : '任务列表' }}</template>
-            </div>
-            <div class="mt-0.5 text-xs text-slate-500">
-              <template v-if="showingGroupPicker">选择一个分组查看任务</template>
-              <template v-else-if="selectedTask">{{ statusLabel(selectedTask.status) }}</template>
-              <template v-else>{{ error || '暂无任务' }}</template>
-            </div>
-          </div>
+      <!-- 右上角按钮 -->
+      <div class="absolute right-4 top-4 z-30 flex items-center gap-2">
+        <template v-if="selectedTask && !showingGroupPicker">
           <Button
-            v-if="selectedTask && !showingGroupPicker"
             type="button"
             variant="outline"
+            class="shadow-sm bg-white"
             :disabled="retryTaskDisabled"
             @click="retryTask"
           >
@@ -578,9 +551,10 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             重试
           </Button>
           <Button
-            v-if="selectedTask && !showingGroupPicker && shiftPressed"
+            v-if="shiftPressed"
             type="button"
             variant="outline"
+            class="shadow-sm bg-white"
             :disabled="repairLogicDisabled"
             @click="repairSelectedTaskLogic"
           >
@@ -588,29 +562,18 @@ async function moveTaskToGroupAction(targetGroupId: number) {
             修复逻辑
           </Button>
           <Button
-            v-if="selectedTask && !showingGroupPicker"
             type="button"
             variant="outline"
+            class="shadow-sm bg-white"
             :disabled="retryTaskDisabled"
             @click="openInputEditor"
           >
             <Pencil class="size-4" />
             参数
           </Button>
-          <Button
-            v-if="selectedTask && !showingGroupPicker"
-            type="button"
-            variant="outline"
-            class="text-red-600 hover:text-red-700"
-            :disabled="deleteTaskDisabled"
-            @click="deleteSelectedTask"
-          >
-            <Trash2 class="size-4" />
-            删除
-          </Button>
-          <DropdownMenu v-if="selectedTask && !showingGroupPicker && taskGroups.length > 1">
+          <DropdownMenu v-if="taskGroups.length > 1">
             <DropdownMenuTrigger as-child>
-              <Button type="button" variant="outline" :disabled="movingTaskToGroup">
+              <Button type="button" variant="outline" class="shadow-sm bg-white" :disabled="movingTaskToGroup">
                 <MoreVertical class="size-4" />
                 更多
               </Button>
@@ -633,64 +596,90 @@ async function moveTaskToGroupAction(targetGroupId: number) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button v-if="!showingGroupPicker" type="button" variant="outline" @click="openGroupPicker">
-            <ArrowLeft class="size-4" />
-            返回分组
+          <Button
+            type="button"
+            variant="outline"
+            class="shadow-sm bg-white text-red-600 hover:text-red-700"
+            :disabled="deleteTaskDisabled"
+            @click="deleteSelectedTask"
+          >
+            <Trash2 class="size-4" />
+            删除
           </Button>
-        </header>
+        </template>
+      </div>
 
-        <div class="min-h-0 flex-1">
-          <div v-if="showingGroupPicker" class="h-full overflow-auto p-6">
-            <div class="mx-auto max-w-4xl">
-              <div class="mb-5">
-                <h1 class="text-xl font-semibold">选择任务分组</h1>
-                <p class="mt-1 text-sm text-slate-500">会自动进入上次选择的分组，也可以从这里切换到其他分组。</p>
-              </div>
+      <!-- 左侧悬浮任务列表 -->
+      <div v-if="!showingGroupPicker && tasks.length > 0" class="absolute left-4 top-16 z-30 flex flex-col gap-2 max-h-[calc(100vh-5rem)] overflow-y-auto overscroll-contain pb-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          v-for="task in tasks"
+          :key="task.id"
+          type="button"
+          class="relative size-14 shrink-0 overflow-hidden rounded-xl border shadow-sm transition bg-white"
+          :class="taskButtonClass(task)"
+          @click="selectTask(task.id)"
+        >
+          <img v-if="taskThumbnail(task)" :src="taskThumbnail(task)" :alt="`任务 #${task.id}`" class="h-full w-full object-cover" />
+          <div v-else class="flex h-full w-full items-center justify-center" :class="taskFallbackClass(task)">
+            <Image class="size-5 text-slate-600" />
+          </div>
+          <span class="absolute bottom-0 left-0 right-0 bg-white/85 text-[10px] font-medium text-slate-700">#{{ task.id }}</span>
+        </button>
+      </div>
 
-              <div v-if="taskGroups.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <button
-                  v-for="group in taskGroups"
-                  :key="group.id"
-                  type="button"
-                  class="rounded-xl border bg-white p-4 text-left transition hover:border-slate-400 hover:bg-slate-50"
-                  @click="selectGroup(group.id)"
-                >
-                  <div class="flex items-center gap-3">
-                    <div class="rounded-lg border bg-slate-50 p-2 text-slate-600">
-                      <FolderOpen class="size-4" />
-                    </div>
-                    <div class="min-w-0">
-                      <div class="truncate text-sm font-semibold">{{ group.name }}</div>
-                      <div class="mt-0.5 text-xs text-slate-500">查看该分组任务</div>
-                    </div>
+      <!-- 内容区 -->
+      <div class="h-full w-full">
+        <div v-if="showingGroupPicker" class="h-full overflow-auto pt-20 px-6 bg-slate-50">
+          <div class="mx-auto max-w-4xl">
+            <div class="mb-5">
+              <h1 class="text-xl font-semibold">选择任务分组</h1>
+              <p class="mt-1 text-sm text-slate-500">会自动进入上次选择的分组，也可以从这里切换到其他分组。</p>
+            </div>
+
+            <div v-if="taskGroups.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <button
+                v-for="group in taskGroups"
+                :key="group.id"
+                type="button"
+                class="rounded-xl border bg-white p-4 text-left transition hover:border-slate-400 hover:bg-slate-50 shadow-sm"
+                @click="selectGroup(group.id)"
+              >
+                <div class="flex items-center gap-3">
+                  <div class="rounded-lg border bg-slate-50 p-2 text-slate-600">
+                    <FolderOpen class="size-4" />
                   </div>
-                </button>
-              </div>
+                  <div class="min-w-0">
+                    <div class="truncate text-sm font-semibold">{{ group.name }}</div>
+                    <div class="mt-0.5 text-xs text-slate-500">查看该分组任务</div>
+                  </div>
+                </div>
+              </button>
+            </div>
 
-              <div v-else class="rounded-lg border border-dashed p-8 text-center text-sm text-slate-500">
-                {{ error || '暂无任务分组' }}
-              </div>
+            <div v-else class="rounded-lg border border-dashed p-8 text-center text-sm text-slate-500 bg-white">
+              {{ error || '暂无任务分组' }}
             </div>
           </div>
-          <TaskFlowGraph
-            v-else-if="selectedTask"
-            :task="selectedTask"
-            :retrying-node-id="retryingNodeId"
-            :resuming-node-id="resumingNodeId"
-            :shift-pressed="shiftPressed"
-            @retry="retryNode"
-            @resume="resumeNode"
-          />
-          <div v-else class="flex h-full items-center justify-center p-6 text-center text-sm text-slate-500">
-            {{ error || '暂无任务' }}
-          </div>
         </div>
-      </section>
+        <TaskFlowGraph
+          v-else-if="selectedTask"
+          :task="selectedTask"
+          :retrying-node-id="retryingNodeId"
+          :resuming-node-id="resumingNodeId"
+          :shift-pressed="shiftPressed"
+          @retry="retryNode"
+          @resume="resumeNode"
+        />
+        <div v-else class="flex h-full items-center justify-center p-6 text-center text-sm text-slate-500 bg-slate-50">
+          {{ error || '暂无任务' }}
+        </div>
+      </div>
 
       <TaskOutputImages v-if="!showingGroupPicker" :task="selectedTask" :tasks="tasks" />
     </div>
 
     <Dialog v-model:open="editingInputs">
+
       <DialogContent class="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>查看和编辑任务参数</DialogTitle>
@@ -768,5 +757,6 @@ async function moveTaskToGroupAction(targetGroupId: number) {
         </form>
       </DialogContent>
     </Dialog>
+  
   </main>
 </template>
