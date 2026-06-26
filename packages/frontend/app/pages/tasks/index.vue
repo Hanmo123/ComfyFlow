@@ -56,14 +56,14 @@ const thumbnailImageHashes = computed(() => {
 })
 
 onMounted(async () => {
-  window.addEventListener('keydown', updateShiftPressed)
+  window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('keyup', updateShiftPressed)
   window.addEventListener('blur', clearShiftPressed)
   await initializePage()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', updateShiftPressed)
+  window.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('keyup', updateShiftPressed)
   window.removeEventListener('blur', clearShiftPressed)
   stopRealtime()
@@ -168,6 +168,16 @@ async function selectGroup(groupId: number, taskId?: number) {
 async function selectTask(taskId: number) {
   selectedTaskId.value = taskId
   await syncTaskRoute()
+}
+
+function selectAdjacentTask(direction: -1 | 1) {
+  if (showingGroupPicker.value || tasks.value.length === 0) return false
+  const currentIndex = tasks.value.findIndex((task) => task.id === selectedTaskId.value)
+  const nextIndex = currentIndex < 0 ? 0 : currentIndex + direction
+  const nextTask = tasks.value[nextIndex]
+  if (!nextTask || nextTask.id === selectedTaskId.value) return false
+  void selectTask(nextTask.id)
+  return true
 }
 
 async function syncTaskRoute() {
@@ -327,8 +337,30 @@ async function repairSelectedTaskLogic() {
   }
 }
 
+function handleGlobalKeydown(event: KeyboardEvent) {
+  updateShiftPressed(event)
+  handleTaskNavigationKeydown(event)
+}
+
 function updateShiftPressed(event: KeyboardEvent) {
   shiftPressed.value = event.shiftKey
+}
+
+function handleTaskNavigationKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+  if (shouldIgnoreTaskShortcut(event)) return
+  const moved = selectAdjacentTask(event.key === 'ArrowUp' ? -1 : 1)
+  if (moved) event.preventDefault()
+}
+
+function shouldIgnoreTaskShortcut(event: KeyboardEvent) {
+  if (editingInputs.value) return true
+  const target = event.target
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return true
+  return Boolean(target.closest('[role="textbox"], [role="combobox"], [role="listbox"], [role="menu"], [role="menuitem"]'))
 }
 
 function clearShiftPressed() {

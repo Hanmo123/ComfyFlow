@@ -20,6 +20,7 @@ const libraryApi = useLibraryApi()
 const viewerOpen = ref(false)
 const viewerImages = ref<TaskImageItem[]>([])
 const viewerInitialIndex = ref(0)
+const viewerKey = ref(0)
 const starredImageStates = ref<Record<string, boolean>>({})
 const inputImageProxies = ref<Record<string, { hash: string; url: string; localUrl: string }>>({})
 
@@ -122,6 +123,15 @@ watch(
   () => {
     starredImageStates.value = {}
     inputImageProxies.value = {}
+    if (!viewerOpen.value) return
+    if (currentTaskViewerImages.value.length === 0) {
+      viewerImages.value = []
+      viewerOpen.value = false
+      return
+    }
+    viewerImages.value = currentTaskViewerImages.value
+    viewerInitialIndex.value = 0
+    viewerKey.value++
   },
 )
 
@@ -228,6 +238,6 @@ watch(
       </div>
     </div>
 
-    <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
+    <ImageViewer v-if="viewerOpen" :key="viewerKey" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
   </aside>
 </template>
