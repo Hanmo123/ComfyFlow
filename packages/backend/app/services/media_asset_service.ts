@@ -29,6 +29,8 @@ export interface ComfyImageReference {
   url: string
 }
 
+const UPLOAD_THUMBNAIL_SIZE = 256
+
 export default class MediaAssetService {
   constructor(
     private repository = new MediaAssetRepository(),
@@ -58,7 +60,9 @@ export default class MediaAssetService {
         await existing.save()
       }
 
-      return this.ensureComfyUpload(hash)
+      const asset = await this.ensureComfyUpload(hash)
+      await this.ensureUploadThumbnail(existing)
+      return asset
     }
 
     const localPath = await persistLocalImage(file.tmpPath, hash, extension)
@@ -84,6 +88,8 @@ export default class MediaAssetService {
       comfyType: uploaded.type,
       comfyUrl: uploaded.url,
     })
+
+    await this.ensureUploadThumbnail(asset)
 
     return serializeMediaAsset(asset)
   }
@@ -238,7 +244,7 @@ export default class MediaAssetService {
   async listProxiesByOriginalHashes(hashes: string[]) {
     const uniqueHashes = [...new Set(hashes.filter(Boolean))]
     const originalAssets = await this.repository.listByHashes(uniqueHashes)
-    const proxyAssets = await this.repository.listByProxyForIds(originalAssets.map((asset) => asset.id))
+    const proxyAssets = await this.repository.listCompressedProxiesByProxyForIds(originalAssets.map((asset) => asset.id))
     const proxyByOriginalId = new Map<number, MediaAsset>()
 
     for (const proxyAsset of proxyAssets) {
@@ -251,6 +257,26 @@ export default class MediaAssetService {
       originalAssets.flatMap((asset) => {
         const proxy = proxyByOriginalId.get(asset.id)
         return proxy ? [[asset.hash, serializeMediaAsset(proxy)]] : []
+      })
+    )
+  }
+
+  async listThumbnailsByOriginalHashes(hashes: string[]) {
+    const uniqueHashes = [...new Set(hashes.filter(Boolean))]
+    const originalAssets = await this.repository.listByHashes(uniqueHashes)
+    const thumbnails = await this.repository.listThumbnailsByProxyForIds(originalAssets.map((asset) => asset.id))
+    const thumbnailByOriginalId = new Map<number, MediaAsset>()
+
+    for (const thumbnail of thumbnails) {
+      if (!thumbnail.proxyForId) continue
+      const current = thumbnailByOriginalId.get(thumbnail.proxyForId)
+      if (!current || thumbnail.size < current.size) thumbnailByOriginalId.set(thumbnail.proxyForId, thumbnail)
+    }
+
+    return Object.fromEntries(
+      originalAssets.flatMap((asset) => {
+        const thumbnail = thumbnailByOriginalId.get(asset.id)
+        return thumbnail ? [[asset.hash, serializeMediaAsset(thumbnail)]] : []
       })
     )
   }
@@ -344,6 +370,7 @@ export default class MediaAssetService {
       comfyType: uploaded.type,
       comfyUrl: uploaded.url,
       proxyForId: originalAsset.id,
+      proxyKind: 'compressed',
     })
 
     if (options.deleteOriginalFile) {
@@ -357,7 +384,7 @@ export default class MediaAssetService {
     return serializeMediaAsset(proxyAsset)
   }
 
-  async deleteOrphanedByHashes(hashes: string[], options: { force?: boolean } = {}) {
+  async deleteOrphanedByHashes(hashes: string[]) {
     const uniqueHashes = [...new Set(hashes.filter(Boolean))]
     if (uniqueHashes.length === 0) return
 
@@ -373,22 +400,87 @@ export default class MediaAssetService {
     })
 
     for (const asset of assets) {
-      if (!options.force && !(await this.canDeleteAsset(asset))) continue
+      if (!(await this.canDeleteAsset(asset))) continue
       await asset.delete()
       await deleteLocalFile(asset.localPath)
     }
   }
 
   private async canDeleteAsset(asset: MediaAsset) {
+    if (asset.proxyForId) return this.canDeleteProxyAsset(asset)
     if (await isReferencedByLibrary(asset.id)) return false
     if (await isReferencedByTaskJson(asset.hash)) return false
     if (!asset.proxyForId && (await this.repository.hasProxyFor(asset.id))) return false
     return true
   }
+
+  private async canDeleteProxyAsset(asset: MediaAsset) {
+    if (!asset.proxyForId) return true
+    const original = await MediaAsset.find(asset.proxyForId)
+    if (!original) return true
+    if (await isReferencedByLibrary(original.id)) return false
+    if (await isReferencedByTaskJson(original.hash)) return false
+    return true
+  }
+
+  private async ensureUploadThumbnail(originalAsset: MediaAsset) {
+    const existing = await this.repository.findThumbnailFor(originalAsset.id)
+    if (existing && (await checkFileExists(existing.localPath))) return serializeMediaAsset(existing)
+
+    const thumbnailBuffer = await sharp(originalAsset.localPath)
+      .resize({
+        width: UPLOAD_THUMBNAIL_SIZE,
+        height: UPLOAD_THUMBNAIL_SIZE,
+        fit: 'cover',
+        withoutEnlargement: true,
+      })
+      .avif({ quality: 55, effort: 4 })
+      .toBuffer()
+    const thumbnailHash = hashBuffer(thumbnailBuffer)
+    const extension = 'avif'
+    const localPath = await persistImageBuffer(thumbnailBuffer, thumbnailHash, extension)
+    const filename = `${thumbnailHash}.${extension}`
+
+    if (existing) {
+      existing.merge({
+        hash: thumbnailHash,
+        originalName: originalAsset.originalName.replace(/\.[^.]+$/, '.thumb.avif'),
+        extension,
+        mimeType: 'image/avif',
+        size: thumbnailBuffer.byteLength,
+        localPath,
+        comfyName: filename,
+        comfyFilename: filename,
+        comfySubfolder: '',
+        comfyType: 'thumbnail',
+        comfyUrl: mediaUrl(thumbnailHash),
+        proxyKind: 'thumbnail',
+      })
+      await existing.save()
+      return serializeMediaAsset(existing)
+    }
+
+    const thumbnail = await this.repository.create({
+      hash: thumbnailHash,
+      originalName: originalAsset.originalName.replace(/\.[^.]+$/, '.thumb.avif'),
+      extension,
+      mimeType: 'image/avif',
+      size: thumbnailBuffer.byteLength,
+      localPath,
+      comfyName: filename,
+      comfyFilename: filename,
+      comfySubfolder: '',
+      comfyType: 'thumbnail',
+      comfyUrl: mediaUrl(thumbnailHash),
+      proxyForId: originalAsset.id,
+      proxyKind: 'thumbnail',
+    })
+
+    return serializeMediaAsset(thumbnail)
+  }
 }
 
 function serializeMediaAsset(asset: MediaAsset) {
-  const appUrl = (process.env.APP_URL ?? 'http://localhost:3333').replace(/\/+$/, '')
   return {
     id: asset.id,
     hash: asset.hash,
@@ -397,12 +489,17 @@ function serializeMediaAsset(asset: MediaAsset) {
     subfolder: asset.comfySubfolder,
     type: asset.comfyType,
     url: asset.comfyUrl,
-    localUrl: `${appUrl}/api/v1/media/${asset.hash}`,
+    localUrl: mediaUrl(asset.hash),
     originalName: asset.originalName,
     size: asset.size,
     proxyForId: asset.proxyForId,
     isStarred: asset.isStarred,
   }
+}
+
+function mediaUrl(hash: string) {
+  const appUrl = (process.env.APP_URL ?? 'http://localhost:3333').replace(/\/+$/, '')
+  return `${appUrl}/api/v1/media/${hash}`
 }
 
 async function hashFile(filePath: string) {

@@ -26,4 +26,10 @@ export default class MediaAssetsController {
     const proxies = await this.mediaAssetService.listProxiesByOriginalHashes(Array.isArray(hashes) ? hashes.map(String) : [])
     return response.ok(proxies)
   }
+
+  async thumbnails({ request, response }: HttpContext) {
+    const hashes = request.input('hashes', [])
+    const thumbnails = await this.mediaAssetService.listThumbnailsByOriginalHashes(Array.isArray(hashes) ? hashes.map(String) : [])
+    return response.ok(thumbnails)
+  }
 }

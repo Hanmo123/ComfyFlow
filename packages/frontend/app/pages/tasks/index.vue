@@ -30,7 +30,8 @@ const editPreviousImageValues = ref<Record<string, unknown | null>>({})
 const retryingNodeId = ref<string | null>(null)
 const resumingNodeId = ref<string | null>(null)
 const movingTaskToGroup = ref(false)
-const thumbnailImageProxies = ref<Record<string, { hash: string; url: string; localUrl: string }>>({})
+const thumbnailImages = ref<Record<string, { hash: string; url: string; localUrl: string }>>({})
+const proxyImages = ref<Record<string, { hash: string; url: string; localUrl: string }>>({})
 const taskRealtime = useTaskRealtime({
   onOpen: () => {
     if (selectedGroupId.value && !showingGroupPicker.value) void refreshTasks()
@@ -75,12 +76,18 @@ watch(selectedGroupId, () => {
 watch(
   thumbnailImageHashes,
   async (hashes) => {
-    thumbnailImageProxies.value = {}
+    thumbnailImages.value = {}
+    proxyImages.value = {}
     if (hashes.length === 0) return
     try {
-      thumbnailImageProxies.value = await libraryApi.getMediaAssetProxies(hashes)
-    } catch (proxyError) {
-      console.error(proxyError)
+      const [thumbnails, proxies] = await Promise.all([
+        libraryApi.getMediaAssetThumbnails(hashes),
+        libraryApi.getMediaAssetProxies(hashes),
+      ])
+      thumbnailImages.value = thumbnails
+      proxyImages.value = proxies
+    } catch (thumbnailError) {
+      console.error(thumbnailError)
     }
   },
   { immediate: true },
@@ -270,8 +277,8 @@ async function deleteSelectedTask(event?: MouseEvent) {
   const force = event?.shiftKey === true || shiftPressed.value
   if (selectedTaskBusy.value && !force) return
   const message = force
-    ? `确定强制删除任务 #${selectedTask.value.id} 及其关联文件吗？被其他任务或素材库引用的文件也会被删除。`
-    : `确定删除任务 #${selectedTask.value.id} 及其未被其他任务或素材库使用的文件吗？按住 Shift 点击删除可强制删除关联文件。`
+    ? `确定强制删除任务 #${selectedTask.value.id} 吗？正在执行的任务会被移除，但被其他任务或素材库引用的文件会保留。`
+    : `确定删除任务 #${selectedTask.value.id} 及其未被其他任务或素材库使用的文件吗？按住 Shift 点击可强制删除运行中的任务。`
   if (!window.confirm(message)) return
 
   const taskId = selectedTask.value.id
@@ -371,6 +378,9 @@ function removeTask(taskId: number, taskGroupId: number | null) {
 }
 
 function taskThumbnail(task: AppTaskRecord) {
+  const thumbnailImage = findTaskImage(task, hasStoredThumbnailImageUrl)
+  if (thumbnailImage) return imageUrl(thumbnailImage)
+
   const proxiedImage = findTaskImage(task, hasProxyImageUrl)
   if (proxiedImage) return imageUrl(proxiedImage)
 
@@ -418,10 +428,17 @@ function hasProxyImageUrl(value: unknown) {
   return typeof proxy.localUrl === 'string' || typeof proxy.url === 'string'
 }
 
+function hasStoredThumbnailImageUrl(value: unknown) {
+  const hash = imageHash(value)
+  if (!hash) return false
+  const thumbnail = thumbnailImages.value[hash]
+  return Boolean(thumbnail?.localUrl ?? thumbnail?.url)
+}
+
 function hasStoredProxyImageUrl(value: unknown) {
   const hash = imageHash(value)
   if (!hash) return false
-  const proxy = thumbnailImageProxies.value[hash]
+  const proxy = proxyImages.value[hash]
   return Boolean(proxy?.localUrl ?? proxy?.url)
 }
 
@@ -429,6 +446,8 @@ function imageUrl(value: unknown) {
   if (typeof value === 'string' && /^https?:\/\//.test(value)) return value
   if (!value || typeof value !== 'object') return ''
   const image = value as Record<string, unknown>
+  const storedThumbnailUrl = storedThumbnailImageUrl(value)
+  if (storedThumbnailUrl) return storedThumbnailUrl
   if (image.proxy && typeof image.proxy === 'object') {
     const proxy = image.proxy as Record<string, unknown>
     if (typeof proxy.localUrl === 'string') return proxy.localUrl
@@ -440,10 +459,17 @@ function imageUrl(value: unknown) {
   return typeof image.url === 'string' ? image.url : ''
 }
 
+function storedThumbnailImageUrl(value: unknown) {
+  const hash = imageHash(value)
+  if (!hash) return ''
+  const thumbnail = thumbnailImages.value[hash]
+  return thumbnail?.localUrl ?? thumbnail?.url ?? ''
+}
+
 function storedProxyImageUrl(value: unknown) {
   const hash = imageHash(value)
   if (!hash) return ''
-  const proxy = thumbnailImageProxies.value[hash]
+  const proxy = proxyImages.value[hash]
   return proxy?.localUrl ?? proxy?.url ?? ''
 }
 

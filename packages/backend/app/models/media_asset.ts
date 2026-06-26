@@ -43,6 +43,9 @@ export default class MediaAsset extends BaseModel {
   declare proxyForId: number | null
 
   @column()
+  declare proxyKind: string | null
+
+  @column()
   declare isStarred: boolean
 
   @belongsTo(() => MediaAsset, {

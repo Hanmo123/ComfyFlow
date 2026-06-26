@@ -1,5 +1,7 @@
 import MediaAsset from '#models/media_asset'
 
+export type MediaAssetProxyKind = 'compressed' | 'thumbnail'
+
 export interface CreateMediaAssetPayload {
   hash: string
   originalName: string
@@ -13,6 +15,7 @@ export interface CreateMediaAssetPayload {
   comfyType: string
   comfyUrl: string
   proxyForId?: number | null
+  proxyKind?: MediaAssetProxyKind | null
 }
 
 export default class MediaAssetRepository {
@@ -48,6 +51,22 @@ export default class MediaAssetRepository {
   async listByProxyForIds(assetIds: number[]) {
     if (assetIds.length === 0) return []
     return MediaAsset.query().whereIn('proxy_for_id', assetIds)
+  }
+
+  async listCompressedProxiesByProxyForIds(assetIds: number[]) {
+    if (assetIds.length === 0) return []
+    return MediaAsset.query()
+      .whereIn('proxy_for_id', assetIds)
+      .where((query) => query.whereNull('proxy_kind').orWhere('proxy_kind', 'compressed'))
+  }
+
+  async listThumbnailsByProxyForIds(assetIds: number[]) {
+    if (assetIds.length === 0) return []
+    return MediaAsset.query().whereIn('proxy_for_id', assetIds).where('proxy_kind', 'thumbnail')
+  }
+
+  async findThumbnailFor(assetId: number) {
+    return MediaAsset.query().where('proxy_for_id', assetId).where('proxy_kind', 'thumbnail').first()
   }
 
   async hasProxyFor(assetId: number) {

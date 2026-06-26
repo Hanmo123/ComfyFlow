@@ -92,6 +92,16 @@ export function useLibraryApi() {
     return await response.json() as Record<string, { hash: string; url: string; localUrl: string }>
   }
 
+  async function getMediaAssetThumbnails(hashes: string[]) {
+    const response = await fetch(`${baseUrl}/media/thumbnails`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hashes }),
+    })
+    if (!response.ok) throw new Error('获取媒体缩略图失败')
+    return await response.json() as Record<string, { hash: string; url: string; localUrl: string }>
+  }
+
   return {
     listLibraryAssets,
     getLibraryAsset,
@@ -101,5 +111,6 @@ export function useLibraryApi() {
     updateMediaAssetStar,
     getMediaAssetStarStates,
     getMediaAssetProxies,
+    getMediaAssetThumbnails,
   }
 }

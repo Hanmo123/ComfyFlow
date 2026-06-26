@@ -305,7 +305,7 @@ export default class AppTaskService {
 
     const mediaHashes = collectMediaHashes([task.inputs, task.variables, task.outputs, task.nodeRuns])
     await this.deleteTaskRecord(task)
-    await this.mediaAssetService.deleteOrphanedByHashes(mediaHashes, { force: options.force ?? false })
+    await this.mediaAssetService.deleteOrphanedByHashes(mediaHashes)
   }
 
   private async createTask(payload: Parameters<AppTaskRepository['create']>[0]) {

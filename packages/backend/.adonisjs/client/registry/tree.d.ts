@@ -83,6 +83,7 @@ export interface ApiDefinition {
   media: {
     show: typeof routes['media.show']
     proxies: typeof routes['media.proxies']
+    thumbnails: typeof routes['media.thumbnails']
     starStates: typeof routes['media.starStates']
     updateStar: typeof routes['media.updateStar']
   }

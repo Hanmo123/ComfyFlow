@@ -258,6 +258,12 @@ const routes = {
     tokens: [{"old":"/api/v1/media/proxies","type":0,"val":"api","end":""},{"old":"/api/v1/media/proxies","type":0,"val":"v1","end":""},{"old":"/api/v1/media/proxies","type":0,"val":"media","end":""},{"old":"/api/v1/media/proxies","type":0,"val":"proxies","end":""}],
     types: placeholder as Registry['media.proxies']['types'],
   },
+  'media.thumbnails': {
+    methods: ["POST"],
+    pattern: '/api/v1/media/thumbnails',
+    tokens: [{"old":"/api/v1/media/thumbnails","type":0,"val":"api","end":""},{"old":"/api/v1/media/thumbnails","type":0,"val":"v1","end":""},{"old":"/api/v1/media/thumbnails","type":0,"val":"media","end":""},{"old":"/api/v1/media/thumbnails","type":0,"val":"thumbnails","end":""}],
+    types: placeholder as Registry['media.thumbnails']['types'],
+  },
   'media.starStates': {
     methods: ["POST"],
     pattern: '/api/v1/media/star-states',
