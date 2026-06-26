@@ -355,7 +355,7 @@ function startRealtime() {
     stopRealtime()
     return
   }
-  taskRealtime.subscribe({ groupId: selectedGroupId.value })
+  taskRealtime.connect()
 }
 
 function stopRealtime() {

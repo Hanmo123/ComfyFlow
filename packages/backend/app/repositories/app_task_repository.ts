@@ -8,7 +8,6 @@ import type { DateTime } from 'luxon'
 export interface CreateAppTaskPayload {
   appId: number
   taskGroupId: number
-  requiresManualAction: boolean
   inputs: Record<string, unknown>
   variables: Record<string, unknown>
   appSnapshot: AppTaskSnapshot
@@ -17,6 +16,7 @@ export interface CreateAppTaskPayload {
 export interface UpdateAppTaskPayload {
   status?: AppTaskStatus
   taskGroupId?: number
+  requiresManualAction?: boolean
   inputs?: Record<string, unknown>
   variables?: Record<string, unknown>
   outputs?: Record<string, unknown>
@@ -44,7 +44,7 @@ export default class AppTaskRepository {
       appId: payload.appId,
       taskGroupId: payload.taskGroupId,
       status: 'queued',
-      requiresManualAction: payload.requiresManualAction,
+      requiresManualAction: false,
       inputs: payload.inputs,
       variables: payload.variables,
       outputs: {},

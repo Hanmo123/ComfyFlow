@@ -12,8 +12,6 @@ type TaskRealtimeEvent =
 
 interface TaskRealtimeClient {
   socket: WebSocket
-  taskIds: Set<number>
-  groupIds: Set<number>
   alive: boolean
 }
 
@@ -36,7 +34,7 @@ export default class TaskRealtimeService {
     this.upgradeHandler = (request, socket, head) => this.handleUpgrade(request, socket, head)
     nodeServer.on('upgrade', this.upgradeHandler)
 
-    wsServer.on('connection', (socket, request) => this.handleConnection(socket, request))
+    wsServer.on('connection', (socket) => this.handleConnection(socket))
     this.heartbeatTimer = setInterval(() => this.heartbeat(), HEARTBEAT_INTERVAL_MS)
   }
 
@@ -54,19 +52,15 @@ export default class TaskRealtimeService {
   }
 
   static broadcastTaskCreated(task: AppTask) {
-    this.broadcastTaskEvent({ type: 'task.created', task: serializeTask(task) }, task)
+    this.broadcast({ type: 'task.created', task: serializeTask(task) })
   }
 
   static broadcastTaskUpdated(task: AppTask) {
-    this.broadcastTaskEvent({ type: 'task.updated', task: serializeTask(task) }, task)
+    this.broadcast({ type: 'task.updated', task: serializeTask(task) })
   }
 
   static broadcastTaskDeleted(taskId: number, taskGroupId: number | null) {
-    const event: TaskRealtimeEvent = { type: 'task.deleted', taskId, taskGroupId }
-    for (const client of this.clients) {
-      if (!clientWatchesTask(client, taskId, taskGroupId)) continue
-      sendJson(client.socket, event)
-    }
+    this.broadcast({ type: 'task.deleted', taskId, taskGroupId })
   }
 
   private static handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer) {
@@ -79,43 +73,20 @@ export default class TaskRealtimeService {
     })
   }
 
-  private static handleConnection(socket: WebSocket, request: IncomingMessage) {
+  private static handleConnection(socket: WebSocket) {
     const client: TaskRealtimeClient = {
       socket,
-      taskIds: new Set(),
-      groupIds: new Set(),
       alive: true,
     }
-    applyQuerySubscription(client, parseRequestUrl(request))
     this.clients.add(client)
 
     socket.on('pong', () => {
       client.alive = true
     })
-    socket.on('message', (data) => this.handleMessage(client, data))
     socket.on('close', () => this.clients.delete(client))
     socket.on('error', () => this.clients.delete(client))
 
     sendJson(socket, { type: 'connected' })
-  }
-
-  private static handleMessage(client: TaskRealtimeClient, data: WebSocket.RawData) {
-    const message = parseJsonMessage(data)
-    if (!message || typeof message !== 'object') return
-    if ((message as { type?: unknown }).type !== 'subscribe') return
-
-    client.taskIds.clear()
-    client.groupIds.clear()
-    addNumericValues(client.taskIds, (message as { taskId?: unknown; taskIds?: unknown }).taskId)
-    addNumericValues(client.taskIds, (message as { taskId?: unknown; taskIds?: unknown }).taskIds)
-    addNumericValues(
-      client.groupIds,
-      (message as { groupId?: unknown; groupIds?: unknown }).groupId
-    )
-    addNumericValues(
-      client.groupIds,
-      (message as { groupId?: unknown; groupIds?: unknown }).groupIds
-    )
   }
 
   private static heartbeat() {
@@ -130,9 +101,8 @@ export default class TaskRealtimeService {
     }
   }
 
-  private static broadcastTaskEvent(event: TaskRealtimeEvent, task: AppTask) {
+  private static broadcast(event: TaskRealtimeEvent) {
     for (const client of this.clients) {
-      if (!clientWatchesTask(client, task.id, task.taskGroupId)) continue
       sendJson(client.socket, event)
     }
   }
@@ -142,40 +112,9 @@ function parseRequestUrl(request: IncomingMessage) {
   return new URL(request.url ?? '/', 'http://localhost')
 }
 
-function applyQuerySubscription(client: TaskRealtimeClient, url: URL) {
-  addNumericValues(client.taskIds, url.searchParams.getAll('taskId'))
-  addNumericValues(client.groupIds, url.searchParams.getAll('groupId'))
-}
-
-function addNumericValues(target: Set<number>, value: unknown) {
-  const values = Array.isArray(value) ? value : [value]
-  for (const item of values) {
-    if (item === null || item === undefined || item === '') continue
-    const nested = typeof item === 'string' ? item.split(',') : [item]
-    for (const candidate of nested) {
-      const number = Number(candidate)
-      if (Number.isFinite(number) && number > 0) target.add(number)
-    }
-  }
-}
-
-function clientWatchesTask(client: TaskRealtimeClient, taskId: number, taskGroupId: number | null) {
-  if (client.taskIds.has(taskId)) return true
-  return taskGroupId !== null && client.groupIds.has(taskGroupId)
-}
-
 function sendJson(socket: WebSocket, event: unknown) {
   if (socket.readyState !== WebSocket.OPEN) return
   socket.send(JSON.stringify(event))
-}
-
-function parseJsonMessage(data: WebSocket.RawData) {
-  try {
-    const text = Array.isArray(data) ? Buffer.concat(data).toString('utf8') : data.toString()
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
 }
 
 function serializeTask(task: AppTask) {

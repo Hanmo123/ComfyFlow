@@ -2,7 +2,7 @@ import type { AppGraphNode } from '#models/app'
 import type AppTask from '#models/app_task'
 import type { AppTaskNodeStatus } from '#models/app_task'
 import type Workflow from '#models/workflow'
-import type { CreateAppTaskPayload, UpdateAppTaskPayload } from '#repositories/app_task_repository'
+import type { UpdateAppTaskPayload } from '#repositories/app_task_repository'
 import AppTaskService from '#services/app_task_service'
 import { test } from '@japa/runner'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -11,48 +11,6 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 test.group('AppTaskService', () => {
-  test('marks newly-created tasks that contain a manual gate', async ({ assert }) => {
-    let createdPayload: CreateAppTaskPayload | null = null
-    const appRepository = {
-      async findOrFail(id: number) {
-        return {
-          id,
-          name: 'manual app',
-          variables: [],
-          graph: {
-            nodes: [
-              { id: 'input', type: 'input_collect', position: { x: 0, y: 0 }, data: {} },
-              { id: 'gate', type: 'manual_gate', position: { x: 200, y: 0 }, data: {} },
-            ],
-            edges: [],
-          },
-        }
-      },
-    }
-    const taskRepository = {
-      async create(payload: CreateAppTaskPayload) {
-        createdPayload = payload
-        return { id: 1, ...payload } as unknown as AppTask
-      },
-    }
-    const taskGroupService = {
-      async ensureExists() {},
-    }
-    type AppTaskServiceArgs = ConstructorParameters<typeof AppTaskService>
-    const service = new AppTaskService(
-      appRepository as unknown as AppTaskServiceArgs[0],
-      taskRepository as AppTaskServiceArgs[1],
-      {} as AppTaskServiceArgs[2],
-      taskGroupService as unknown as AppTaskServiceArgs[3]
-    )
-    ;(service as unknown as { enqueue(taskId: number): void }).enqueue = () => {}
-
-    await service.run(1, 1)
-
-    const payload = createdPayload as CreateAppTaskPayload | null
-    assert.isTrue(payload?.requiresManualAction)
-  })
-
   test('continues independent branches after a manual gate starts waiting', async ({ assert }) => {
     const task = createQueuedTask()
     const workflowRuns: unknown[] = []
@@ -61,6 +19,7 @@ test.group('AppTaskService', () => {
     await executeTask(service, task.id)
 
     assert.equal(task.status, 'waiting')
+    assert.isTrue(task.requiresManualAction)
     assert.equal(task.waitingNodeId, 'gate')
     assert.equal(workflowRuns.length, 1)
     assert.equal(task.variables.normal_result, 'normal value')
@@ -69,6 +28,23 @@ test.group('AppTaskService', () => {
     assert.equal(nodeStatus(task, 'normal_workflow'), 'completed')
     assert.equal(nodeStatus(task, 'normal_output'), 'completed')
     assert.equal(nodeStatus(task, 'blocked_output'), undefined)
+  })
+
+  test('clears manual action state when a waiting task resumes', async ({ assert }) => {
+    const task = createQueuedTask()
+    const service = createService(task, [])
+    task.status = 'waiting'
+    task.requiresManualAction = true
+    task.waitingNodeId = 'gate'
+    task.nodeRuns = [{ nodeId: 'gate', type: 'manual_gate', status: 'waiting' }]
+    ;(service as unknown as { enqueue(taskId: number): void }).enqueue = () => {}
+
+    await service.resume(task.appId, task.id)
+
+    assert.equal(task.status, 'queued')
+    assert.isFalse(task.requiresManualAction)
+    assert.equal(task.waitingNodeId, null)
+    assert.equal(nodeStatus(task, 'gate'), 'completed')
   })
 
   test('completes blocked downstream nodes after the manual gate resumes', async ({ assert }) => {
@@ -732,6 +708,11 @@ function createService(
       if (id !== task.id) throw new Error(`Unexpected task id ${id}`)
       return task
     },
+    async findForAppOrFail(appId: number, id: number) {
+      if (appId !== task.appId) throw new Error(`Unexpected app id ${appId}`)
+      if (id !== task.id) throw new Error(`Unexpected task id ${id}`)
+      return task
+    },
     async update(receivedTask: AppTask, payload: UpdateAppTaskPayload) {
       Object.assign(receivedTask, payload)
       return receivedTask
@@ -893,6 +874,7 @@ function createImageConcatTask() {
     appId: 1,
     taskGroupId: 1,
     status: 'queued',
+    requiresManualAction: false,
     inputs: {},
     variables: {
       first_image: { hash: 'first' },
@@ -938,6 +920,7 @@ function createOutputOnlyTask(id: number) {
     appId: 1,
     taskGroupId: 1,
     status: 'queued',
+    requiresManualAction: false,
     inputs: {},
     variables: { result: 'ready' },
     outputs: {},
@@ -1065,6 +1048,7 @@ function createRetryableTask() {
     appId: 1,
     taskGroupId: 1,
     status: 'failed',
+    requiresManualAction: false,
     inputs: { prompt: 'old prompt' },
     variables: { prompt: 'old prompt', result: 'old result' },
     outputs: { result: 'old result' },

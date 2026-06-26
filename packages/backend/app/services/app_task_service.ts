@@ -85,7 +85,6 @@ export default class AppTaskService {
     const task = await this.createTask({
       appId: app.id,
       taskGroupId,
-      requiresManualAction: app.graph.nodes.some((node) => node.type === 'manual_gate'),
       inputs,
       variables,
       appSnapshot: {
@@ -132,6 +131,7 @@ export default class AppTaskService {
     markNodeRun(task, task.waitingNodeId, 'completed')
     await this.updateTask(task, {
       status: 'queued',
+      requiresManualAction: false,
       waitingNodeId: null,
       nodeRuns: task.nodeRuns,
       error: null,
@@ -164,6 +164,7 @@ export default class AppTaskService {
 
     await this.updateTask(task, {
       status: 'queued',
+      requiresManualAction: false,
       waitingNodeId: null,
       error: null,
       nodeRuns: task.nodeRuns,
@@ -182,6 +183,7 @@ export default class AppTaskService {
     const nextInputs = preserveImageProxies(inputs ?? task.inputs, task.variables)
     await this.updateTask(task, {
       status: 'queued',
+      requiresManualAction: false,
       inputs: nextInputs,
       variables: buildInitialVariables(task.appSnapshot.variables, nextInputs),
       outputs: {},
@@ -252,6 +254,7 @@ export default class AppTaskService {
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
     await this.updateTask(task, {
       status: waitingNode ? 'waiting' : 'failed',
+      requiresManualAction: waitingNode ? isManualGateNode(nextSnapshot.graph.nodes, waitingNode.nodeId) : false,
       appSnapshot: nextSnapshot,
       variables: nextVariables,
       outputs: nextOutputs,
@@ -288,6 +291,7 @@ export default class AppTaskService {
     const waitingNode = task.nodeRuns.find((nodeRun) => nodeRun.status === 'waiting')
     await this.updateTask(task, {
       status: 'queued',
+      requiresManualAction: false,
       waitingNodeId: waitingNode?.nodeId ?? null,
       error: null,
       nodeRuns: task.nodeRuns,
@@ -371,6 +375,7 @@ export default class AppTaskService {
 
     await this.updateTask(task, {
       status: 'running',
+      requiresManualAction: false,
       startedAt: task.startedAt ?? DateTime.now(),
       completedAt: null,
       error: null,
@@ -388,6 +393,7 @@ export default class AppTaskService {
       }
       await this.updateTask(task, {
         status: 'failed',
+        requiresManualAction: false,
         error: message,
         nodeRuns: task.nodeRuns,
         variables: task.variables,
@@ -561,6 +567,7 @@ export default class AppTaskService {
     if (waitingNode) {
       await this.updateTask(task, {
         status: 'waiting',
+        requiresManualAction: true,
         waitingNodeId: task.waitingNodeId ?? waitingNode.nodeId,
         variables: task.variables,
         outputs: task.outputs,
@@ -571,6 +578,7 @@ export default class AppTaskService {
 
     await this.updateTask(task, {
       status: 'completed',
+      requiresManualAction: false,
       variables: task.variables,
       outputs: task.outputs,
       nodeRuns: task.nodeRuns,
@@ -1405,6 +1413,10 @@ function markWaitForPreviousNode(task: AppTask, nodeId: string, parents: Map<str
       canContinue: arrivedParentIds.length === parentIds.length,
     },
   })
+}
+
+function isManualGateNode(nodes: AppGraphNode[], nodeId: string) {
+  return nodes.some((node) => node.id === nodeId && node.type === 'manual_gate')
 }
 
 function collectDownstreamNodeIds(

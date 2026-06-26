@@ -361,7 +361,7 @@ export function useAppDesignerStore() {
           finishIfTerminal(null)
         },
       })
-      realtime.subscribe({ taskId })
+      realtime.connect()
     })
   }
 
