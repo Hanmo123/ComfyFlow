@@ -595,13 +595,10 @@ function taskFallbackClass(task: AppTaskRecord) {
 }
 
 function taskButtonClass(task: AppTaskRecord) {
-  if (task.requiresManualAction) {
-    return selectedTaskId.value === task.id
-      ? 'border-yellow-400 ring-2 ring-slate-950'
-      : 'border-yellow-400 hover:border-yellow-500'
-  }
+  if (selectedTaskId.value === task.id) return 'outline-0 ring-2 ring-slate-950'
+  if (task.requiresManualAction) return 'outline-2 outline-yellow-400 hover:outline-yellow-500'
 
-  return selectedTaskId.value === task.id ? 'border-slate-950' : 'border-slate-200 hover:border-slate-400'
+  return 'outline-1 outline-slate-200 hover:outline-slate-400'
 }
 
 function statusLabel(status: AppTaskRecord['status']) {
@@ -778,7 +775,7 @@ async function moveTaskToGroupAction(targetGroupId: number) {
           v-for="task in tasks"
           :key="task.id"
           type="button"
-          class="relative size-14 shrink-0 overflow-hidden rounded-xl border shadow-sm transition bg-white"
+          class="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white shadow-sm outline outline-offset-0 transition"
           :class="taskButtonClass(task)"
           @click="selectTask(task.id)"
         >
