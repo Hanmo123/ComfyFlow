@@ -27,14 +27,23 @@ const props = defineProps<{
   }
 }>()
 
-const viewerOpen = ref(false)
-const viewerImages = ref<TaskImageItem[]>([])
-const viewerInitialIndex = ref(0)
+const {
+  viewerOpen,
+  viewerImages,
+  viewerInitialIndex,
+  viewerKey,
+  openViewer: openImageViewer,
+  syncViewer,
+  closeViewer,
+  updateViewerIndex,
+} = useTaskImageViewer()
+const viewerMode = ref<'task' | 'manual_gate'>('task')
+const viewerManualGateVarKey = ref<string | null>(null)
 
 function openViewer(index: number) {
-  viewerImages.value = props.data.viewerImages
-  viewerInitialIndex.value = index
-  viewerOpen.value = true
+  viewerMode.value = 'task'
+  viewerManualGateVarKey.value = null
+  openImageViewer(props.data.viewerImages, index)
 }
 
 function openManualGateImageViewer(varKey: string, images: TaskImageItem[], displayIndex: number) {
@@ -51,9 +60,19 @@ function openManualGateImageViewer(varKey: string, images: TaskImageItem[], disp
     return
   }
 
-  viewerImages.value = images
-  viewerInitialIndex.value = displayIndex
-  viewerOpen.value = true
+  viewerMode.value = 'manual_gate'
+  viewerManualGateVarKey.value = varKey
+  openImageViewer(images, displayIndex)
+}
+
+function syncOpenViewer() {
+  const images = viewerMode.value === 'manual_gate' ? manualGateViewerImages() : props.data.viewerImages
+  syncViewer(images)
+}
+
+function manualGateViewerImages() {
+  const varKey = viewerManualGateVarKey.value
+  return manualGateDisplayItems.value.find((item) => item.varKey === varKey)?.images ?? []
 }
 
 const nodeIcons = {
@@ -109,6 +128,13 @@ const manualGateDisplayItems = computed(() => {
     }
   })
 })
+
+watch(
+  () => props.data.viewerImages,
+  () => syncOpenViewer(),
+)
+
+watch(manualGateDisplayItems, () => syncOpenViewer())
 
 function normalizeImages(value: unknown, varKey: string): TaskImageItem[] {
   const items = Array.isArray(value) ? value : value ? [value] : []
@@ -270,6 +296,13 @@ function formatValue(value: unknown) {
   </div>
 
   <Teleport to="body">
-    <ImageViewer v-if="viewerOpen" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
+    <ImageViewer
+      v-if="viewerOpen"
+      :key="viewerKey"
+      :images="viewerImages"
+      :initial-index="viewerInitialIndex"
+      @index-change="updateViewerIndex"
+      @close="closeViewer"
+    />
   </Teleport>
 </template>

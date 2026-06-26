@@ -17,10 +17,16 @@ const props = defineProps<{
 
 const libraryApi = useLibraryApi()
 
-const viewerOpen = ref(false)
-const viewerImages = ref<TaskImageItem[]>([])
-const viewerInitialIndex = ref(0)
-const viewerKey = ref(0)
+const {
+  viewerOpen,
+  viewerImages,
+  viewerInitialIndex,
+  viewerKey,
+  openViewer,
+  syncViewer,
+  closeViewer,
+  updateViewerIndex,
+} = useTaskImageViewer()
 const starredImageStates = ref<Record<string, boolean>>({})
 const inputImageProxies = ref<Record<string, { hash: string; url: string; localUrl: string }>>({})
 
@@ -56,10 +62,8 @@ const groupImages = computed(() => {
 })
 const allImages = computed(() => [...taskViewerImages.value, ...groupImages.value])
 
-function openViewer(images: TaskImageItem[], index: number) {
-  viewerImages.value = images
-  viewerInitialIndex.value = index
-  viewerOpen.value = true
+function syncViewerToCurrentTask() {
+  syncViewer(currentTaskViewerImages.value)
 }
 
 function openTaskViewer(nodeId: string, varKey: string, imageIndex: number) {
@@ -123,17 +127,12 @@ watch(
   () => {
     starredImageStates.value = {}
     inputImageProxies.value = {}
-    if (!viewerOpen.value) return
-    if (currentTaskViewerImages.value.length === 0) {
-      viewerImages.value = []
-      viewerOpen.value = false
-      return
-    }
-    viewerImages.value = currentTaskViewerImages.value
-    viewerInitialIndex.value = 0
-    viewerKey.value++
   },
 )
+
+watch(currentTaskViewerImages, () => {
+  syncViewerToCurrentTask()
+})
 
 watch(
   inputImageHashes,
@@ -238,6 +237,13 @@ watch(
       </div>
     </div>
 
-    <ImageViewer v-if="viewerOpen" :key="viewerKey" :images="viewerImages" :initial-index="viewerInitialIndex" @close="viewerOpen = false" />
+    <ImageViewer
+      v-if="viewerOpen"
+      :key="viewerKey"
+      :images="viewerImages"
+      :initial-index="viewerInitialIndex"
+      @index-change="updateViewerIndex"
+      @close="closeViewer"
+    />
   </aside>
 </template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { X, ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed, watch } from 'vue'
 
 interface ImageItem {
   url: string
@@ -15,6 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  indexChange: [index: number]
 }>()
 
 const currentIndex = ref(props.initialIndex ?? 0)
@@ -23,15 +24,20 @@ const currentImage = computed(() => props.images[currentIndex.value])
 const hasPrev = computed(() => currentIndex.value > 0)
 const hasNext = computed(() => currentIndex.value < props.images.length - 1)
 
+function setCurrentIndex(index: number) {
+  const lastIndex = props.images.length - 1
+  currentIndex.value = lastIndex < 0 ? 0 : Math.min(Math.max(index, 0), lastIndex)
+}
+
 function prev() {
   if (hasPrev.value) {
-    currentIndex.value--
+    setCurrentIndex(currentIndex.value - 1)
   }
 }
 
 function next() {
   if (hasNext.value) {
-    currentIndex.value++
+    setCurrentIndex(currentIndex.value + 1)
   }
 }
 
@@ -60,6 +66,20 @@ onUnmounted(() => {
   document.body.style.overflow = ''
   window.removeEventListener('keydown', handleKeydown)
 })
+
+watch(currentIndex, (index) => {
+  emit('indexChange', index)
+})
+
+watch(
+  () => props.initialIndex,
+  (index) => setCurrentIndex(index ?? 0),
+)
+
+watch(
+  () => props.images.length,
+  () => setCurrentIndex(currentIndex.value),
+)
 </script>
 
 <template>
@@ -100,6 +120,7 @@ onUnmounted(() => {
         </div>
 
         <img
+          v-if="currentImage"
           :src="currentImage.url"
           :alt="currentImage.name || `Image ${currentIndex + 1}`"
           class="h-dvh w-auto max-w-none object-contain"
