@@ -184,6 +184,23 @@ function syncActiveBatchDraft() {
   Object.assign(item, captureFormState());
 }
 
+function applyPreviousBatchState(target: BatchImageItem, previous: RunFormState) {
+  const batchVariableKey = batchImageVariable.value?.key;
+  const nextState = cloneFormState(previous);
+
+  if (batchVariableKey) {
+    nextState.fileValues[batchVariableKey] = target.file;
+    nextState.libraryAssetValues[batchVariableKey] = null;
+    nextState.previousImageValues[batchVariableKey] = null;
+  }
+
+  target.textValues = nextState.textValues;
+  target.fileValues = nextState.fileValues;
+  target.libraryAssetValues = nextState.libraryAssetValues;
+  target.previousImageValues = nextState.previousImageValues;
+  target.loraListValues = nextState.loraListValues;
+}
+
 function selectBatchItem(itemId: string) {
   if (activeBatchItemId.value === itemId) return;
   syncActiveBatchDraft();
@@ -353,7 +370,10 @@ async function submitActiveBatchRun() {
     const nextItem = batchItems.value.find(
       (candidate) => candidate.id !== item.id && candidate.status !== "submitted",
     );
-    if (nextItem) selectBatchItem(nextItem.id);
+    if (nextItem) {
+      applyPreviousBatchState(nextItem, item);
+      selectBatchItem(nextItem.id);
+    }
   } catch (error) {
     item.status = "failed";
     item.error = error instanceof Error ? error.message : "运行应用失败";
