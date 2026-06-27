@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "package:macos": "node scripts/package-macos.mjs",
+    "package:portable": "node scripts/package-portable.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

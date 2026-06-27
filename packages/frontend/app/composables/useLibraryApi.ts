@@ -4,9 +4,10 @@ import type {
   CreateLibraryAssetInput,
   UpdateLibraryAssetInput,
 } from '~/lib/library'
+import { apiBase } from '~/lib/api'
 
 export function useLibraryApi() {
-  const baseUrl = 'http://localhost:3333/api/v1'
+  const baseUrl = apiBase()
 
   async function listLibraryAssets(params?: {
     page?: number

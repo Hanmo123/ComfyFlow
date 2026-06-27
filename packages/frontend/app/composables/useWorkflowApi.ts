@@ -4,8 +4,9 @@ import type {
   WorkflowResult,
   WorkflowRecord,
 } from '@/lib/workflow'
+import { apiBase } from '@/lib/api'
 
-const API_BASE = 'http://localhost:3333/api/v1'
+const API_BASE = apiBase()
 
 export function useWorkflowApi() {
   const listWorkflows = () => $fetch<WorkflowRecord[]>(`${API_BASE}/workflows`)

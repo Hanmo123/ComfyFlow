@@ -1,4 +1,5 @@
 import type { AppRecord, AppSavePayload, AppTaskRecord, TaskGroupRecord, AppInputPreset, PresetType } from '@/lib/app'
+import { apiBase } from '@/lib/api'
 
 export interface ComfyUploadedImage {
   id: number
@@ -21,7 +22,7 @@ export interface ComfyLoraListResponse {
   expiresAt: string
 }
 
-const API_BASE = 'http://localhost:3333/api/v1'
+const API_BASE = apiBase()
 
 export function useAppApi() {
   const listApps = () => $fetch<AppRecord[]>(`${API_BASE}/apps`)

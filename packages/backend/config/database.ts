@@ -1,4 +1,4 @@
-import app from '@adonisjs/core/services/app'
+import { databasePath } from '#config/paths'
 import { defineConfig } from '@adonisjs/lucid'
 
 const dbConfig = defineConfig({
@@ -15,7 +15,7 @@ const dbConfig = defineConfig({
       client: 'better-sqlite3',
 
       connection: {
-        filename: app.tmpPath('db.sqlite3'),
+        filename: databasePath(),
       },
 
       /**

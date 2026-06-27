@@ -1,4 +1,5 @@
 import type { AppTaskRecord } from '@/lib/app'
+import { taskRealtimeUrl } from '@/lib/api'
 
 interface MediaThumbnailRecord {
   hash: string
@@ -29,7 +30,6 @@ interface TaskRealtimeHandlers {
   onMediaThumbnailReady?: (payload: { originalHash: string; thumbnail: MediaThumbnailRecord }) => void
 }
 
-const WS_BASE = 'ws://localhost:3333/api/v1/ws/tasks'
 const RECONNECT_DELAY_MS = 1200
 const realtimeHandlers = new Set<TaskRealtimeHandlers>()
 
@@ -68,7 +68,7 @@ function openSocket() {
   if (!import.meta.client || realtimeHandlers.size === 0) return
   if (socket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(socket.readyState)) return
 
-  const nextSocket = new WebSocket(WS_BASE)
+  const nextSocket = new WebSocket(taskRealtimeUrl())
   socket = nextSocket
 
   nextSocket.addEventListener('open', () => notifyOpen())

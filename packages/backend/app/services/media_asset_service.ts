@@ -4,8 +4,8 @@ import LibraryAsset from '#models/library_asset'
 import MediaAssetRepository from '#repositories/media_asset_repository'
 import ComfyService from '#services/comfy_service'
 import TaskRealtimeService from '#services/task_realtime_service'
+import { storagePath } from '#config/paths'
 import { Exception } from '@adonisjs/core/exceptions'
-import app from '@adonisjs/core/services/app'
 import { createHash } from 'node:crypto'
 import { copyFile, mkdir, readFile, writeFile, unlink, access } from 'node:fs/promises'
 import { constants } from 'node:fs'
@@ -531,7 +531,7 @@ function hashBuffer(buffer: Buffer) {
 }
 
 async function persistLocalImage(tmpPath: string, hash: string, extension: string | null) {
-  const storageDir = app.makePath('storage', 'images', hash.slice(0, 2))
+  const storageDir = storagePath('images', hash.slice(0, 2))
   await mkdir(storageDir, { recursive: true })
 
   const fileName = extension ? `${hash}.${extension}` : hash
@@ -541,7 +541,7 @@ async function persistLocalImage(tmpPath: string, hash: string, extension: strin
 }
 
 async function persistImageBuffer(buffer: Buffer, hash: string, extension: string | null) {
-  const storageDir = app.makePath('storage', 'images', hash.slice(0, 2))
+  const storageDir = storagePath('images', hash.slice(0, 2))
   await mkdir(storageDir, { recursive: true })
 
   const fileName = extension ? `${hash}.${extension}` : hash
