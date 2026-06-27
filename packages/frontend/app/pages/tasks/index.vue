@@ -470,9 +470,16 @@ function updateShiftPressed(event: KeyboardEvent) {
 function handleTaskNavigationKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey)
     return;
-  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  const key = event.key.toLowerCase();
+  const direction =
+    key === "arrowup" || key === "w"
+      ? -1
+      : key === "arrowdown" || key === "s"
+        ? 1
+        : null;
+  if (!direction) return;
   if (shouldIgnoreTaskShortcut(event)) return;
-  const moved = selectAdjacentTask(event.key === "ArrowUp" ? -1 : 1);
+  const moved = selectAdjacentTask(direction);
   if (moved) event.preventDefault();
 }
 
