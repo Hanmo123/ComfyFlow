@@ -5,13 +5,15 @@ export function useTaskImageViewer() {
   const viewerImages = ref<TaskImageItem[]>([])
   const viewerInitialIndex = ref(0)
   const viewerCurrentIndex = ref(0)
+  const viewerAutoPlay = ref(false)
   const viewerKey = ref(0)
 
-  function openViewer(images: TaskImageItem[], index: number) {
+  function openViewer(images: TaskImageItem[], index: number, options: { autoPlay?: boolean } = {}) {
     const nextIndex = imageIndexInBounds(index, images.length)
     viewerImages.value = images
     viewerInitialIndex.value = nextIndex
     viewerCurrentIndex.value = nextIndex
+    viewerAutoPlay.value = Boolean(options.autoPlay)
     viewerOpen.value = true
   }
 
@@ -19,6 +21,7 @@ export function useTaskImageViewer() {
     if (!viewerOpen.value) return
     if (images.length === 0) {
       viewerImages.value = []
+      viewerAutoPlay.value = false
       viewerOpen.value = false
       return
     }
@@ -31,6 +34,7 @@ export function useTaskImageViewer() {
   }
 
   function closeViewer() {
+    viewerAutoPlay.value = false
     viewerOpen.value = false
   }
 
@@ -48,6 +52,7 @@ export function useTaskImageViewer() {
     viewerImages,
     viewerInitialIndex,
     viewerCurrentIndex,
+    viewerAutoPlay,
     viewerKey,
     openViewer,
     syncViewer,

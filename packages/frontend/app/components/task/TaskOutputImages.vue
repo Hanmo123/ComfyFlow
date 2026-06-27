@@ -21,6 +21,7 @@ const {
   viewerOpen,
   viewerImages,
   viewerInitialIndex,
+  viewerAutoPlay,
   viewerKey,
   openViewer,
   syncViewer,
@@ -63,6 +64,7 @@ const groupImages = computed(() => {
 const allImages = computed(() => [...taskViewerImages.value, ...groupImages.value])
 
 function syncViewerToCurrentTask() {
+  if (viewerAutoPlay.value) return
   syncViewer(currentTaskViewerImages.value)
 }
 
@@ -97,6 +99,12 @@ async function toggleStar(image: TaskImageItem) {
   }
 }
 
+function setStarState(image: TaskImageItem, isStarred: boolean) {
+  if (!image.hash) return
+  starredImageStates.value = { ...starredImageStates.value, [image.hash]: isStarred }
+  viewerImages.value = restoreStarredFlags(viewerImages.value)
+}
+
 function isStarred(image: TaskImageItem) {
   if (!image.hash) return image.isStarred
   return starredImageStates.value[image.hash] ?? image.isStarred
@@ -109,7 +117,7 @@ function starredImages(images: TaskImageItem[]) {
 function openStarredViewer(images: TaskImageItem[]) {
   const starred = starredImages(images)
   if (starred.length === 0) return
-  openViewer(starred, 0)
+  openViewer(starred, 0, { autoPlay: true })
 }
 
 function restoreStarredFlags(images: TaskImageItem[]) {
@@ -242,7 +250,9 @@ watch(
       :key="viewerKey"
       :images="viewerImages"
       :initial-index="viewerInitialIndex"
+      :auto-play="viewerAutoPlay"
       @index-change="updateViewerIndex"
+      @star-change="setStarState"
       @close="closeViewer"
     />
   </aside>

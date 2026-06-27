@@ -96,6 +96,21 @@ const userInputVariables = computed(
       (variable) => variable.source === "user_input",
     ) ?? [],
 );
+const resumableManualGateNodeId = computed(() => {
+  const task = selectedTask.value;
+  if (task?.status !== "waiting") return null;
+
+  const waitingNodeIds = new Set(
+    task.nodeRuns
+      .filter((nodeRun) => nodeRun.status === "waiting")
+      .map((nodeRun) => nodeRun.nodeId),
+  );
+  return (
+    task.appSnapshot.graph.nodes.find(
+      (node) => node.type === "manual_gate" && waitingNodeIds.has(node.id),
+    )?.id ?? null
+  );
+});
 const thumbnailImageHashes = computed(() => {
   const hashes = new Set<string>();
   for (const task of tasks.value) collectTaskImageHashes(task, hashes);
@@ -445,6 +460,7 @@ async function repairSelectedTaskLogic() {
 function handleGlobalKeydown(event: KeyboardEvent) {
   updateShiftPressed(event);
   handleTaskNavigationKeydown(event);
+  handleManualGateResumeKeydown(event);
 }
 
 function updateShiftPressed(event: KeyboardEvent) {
@@ -458,6 +474,19 @@ function handleTaskNavigationKeydown(event: KeyboardEvent) {
   if (shouldIgnoreTaskShortcut(event)) return;
   const moved = selectAdjacentTask(event.key === "ArrowUp" ? -1 : 1);
   if (moved) event.preventDefault();
+}
+
+function handleManualGateResumeKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey)
+    return;
+  if (event.key.toLowerCase() !== "y") return;
+  if (shouldIgnoreTaskShortcut(event)) return;
+
+  const nodeId = resumableManualGateNodeId.value;
+  if (!nodeId) return;
+
+  event.preventDefault();
+  void resumeNode(nodeId);
 }
 
 function shouldIgnoreTaskShortcut(event: KeyboardEvent) {

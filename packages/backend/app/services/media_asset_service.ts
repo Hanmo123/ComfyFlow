@@ -3,6 +3,7 @@ import AppTask from '#models/app_task'
 import LibraryAsset from '#models/library_asset'
 import MediaAssetRepository from '#repositories/media_asset_repository'
 import ComfyService from '#services/comfy_service'
+import TaskRealtimeService from '#services/task_realtime_service'
 import { Exception } from '@adonisjs/core/exceptions'
 import app from '@adonisjs/core/services/app'
 import { createHash } from 'node:crypto'
@@ -30,6 +31,7 @@ export interface ComfyImageReference {
 }
 
 const UPLOAD_THUMBNAIL_SIZE = 256
+const uploadThumbnailJobs = new Map<number, Promise<void>>()
 
 export default class MediaAssetService {
   constructor(
@@ -61,7 +63,7 @@ export default class MediaAssetService {
       }
 
       const asset = await this.ensureComfyUpload(hash)
-      await this.ensureUploadThumbnail(existing)
+      this.startUploadThumbnailJob(existing)
       return asset
     }
 
@@ -89,7 +91,7 @@ export default class MediaAssetService {
       comfyUrl: uploaded.url,
     })
 
-    await this.ensureUploadThumbnail(asset)
+    this.startUploadThumbnailJob(asset)
 
     return serializeMediaAsset(asset)
   }
@@ -421,6 +423,23 @@ export default class MediaAssetService {
     if (await isReferencedByLibrary(original.id)) return false
     if (await isReferencedByTaskJson(original.hash)) return false
     return true
+  }
+
+  private startUploadThumbnailJob(originalAsset: MediaAsset) {
+    if (uploadThumbnailJobs.has(originalAsset.id)) return
+
+    const job = this.ensureUploadThumbnail(originalAsset)
+      .then((thumbnail) => {
+        TaskRealtimeService.broadcastMediaThumbnailReady(originalAsset.hash, thumbnail)
+      })
+      .catch((error) => {
+        console.warn(`上传缩略图生成失败: ${originalAsset.hash}`, error)
+      })
+      .finally(() => {
+        uploadThumbnailJobs.delete(originalAsset.id)
+      })
+
+    uploadThumbnailJobs.set(originalAsset.id, job)
   }
 
   private async ensureUploadThumbnail(originalAsset: MediaAsset) {

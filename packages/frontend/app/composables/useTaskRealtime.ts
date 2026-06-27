@@ -1,16 +1,24 @@
 import type { AppTaskRecord } from '@/lib/app'
 
+interface MediaThumbnailRecord {
+  hash: string
+  url: string
+  localUrl: string
+}
+
 type TaskRealtimeMessage =
   | { type: 'connected' }
   | { type: 'task.created'; task: AppTaskRecord }
   | { type: 'task.updated'; task: AppTaskRecord }
   | { type: 'task.deleted'; taskId: number; taskGroupId: number | null }
+  | { type: 'media.thumbnail.ready'; originalHash: string; thumbnail: MediaThumbnailRecord }
 
 interface TaskRealtimeHandlers {
   onOpen?: () => void
   onTaskCreated?: (task: AppTaskRecord) => void
   onTaskUpdated?: (task: AppTaskRecord) => void
   onTaskDeleted?: (payload: { taskId: number; taskGroupId: number | null }) => void
+  onMediaThumbnailReady?: (payload: { originalHash: string; thumbnail: MediaThumbnailRecord }) => void
 }
 
 const WS_BASE = 'ws://localhost:3333/api/v1/ws/tasks'
@@ -99,6 +107,12 @@ function handleMessage(data: string) {
     if (message.type === 'task.updated') handler.onTaskUpdated?.(message.task)
     if (message.type === 'task.deleted') {
       handler.onTaskDeleted?.({ taskId: message.taskId, taskGroupId: message.taskGroupId })
+    }
+    if (message.type === 'media.thumbnail.ready') {
+      handler.onMediaThumbnailReady?.({
+        originalHash: message.originalHash,
+        thumbnail: message.thumbnail,
+      })
     }
   }
 }

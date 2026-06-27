@@ -289,6 +289,9 @@ function formatValue(value: unknown) {
       >
         <Check class="size-4" />
         确认继续
+        <kbd class="ml-1 rounded border border-white/30 bg-white/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white/80">
+          Y
+        </kbd>
       </Button>
     </div>
 

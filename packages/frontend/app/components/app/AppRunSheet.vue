@@ -2,6 +2,7 @@
 import { RefreshCw, Save, Loader2, Trash2, Images } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import type { AppVariable, LoraItem, AppInputPreset } from "@/lib/app";
+import type { ComfyUploadedImage } from "@/composables/useAppApi";
 import type { LibraryAsset } from "~/lib/library";
 
 const props = defineProps<{
@@ -16,6 +17,9 @@ const emit = defineEmits<{
 
 const store = useAppDesignerStore();
 const appApi = useAppApi();
+const batchRealtime = useTaskRealtime({
+  onMediaThumbnailReady: handleBatchThumbnailReady,
+});
 
 interface RunFormState {
   textValues: Record<string, string>;
@@ -29,10 +33,32 @@ interface BatchImageItem extends RunFormState {
   id: string;
   file: File;
   previewUrl: string;
+  localPreviewUrl?: string;
+  thumbnailUrl?: string;
+  uploadedImage?: ComfyUploadedImage;
+  uploadStatus: "queued" | "uploading" | "uploaded" | "failed";
+  uploadGroupId: string;
+  uploadSessionId: number;
   status: "draft" | "submitting" | "submitted" | "failed";
   taskId?: number;
   error?: string;
+  uploadError?: string;
 }
+
+interface BatchUploadGroup {
+  total: number;
+  completed: number;
+  failed: number;
+  sessionId: number;
+}
+
+interface MediaThumbnailRecord {
+  hash: string;
+  url: string;
+  localUrl: string;
+}
+
+const BATCH_UPLOAD_CONCURRENCY = 3;
 
 const textValues = ref<Record<string, string>>({});
 const fileValues = ref<Record<string, File | null>>({});
@@ -61,6 +87,11 @@ const currentImageVariableKey = ref<string>("");
 const batchFileInput = ref<HTMLInputElement | null>(null);
 const batchItems = ref<BatchImageItem[]>([]);
 const activeBatchItemId = ref("");
+const pendingBatchThumbnails = ref<Record<string, MediaThumbnailRecord>>({});
+const batchUploadGroups = new Map<string, BatchUploadGroup>();
+const batchUploadQueue: BatchImageItem[] = [];
+let activeBatchUploads = 0;
+let batchUploadSessionId = 0;
 const batchImageVariable = computed(
   () =>
     store.userInputVariables.value.find(
@@ -73,14 +104,19 @@ const batchMode = computed(
 const activeBatchItem = computed(
   () => batchItems.value.find((item) => item.id === activeBatchItemId.value) ?? null,
 );
+const activeBatchItemUploading = computed(
+  () => activeBatchItem.value?.uploadStatus === "queued" || activeBatchItem.value?.uploadStatus === "uploading",
+);
 
 watch(
   () => props.open,
   (open) => {
     if (!open) {
+      batchRealtime.close();
       resetBatchMode();
       return;
     }
+    batchRealtime.connect();
     void resetForm();
     if (hasLoraInputs.value) void loadLoras();
     void loadStringPresets();
@@ -232,17 +268,30 @@ function setBatchFiles(event: Event) {
   if (batchMode.value) syncActiveBatchDraft();
   const baseState = batchMode.value && activeBatchItem.value ? activeBatchItem.value : captureFormState();
   const shouldSelectFirstNewItem = batchItems.value.length === 0;
-  const nextItems = files.map((file) => createBatchItem(file, batchVariable.key, baseState));
+  const uploadGroupId = createBatchItemId();
+  batchUploadGroups.set(uploadGroupId, {
+    total: files.length,
+    completed: 0,
+    failed: 0,
+    sessionId: batchUploadSessionId,
+  });
+  const nextItems = files.map((file) => createBatchItem(file, batchVariable.key, baseState, uploadGroupId));
   batchItems.value = [...batchItems.value, ...nextItems];
   if (shouldSelectFirstNewItem) {
     activeBatchItemId.value = nextItems[0].id;
     applyFormState(nextItems[0]);
   }
-  toast.success(`已加入 ${nextItems.length} 张图片`);
+  enqueueBatchUploads(nextItems);
 }
 
-function createBatchItem(file: File, variableKey: string, baseState: RunFormState): BatchImageItem {
+function createBatchItem(
+  file: File,
+  variableKey: string,
+  baseState: RunFormState,
+  uploadGroupId: string,
+): BatchImageItem {
   const state = cloneFormState(baseState);
+  const localPreviewUrl = URL.createObjectURL(file);
   state.fileValues[variableKey] = file;
   state.libraryAssetValues[variableKey] = null;
   state.previousImageValues[variableKey] = null;
@@ -250,7 +299,11 @@ function createBatchItem(file: File, variableKey: string, baseState: RunFormStat
     ...state,
     id: createBatchItemId(),
     file,
-    previewUrl: URL.createObjectURL(file),
+    previewUrl: localPreviewUrl,
+    localPreviewUrl,
+    uploadStatus: "queued",
+    uploadGroupId,
+    uploadSessionId: batchUploadSessionId,
     status: "draft",
   };
 }
@@ -259,8 +312,112 @@ function createBatchItemId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function enqueueBatchUploads(items: BatchImageItem[]) {
+  batchUploadQueue.push(...items);
+  pumpBatchUploadQueue();
+}
+
+function pumpBatchUploadQueue() {
+  while (activeBatchUploads < BATCH_UPLOAD_CONCURRENCY && batchUploadQueue.length > 0) {
+    const item = batchUploadQueue.shift()!;
+    activeBatchUploads++;
+    void uploadBatchItem(item).finally(() => {
+      activeBatchUploads--;
+      pumpBatchUploadQueue();
+    });
+  }
+}
+
+async function uploadBatchItem(item: BatchImageItem) {
+  if (item.uploadSessionId !== batchUploadSessionId || !hasBatchItem(item.id)) {
+    recordBatchUploadResult(item, false, true);
+    return;
+  }
+
+  item.uploadStatus = "uploading";
+  item.uploadError = undefined;
+  try {
+    const uploadedImage = await appApi.uploadComfyImage(item.file);
+    if (item.uploadSessionId === batchUploadSessionId && hasBatchItem(item.id)) {
+      item.uploadedImage = uploadedImage;
+      item.uploadStatus = "uploaded";
+      applyPendingBatchThumbnail(item);
+    }
+    recordBatchUploadResult(item, true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "图片上传失败";
+    if (item.uploadSessionId === batchUploadSessionId && hasBatchItem(item.id)) {
+      item.uploadStatus = "failed";
+      item.uploadError = message;
+      item.error = message;
+    }
+    recordBatchUploadResult(item, false);
+  }
+}
+
+function recordBatchUploadResult(item: BatchImageItem, success: boolean, silent = false) {
+  const group = batchUploadGroups.get(item.uploadGroupId);
+  if (!group) return;
+  group.completed++;
+  if (!success) group.failed++;
+  if (group.completed < group.total) return;
+
+  batchUploadGroups.delete(item.uploadGroupId);
+  if (silent || group.sessionId !== batchUploadSessionId || !props.open) return;
+
+  const uploadedCount = group.total - group.failed;
+  if (group.failed > 0) {
+    toast.error(`已上传 ${uploadedCount} 张，${group.failed} 张失败`);
+  } else {
+    toast.success(`已上传 ${uploadedCount} 张图片`);
+  }
+}
+
+function handleBatchThumbnailReady(payload: { originalHash: string; thumbnail: MediaThumbnailRecord }) {
+  const matchedItems = batchItems.value.filter(
+    (item) => item.uploadedImage?.hash === payload.originalHash,
+  );
+  if (matchedItems.length === 0) {
+    pendingBatchThumbnails.value = {
+      ...pendingBatchThumbnails.value,
+      [payload.originalHash]: payload.thumbnail,
+    };
+    return;
+  }
+
+  for (const item of matchedItems) applyBatchThumbnail(item, payload.thumbnail);
+}
+
+function applyPendingBatchThumbnail(item: BatchImageItem) {
+  const hash = item.uploadedImage?.hash;
+  if (!hash) return;
+  const thumbnail = pendingBatchThumbnails.value[hash];
+  if (!thumbnail) return;
+  applyBatchThumbnail(item, thumbnail);
+}
+
+function applyBatchThumbnail(item: BatchImageItem, thumbnail: MediaThumbnailRecord) {
+  item.thumbnailUrl = thumbnail.localUrl;
+  item.previewUrl = thumbnail.localUrl;
+  revokeBatchItemLocalPreview(item);
+}
+
+function hasBatchItem(itemId: string) {
+  return batchItems.value.some((item) => item.id === itemId);
+}
+
+function revokeBatchItemLocalPreview(item: BatchImageItem) {
+  if (!item.localPreviewUrl) return;
+  URL.revokeObjectURL(item.localPreviewUrl);
+  item.localPreviewUrl = undefined;
+}
+
 function resetBatchMode() {
-  for (const item of batchItems.value) URL.revokeObjectURL(item.previewUrl);
+  batchUploadSessionId++;
+  batchUploadQueue.length = 0;
+  batchUploadGroups.clear();
+  pendingBatchThumbnails.value = {};
+  for (const item of batchItems.value) revokeBatchItemLocalPreview(item);
   batchItems.value = [];
   activeBatchItemId.value = "";
 }
@@ -268,7 +425,7 @@ function resetBatchMode() {
 function removeBatchItem(itemId: string) {
   const item = batchItems.value.find((candidate) => candidate.id === itemId);
   if (!item) return;
-  URL.revokeObjectURL(item.previewUrl);
+  revokeBatchItemLocalPreview(item);
   batchItems.value = batchItems.value.filter((candidate) => candidate.id !== itemId);
   if (activeBatchItemId.value !== itemId) return;
   const nextItem = batchItems.value[0] ?? null;
@@ -277,6 +434,9 @@ function removeBatchItem(itemId: string) {
 }
 
 function batchItemStatusLabel(item: BatchImageItem) {
+  if (item.status !== "submitted" && item.uploadStatus === "queued") return "等待上传";
+  if (item.status !== "submitted" && item.uploadStatus === "uploading") return "上传中";
+  if (item.status !== "submitted" && item.uploadStatus === "failed") return "上传失败";
   if (item.status === "submitting") return "提交中";
   if (item.status === "submitted") return item.taskId ? `#${item.taskId}` : "已提交";
   if (item.status === "failed") return "失败";
@@ -285,7 +445,7 @@ function batchItemStatusLabel(item: BatchImageItem) {
 
 function batchItemClass(item: BatchImageItem) {
   const active = activeBatchItemId.value === item.id;
-  const statusClass = item.status === "failed"
+  const statusClass = item.uploadStatus === "failed" || item.status === "failed"
     ? "border-red-300 bg-red-50"
     : item.status === "submitted"
       ? "border-emerald-300 bg-emerald-50"
@@ -293,7 +453,24 @@ function batchItemClass(item: BatchImageItem) {
   return `${active ? "ring-2 ring-slate-900" : ""} ${statusClass}`;
 }
 
-onBeforeUnmount(resetBatchMode);
+onMounted(() => {
+  window.addEventListener("keydown", handleRunShortcut);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleRunShortcut);
+  batchRealtime.close();
+  resetBatchMode();
+});
+
+function handleRunShortcut(event: KeyboardEvent) {
+  if (!props.open || event.defaultPrevented) return;
+  if (event.key !== "Enter" || !event.metaKey) return;
+  if (libraryPickerOpen.value || showSaveStringPresetDialog.value) return;
+
+  event.preventDefault();
+  void submitRun();
+}
 
 async function submitRun() {
   if (submitting.value || store.running.value) return;
@@ -345,6 +522,16 @@ async function submitActiveBatchRun() {
     return;
   }
 
+  if (item.uploadStatus === "queued" || item.uploadStatus === "uploading") {
+    toast.error("图片仍在上传，请稍后提交");
+    return;
+  }
+
+  if (item.uploadStatus === "failed" || !item.uploadedImage) {
+    toast.error(item.uploadError || "图片上传失败，请重新选择");
+    return;
+  }
+
   syncActiveBatchDraft();
   const validationError = validateInputs(item);
   if (validationError) {
@@ -391,7 +578,10 @@ async function buildInputs(state: RunFormState) {
       const libraryAsset = state.libraryAssetValues[variable.key];
       const previousImage = state.previousImageValues[variable.key];
       
-      if (file) {
+      const uploadedImage = uploadedImageForState(state, variable.key);
+      if (uploadedImage) {
+        inputs[variable.key] = uploadedImage;
+      } else if (file) {
         inputs[variable.key] = await appApi.uploadComfyImage(file);
       } else if (libraryAsset) {
         inputs[variable.key] = libraryAsset.mediaAsset;
@@ -417,6 +607,12 @@ async function buildInputs(state: RunFormState) {
     );
   }
   return inputs;
+}
+
+function uploadedImageForState(state: RunFormState, variableKey: string) {
+  if (variableKey !== batchImageVariable.value?.key) return null;
+  if (!("uploadedImage" in state)) return null;
+  return (state as BatchImageItem).uploadedImage ?? null;
 }
 
 async function loadLoras(refresh = false) {
@@ -473,12 +669,28 @@ function setFile(variable: AppVariable, event: Event) {
     libraryAssetValues.value[variable.key] = null;
     previousImageValues.value[variable.key] = null;
     if (batchMode.value && variable.key === batchImageVariable.value?.key && activeBatchItem.value) {
-      URL.revokeObjectURL(activeBatchItem.value.previewUrl);
+      const localPreviewUrl = URL.createObjectURL(file);
+      revokeBatchItemLocalPreview(activeBatchItem.value);
       activeBatchItem.value.file = file;
-      activeBatchItem.value.previewUrl = URL.createObjectURL(file);
+      activeBatchItem.value.fileValues[variable.key] = file;
+      activeBatchItem.value.previewUrl = localPreviewUrl;
+      activeBatchItem.value.localPreviewUrl = localPreviewUrl;
+      activeBatchItem.value.thumbnailUrl = undefined;
+      activeBatchItem.value.uploadedImage = undefined;
+      activeBatchItem.value.uploadStatus = "queued";
+      activeBatchItem.value.uploadError = undefined;
+      activeBatchItem.value.uploadGroupId = createBatchItemId();
+      activeBatchItem.value.uploadSessionId = batchUploadSessionId;
       activeBatchItem.value.status = "draft";
       activeBatchItem.value.taskId = undefined;
       activeBatchItem.value.error = undefined;
+      batchUploadGroups.set(activeBatchItem.value.uploadGroupId, {
+        total: 1,
+        completed: 0,
+        failed: 0,
+        sessionId: batchUploadSessionId,
+      });
+      enqueueBatchUploads([activeBatchItem.value]);
     }
   }
 }
@@ -1064,10 +1276,13 @@ function openSaveStringPresetDialog(variableKey: string) {
           </Button>
           <Button
             type="submit"
-            :disabled="submitting || store.running.value || !props.taskGroupId || (batchMode && !activeBatchItem)"
+            :disabled="submitting || store.running.value || !props.taskGroupId || (batchMode && (!activeBatchItem || activeBatchItemUploading))"
           >
-            <Loader2 v-if="submitting || store.running.value" class="size-4 animate-spin" />
-            {{ batchMode ? "提交当前图片" : "提交运行" }}
+            <Loader2 v-if="submitting || store.running.value || activeBatchItemUploading" class="size-4 animate-spin" />
+            {{ batchMode && activeBatchItemUploading ? "图片上传中" : batchMode ? "提交当前图片" : "提交运行" }}
+            <kbd class="ml-1 rounded border border-white/30 bg-white/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white/80">
+              ⌘ Enter
+            </kbd>
           </Button>
         </SheetFooter>
         </div>

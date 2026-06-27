@@ -9,6 +9,7 @@ type TaskRealtimeEvent =
   | { type: 'task.created'; task: unknown }
   | { type: 'task.updated'; task: unknown }
   | { type: 'task.deleted'; taskId: number; taskGroupId: number | null }
+  | { type: 'media.thumbnail.ready'; originalHash: string; thumbnail: unknown }
 
 interface TaskRealtimeClient {
   socket: WebSocket
@@ -61,6 +62,10 @@ export default class TaskRealtimeService {
 
   static broadcastTaskDeleted(taskId: number, taskGroupId: number | null) {
     this.broadcast({ type: 'task.deleted', taskId, taskGroupId })
+  }
+
+  static broadcastMediaThumbnailReady(originalHash: string, thumbnail: unknown) {
+    this.broadcast({ type: 'media.thumbnail.ready', originalHash, thumbnail })
   }
 
   private static handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer) {
