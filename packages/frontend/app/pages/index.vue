@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { Check, FolderOpen, LayoutGrid, Play, Plus, RotateCw, Save, X } from 'lucide-vue-next'
+import { FolderOpen, LayoutGrid, Play, Plus, Save } from 'lucide-vue-next'
 import type { TaskGroupRecord } from '@/lib/app'
+import type { TaskProgressCounts } from '@/composables/useTaskRealtime'
 
 const store = useAppDesignerStore()
 const appApi = useAppApi()
@@ -11,27 +12,16 @@ const taskGroups = ref<TaskGroupRecord[]>([])
 const selectedTaskGroupId = ref<number | null>(null)
 const loadingTaskGroups = ref(false)
 const creatingTaskGroup = ref(false)
+const taskProgress = ref<TaskProgressCounts>({ running: 0, waiting: 0, completed: 0 })
+const taskRealtime = useTaskRealtime({
+  onTaskProgress(counts) {
+    taskProgress.value = counts
+  },
+})
 
 const selectedTaskGroup = computed(() => taskGroups.value.find((group) => group.id === selectedTaskGroupId.value) ?? null)
 const selectedTaskGroupSelectValue = computed(() => selectedTaskGroupId.value === null ? undefined : String(selectedTaskGroupId.value))
-
-const taskStatusLabel = computed(() => {
-  const labels = {
-    queued: '排队',
-    running: '执行',
-    waiting: '等待人工确认',
-    completed: '完成',
-    failed: '失败',
-  }
-  return store.latestTask.value ? labels[store.latestTask.value.status] : ''
-})
-
-const taskOutputEntries = computed(() => Object.entries(store.latestTask.value?.outputs ?? {}))
-
-function formatTaskValue(value: unknown) {
-  if (typeof value === 'string') return value
-  return JSON.stringify(value, null, 2)
-}
+const hasTaskProgress = computed(() => taskProgress.value.running + taskProgress.value.waiting + taskProgress.value.completed > 0)
 
 async function loadTaskGroups() {
   try {
@@ -90,11 +80,13 @@ function handleKeyDown(event: KeyboardEvent) {
 
 onMounted(async () => {
   store.initialize()
+  taskRealtime.connect()
   await loadTaskGroups()
   window.addEventListener('keydown', handleKeyDown)
 })
 
 onUnmounted(() => {
+  taskRealtime.close()
   window.removeEventListener('keydown', handleKeyDown)
 })
 </script>
@@ -188,39 +180,20 @@ onUnmounted(() => {
       </div>
 
       <div
-        v-if="store.latestTask.value"
-        class="absolute bottom-4 right-4 z-30 w-80 rounded-lg border bg-white p-3 text-sm"
+        v-if="hasTaskProgress"
+        class="absolute bottom-4 right-4 z-30 flex rounded-lg border bg-white px-3 py-2 text-sm shadow-sm"
       >
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <div class="truncate font-medium">任务 #{{ store.latestTask.value.id }}</div>
-            <div class="text-xs text-slate-500">{{ taskStatusLabel }}</div>
-          </div>
-          <Check v-if="store.latestTask.value.status === 'completed'" class="size-4 text-green-600" />
-          <X v-else-if="store.latestTask.value.status === 'failed'" class="size-4 text-red-600" />
-          <RotateCw v-else class="size-4 text-blue-600" />
+        <div class="min-w-16 border-r pr-3 text-center">
+          <div class="text-lg font-semibold leading-5 text-blue-600">{{ taskProgress.running }}</div>
+          <div class="mt-1 text-xs text-slate-500">运行中</div>
         </div>
-
-        <div v-if="store.latestTask.value.error" class="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
-          {{ store.latestTask.value.error }}
+        <div class="min-w-16 border-r px-3 text-center">
+          <div class="text-lg font-semibold leading-5 text-amber-600">{{ taskProgress.waiting }}</div>
+          <div class="mt-1 text-xs text-slate-500">等待人工</div>
         </div>
-
-        <Button
-          v-if="store.latestTask.value.status === 'waiting'"
-          class="mt-3 w-full"
-          type="button"
-          variant="outline"
-          :disabled="store.running.value"
-          @click="store.resumeLatestTask"
-        >
-          继续
-        </Button>
-
-        <div v-if="taskOutputEntries.length" class="mt-3 space-y-2">
-          <div v-for="[key, value] in taskOutputEntries" :key="key" class="rounded border bg-slate-50 px-2 py-1">
-            <div class="text-xs text-slate-500">{{ key }}</div>
-            <pre class="mt-1 max-h-28 overflow-auto whitespace-pre-wrap break-words text-xs">{{ formatTaskValue(value) }}</pre>
-          </div>
+        <div class="min-w-16 pl-3 text-center">
+          <div class="text-lg font-semibold leading-5 text-emerald-600">{{ taskProgress.completed }}</div>
+          <div class="mt-1 text-xs text-slate-500">已完成</div>
         </div>
       </div>
 

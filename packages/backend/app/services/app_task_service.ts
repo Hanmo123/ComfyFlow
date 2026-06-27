@@ -315,12 +315,14 @@ export default class AppTaskService {
   private async createTask(payload: Parameters<AppTaskRepository['create']>[0]) {
     const task = await this.taskRepository.create(payload)
     TaskRealtimeService.broadcastTaskCreated(task)
+    TaskRealtimeService.trackTaskProgress(task)
     return task
   }
 
   private async updateTask(task: AppTask, payload: Parameters<AppTaskRepository['update']>[1]) {
     const updated = await this.taskRepository.update(task, payload)
     TaskRealtimeService.broadcastTaskUpdated(updated)
+    TaskRealtimeService.trackTaskProgress(updated)
     return updated
   }
 
@@ -329,6 +331,7 @@ export default class AppTaskService {
     const taskGroupId = task.taskGroupId
     await this.taskRepository.delete(task)
     TaskRealtimeService.broadcastTaskDeleted(taskId, taskGroupId)
+    TaskRealtimeService.removeTaskProgress(taskId)
   }
 
   private enqueue(taskId: number) {

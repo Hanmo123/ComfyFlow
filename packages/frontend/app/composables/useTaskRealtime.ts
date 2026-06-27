@@ -6,11 +6,18 @@ interface MediaThumbnailRecord {
   localUrl: string
 }
 
+export interface TaskProgressCounts {
+  running: number
+  waiting: number
+  completed: number
+}
+
 type TaskRealtimeMessage =
   | { type: 'connected' }
   | { type: 'task.created'; task: AppTaskRecord }
   | { type: 'task.updated'; task: AppTaskRecord }
   | { type: 'task.deleted'; taskId: number; taskGroupId: number | null }
+  | { type: 'task.progress'; counts: TaskProgressCounts }
   | { type: 'media.thumbnail.ready'; originalHash: string; thumbnail: MediaThumbnailRecord }
 
 interface TaskRealtimeHandlers {
@@ -18,6 +25,7 @@ interface TaskRealtimeHandlers {
   onTaskCreated?: (task: AppTaskRecord) => void
   onTaskUpdated?: (task: AppTaskRecord) => void
   onTaskDeleted?: (payload: { taskId: number; taskGroupId: number | null }) => void
+  onTaskProgress?: (counts: TaskProgressCounts) => void
   onMediaThumbnailReady?: (payload: { originalHash: string; thumbnail: MediaThumbnailRecord }) => void
 }
 
@@ -108,6 +116,7 @@ function handleMessage(data: string) {
     if (message.type === 'task.deleted') {
       handler.onTaskDeleted?.({ taskId: message.taskId, taskGroupId: message.taskGroupId })
     }
+    if (message.type === 'task.progress') handler.onTaskProgress?.(message.counts)
     if (message.type === 'media.thumbnail.ready') {
       handler.onMediaThumbnailReady?.({
         originalHash: message.originalHash,

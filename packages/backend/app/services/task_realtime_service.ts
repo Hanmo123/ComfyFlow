@@ -1,4 +1,5 @@
 import type AppTask from '#models/app_task'
+import type { AppTaskStatus } from '#models/app_task'
 import type { Server as NodeHttpServer, IncomingMessage } from 'node:http'
 import type { Server as NodeHttpsServer } from 'node:https'
 import type { Duplex } from 'node:stream'
@@ -9,7 +10,16 @@ type TaskRealtimeEvent =
   | { type: 'task.created'; task: unknown }
   | { type: 'task.updated'; task: unknown }
   | { type: 'task.deleted'; taskId: number; taskGroupId: number | null }
+  | { type: 'task.progress'; counts: TaskProgressCounts }
   | { type: 'media.thumbnail.ready'; originalHash: string; thumbnail: unknown }
+
+export interface TaskProgressCounts {
+  running: number
+  waiting: number
+  completed: number
+}
+
+type TrackedTaskStatus = Extract<AppTaskStatus, 'queued' | 'running' | 'waiting' | 'completed'>
 
 interface TaskRealtimeClient {
   socket: WebSocket
@@ -22,6 +32,7 @@ const HEARTBEAT_INTERVAL_MS = 30_000
 export default class TaskRealtimeService {
   private static server: WebSocketServer | null = null
   private static clients = new Set<TaskRealtimeClient>()
+  private static taskProgressStatuses = new Map<number, TrackedTaskStatus>()
   private static heartbeatTimer: NodeJS.Timeout | null = null
   private static upgradeHandler:
     | ((request: IncomingMessage, socket: Duplex, head: Buffer) => void)
@@ -64,6 +75,23 @@ export default class TaskRealtimeService {
     this.broadcast({ type: 'task.deleted', taskId, taskGroupId })
   }
 
+  static trackTaskProgress(task: AppTask) {
+    if (isTrackedTaskStatus(task.status)) {
+      this.taskProgressStatuses.set(task.id, task.status)
+    } else {
+      this.taskProgressStatuses.delete(task.id)
+    }
+
+    if (!this.hasActiveTaskProgress()) this.taskProgressStatuses.clear()
+    this.broadcastTaskProgress()
+  }
+
+  static removeTaskProgress(taskId: number) {
+    this.taskProgressStatuses.delete(taskId)
+    if (!this.hasActiveTaskProgress()) this.taskProgressStatuses.clear()
+    this.broadcastTaskProgress()
+  }
+
   static broadcastMediaThumbnailReady(originalHash: string, thumbnail: unknown) {
     this.broadcast({ type: 'media.thumbnail.ready', originalHash, thumbnail })
   }
@@ -92,6 +120,7 @@ export default class TaskRealtimeService {
     socket.on('error', () => this.clients.delete(client))
 
     sendJson(socket, { type: 'connected' })
+    sendJson(socket, { type: 'task.progress', counts: this.taskProgressCounts() })
   }
 
   private static heartbeat() {
@@ -111,6 +140,31 @@ export default class TaskRealtimeService {
       sendJson(client.socket, event)
     }
   }
+
+  private static broadcastTaskProgress() {
+    this.broadcast({ type: 'task.progress', counts: this.taskProgressCounts() })
+  }
+
+  private static taskProgressCounts(): TaskProgressCounts {
+    const counts: TaskProgressCounts = { running: 0, waiting: 0, completed: 0 }
+    for (const status of this.taskProgressStatuses.values()) {
+      if (status === 'queued' || status === 'running') counts.running++
+      if (status === 'waiting') counts.waiting++
+      if (status === 'completed') counts.completed++
+    }
+    return counts
+  }
+
+  private static hasActiveTaskProgress() {
+    for (const status of this.taskProgressStatuses.values()) {
+      if (status === 'queued' || status === 'running' || status === 'waiting') return true
+    }
+    return false
+  }
+}
+
+function isTrackedTaskStatus(status: AppTaskStatus): status is TrackedTaskStatus {
+  return status === 'queued' || status === 'running' || status === 'waiting' || status === 'completed'
 }
 
 function parseRequestUrl(request: IncomingMessage) {
