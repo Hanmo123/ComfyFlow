@@ -32,8 +32,6 @@ interface RunFormState {
 interface BatchImageItem extends RunFormState {
   id: string;
   file: File;
-  previewUrl: string;
-  localPreviewUrl?: string;
   thumbnailUrl?: string;
   uploadedImage?: ComfyUploadedImage;
   uploadStatus: "queued" | "uploading" | "uploaded" | "failed";
@@ -291,7 +289,6 @@ function createBatchItem(
   uploadGroupId: string,
 ): BatchImageItem {
   const state = cloneFormState(baseState);
-  const localPreviewUrl = URL.createObjectURL(file);
   state.fileValues[variableKey] = file;
   state.libraryAssetValues[variableKey] = null;
   state.previousImageValues[variableKey] = null;
@@ -299,8 +296,6 @@ function createBatchItem(
     ...state,
     id: createBatchItemId(),
     file,
-    previewUrl: localPreviewUrl,
-    localPreviewUrl,
     uploadStatus: "queued",
     uploadGroupId,
     uploadSessionId: batchUploadSessionId,
@@ -398,18 +393,10 @@ function applyPendingBatchThumbnail(item: BatchImageItem) {
 
 function applyBatchThumbnail(item: BatchImageItem, thumbnail: MediaThumbnailRecord) {
   item.thumbnailUrl = thumbnail.localUrl;
-  item.previewUrl = thumbnail.localUrl;
-  revokeBatchItemLocalPreview(item);
 }
 
 function hasBatchItem(itemId: string) {
   return batchItems.value.some((item) => item.id === itemId);
-}
-
-function revokeBatchItemLocalPreview(item: BatchImageItem) {
-  if (!item.localPreviewUrl) return;
-  URL.revokeObjectURL(item.localPreviewUrl);
-  item.localPreviewUrl = undefined;
 }
 
 function resetBatchMode() {
@@ -417,7 +404,6 @@ function resetBatchMode() {
   batchUploadQueue.length = 0;
   batchUploadGroups.clear();
   pendingBatchThumbnails.value = {};
-  for (const item of batchItems.value) revokeBatchItemLocalPreview(item);
   batchItems.value = [];
   activeBatchItemId.value = "";
 }
@@ -425,7 +411,6 @@ function resetBatchMode() {
 function removeBatchItem(itemId: string) {
   const item = batchItems.value.find((candidate) => candidate.id === itemId);
   if (!item) return;
-  revokeBatchItemLocalPreview(item);
   batchItems.value = batchItems.value.filter((candidate) => candidate.id !== itemId);
   if (activeBatchItemId.value !== itemId) return;
   const nextItem = batchItems.value[0] ?? null;
@@ -669,12 +654,8 @@ function setFile(variable: AppVariable, event: Event) {
     libraryAssetValues.value[variable.key] = null;
     previousImageValues.value[variable.key] = null;
     if (batchMode.value && variable.key === batchImageVariable.value?.key && activeBatchItem.value) {
-      const localPreviewUrl = URL.createObjectURL(file);
-      revokeBatchItemLocalPreview(activeBatchItem.value);
       activeBatchItem.value.file = file;
       activeBatchItem.value.fileValues[variable.key] = file;
-      activeBatchItem.value.previewUrl = localPreviewUrl;
-      activeBatchItem.value.localPreviewUrl = localPreviewUrl;
       activeBatchItem.value.thumbnailUrl = undefined;
       activeBatchItem.value.uploadedImage = undefined;
       activeBatchItem.value.uploadStatus = "queued";
@@ -897,10 +878,12 @@ function openSaveStringPresetDialog(variableKey: string) {
           </div>
           <div class="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border bg-slate-950/95 p-3">
             <img
-              :src="activeBatchItem.previewUrl"
+              v-if="activeBatchItem.uploadedImage"
+              :src="activeBatchItem.uploadedImage.localUrl"
               :alt="activeBatchItem.file.name"
               class="max-h-full max-w-full object-contain"
             />
+            <div v-else class="h-full w-full rounded bg-slate-800" />
           </div>
         </section>
 
@@ -918,7 +901,13 @@ function openSaveStringPresetDialog(variableKey: string) {
               :class="batchItemClass(item)"
               @click="selectBatchItem(item.id)"
             >
-              <img :src="item.previewUrl" :alt="item.file.name" class="aspect-square w-full rounded object-cover" />
+              <img
+                v-if="item.thumbnailUrl"
+                :src="item.thumbnailUrl"
+                :alt="item.file.name"
+                class="aspect-square w-full rounded object-cover"
+              />
+              <div v-else class="aspect-square w-full rounded bg-slate-200" />
               <div class="mt-1 truncate text-[11px] text-slate-600">
                 {{ index + 1 }} · {{ batchItemStatusLabel(item) }}
               </div>
@@ -1072,10 +1061,12 @@ function openSaveStringPresetDialog(variableKey: string) {
               class="flex items-center gap-3 rounded-lg border bg-slate-50 p-3"
             >
               <img
-                :src="activeBatchItem.previewUrl"
+                v-if="activeBatchItem.thumbnailUrl"
+                :src="activeBatchItem.thumbnailUrl"
                 :alt="activeBatchItem.file.name"
                 class="h-14 w-14 rounded object-cover"
               />
+              <div v-else class="h-14 w-14 shrink-0 rounded bg-slate-200" />
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-medium">{{ activeBatchItem.file.name }}</p>
                 <p class="text-xs text-slate-500">当前批量图片</p>
