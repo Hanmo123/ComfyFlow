@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url'
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const packageJson = JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf8'))
-const version = packageJson.version ?? '0.0.0'
+const version = process.env.COMFYFLOW_VERSION || packageJson.version || '0.0.0'
 const portableDir = path.join(rootDir, 'dist', `comfyflow-${process.platform}-${process.arch}`)
+const portableZipPath = path.join(rootDir, 'dist', `ComfyFlow-${version}-${process.platform}-${process.arch}-portable.zip`)
 const workDir = await mkdtemp(path.join(os.tmpdir(), 'comfyflow-macos-'))
 const payloadDir = path.join(workDir, 'payload')
 const appDir = path.join(payloadDir, 'ComfyFlow.app')
@@ -25,6 +26,7 @@ if (process.platform !== 'darwin') {
 run('node', ['scripts/package-portable.mjs'])
 
 await rm(pkgPath, { force: true })
+await rm(portableZipPath, { force: true })
 await mkdir(resourcesDir, { recursive: true })
 await mkdir(macosDir, { recursive: true })
 
@@ -38,6 +40,7 @@ await writeFile(path.join(macosDir, 'ComfyFlow'), appLauncher(), { mode: 0o755 }
 chmodSync(path.join(macosDir, 'ComfyFlow'), 0o755)
 
 run('xattr', ['-cr', appDir], { allowFailure: true })
+run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', portableDir, portableZipPath])
 
 run('pkgbuild', [
   '--root',
@@ -51,6 +54,7 @@ run('pkgbuild', [
   pkgPath,
 ])
 
+console.log(`macOS portable package ready: ${path.relative(rootDir, portableZipPath)}`)
 console.log(`macOS installer ready: ${path.relative(rootDir, pkgPath)}`)
 await rm(workDir, { recursive: true, force: true })
 

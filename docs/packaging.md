@@ -33,6 +33,7 @@ pnpm package:macos
 The output is:
 
 ```text
+dist/ComfyFlow-1.0.0-darwin-arm64-portable.zip
 dist/ComfyFlow-1.0.0-darwin-arm64.pkg
 ```
 
@@ -101,6 +102,21 @@ C:\Program Files\ComfyFlow
 ```
 
 It creates a Start Menu shortcut and can optionally create a desktop shortcut. The shortcut launches ComfyFlow hidden and opens the browser automatically.
+
+## GitHub Release Automation
+
+Publishing a GitHub Release triggers `.github/workflows/release-packages.yml`.
+
+The workflow builds and uploads these assets to the release:
+
+```text
+ComfyFlow-<version>-darwin-arm64-portable.zip
+ComfyFlow-<version>-darwin-arm64.pkg
+ComfyFlow-<version>-win32-x64-portable.zip
+ComfyFlow-<version>-win32-x64-setup.exe
+```
+
+The workflow uses the release tag as `COMFYFLOW_VERSION`. A tag like `v1.2.3` becomes `1.2.3` in the asset filenames.
 
 ## Data Locations
 

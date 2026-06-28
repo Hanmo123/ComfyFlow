@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const packageJson = JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf8'))
-const version = packageJson.version ?? '0.0.0'
+const version = process.env.COMFYFLOW_VERSION || packageJson.version || '0.0.0'
 const arch = process.arch
 const distDir = path.join(rootDir, 'dist')
 const portableDir = path.join(distDir, `comfyflow-${process.platform}-${arch}`)
