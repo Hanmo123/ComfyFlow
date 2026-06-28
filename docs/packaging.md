@@ -61,6 +61,47 @@ Open the installed app:
 open /Applications/ComfyFlow.app
 ```
 
+## Windows Installer
+
+Build the Windows portable zip and installer on Windows:
+
+```powershell
+pnpm package:windows
+```
+
+The command first builds the Windows portable package:
+
+```text
+dist/comfyflow-win32-x64/
+```
+
+It then writes a portable zip:
+
+```text
+dist/ComfyFlow-1.0.0-win32-x64-portable.zip
+```
+
+It also builds an Inno Setup installer:
+
+```text
+dist/ComfyFlow-1.0.0-win32-x64-setup.exe
+```
+
+The installer requires Inno Setup 6. Install it normally, make sure `ISCC.exe` is on `PATH`, or point to it explicitly:
+
+```powershell
+$env:INNO_SETUP_COMPILER = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+pnpm package:windows
+```
+
+The Windows installer writes the app to:
+
+```text
+C:\Program Files\ComfyFlow
+```
+
+It creates a Start Menu shortcut and can optionally create a desktop shortcut. The shortcut launches ComfyFlow hidden and opens the browser automatically.
+
 ## Data Locations
 
 Packaged production data is stored outside the install directory so app updates do not overwrite user data.
@@ -71,22 +112,46 @@ Default macOS production data directory:
 ~/Library/Application Support/ComfyFlow
 ```
 
-Production database:
+Default Windows production data directory:
+
+```text
+%APPDATA%\ComfyFlow
+```
+
+Production database on macOS:
 
 ```text
 ~/Library/Application Support/ComfyFlow/db.sqlite3
 ```
 
-Production media files:
+Production database on Windows:
+
+```text
+%APPDATA%\ComfyFlow\db.sqlite3
+```
+
+Production media files on macOS:
 
 ```text
 ~/Library/Application Support/ComfyFlow/storage/images
 ```
 
-Framework app key:
+Production media files on Windows:
+
+```text
+%APPDATA%\ComfyFlow\storage\images
+```
+
+Framework app key on macOS:
 
 ```text
 ~/Library/Application Support/ComfyFlow/app.key
+```
+
+Framework app key on Windows:
+
+```text
+%APPDATA%\ComfyFlow\app.key
 ```
 
 Override the data directory when running manually:

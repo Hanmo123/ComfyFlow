@@ -6,6 +6,7 @@
   "scripts": {
     "package:macos": "node scripts/package-macos.mjs",
     "package:portable": "node scripts/package-portable.mjs",
+    "package:windows": "node scripts/package-windows.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
