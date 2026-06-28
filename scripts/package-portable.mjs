@@ -22,7 +22,7 @@ await mkdir(distDir, { recursive: true })
 
 run('pnpm', ['--filter', 'frontend', 'generate'])
 run('pnpm', ['--filter', 'backend', 'build'])
-run('pnpm', ['--filter', 'backend', 'deploy', '--prod', '--legacy', deployDir])
+run('pnpm', ['--config.node-linker=hoisted', '--filter', 'backend', 'deploy', '--prod', '--legacy', deployDir])
 
 await mkdir(packageDir, { recursive: true })
 await mkdir(runtimeDir, { recursive: true })
@@ -32,7 +32,7 @@ chmodSync(nodeTarget, 0o755)
 await mkdir(appDir, { recursive: true })
 await cp(path.join(deployDir, 'node_modules'), path.join(appDir, 'node_modules'), {
   recursive: true,
-  verbatimSymlinks: true,
+  dereference: true,
 })
 await cp(path.join(rootDir, 'packages/backend/build'), appDir, { recursive: true })
 await cp(path.join(rootDir, 'packages/frontend/.output/public'), path.join(appDir, 'public'), {

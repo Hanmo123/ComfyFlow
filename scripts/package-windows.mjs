@@ -100,6 +100,14 @@ shell.Run Chr(34) & appDir & "\\ComfyFlow.cmd" & Chr(34), 0, False
 `
 }
 
+function windowsScriptHostCommand() {
+  return '{sys}\\wscript.exe'
+}
+
+function windowsScriptHostArgs(scriptPath) {
+  return `//B //NoLogo "${scriptPath}"`
+}
+
 function innoSetupScript() {
   return `#define AppName "ComfyFlow"
 #define AppVersion "${version}"
@@ -119,7 +127,7 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
-UninstallDisplayIcon={app}\\ComfyFlow.vbs
+UninstallDisplayIcon={sys}\\wscript.exe
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
@@ -128,11 +136,11 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: ${innoQuote(path.join(portableDir, '*'))}; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\\ComfyFlow"; Filename: "{app}\\ComfyFlow.vbs"; WorkingDir: "{app}"
-Name: "{autodesktop}\\ComfyFlow"; Filename: "{app}\\ComfyFlow.vbs"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\\ComfyFlow"; Filename: "${windowsScriptHostCommand()}"; Parameters: ${innoQuote(windowsScriptHostArgs('{app}\\ComfyFlow.vbs'))}; WorkingDir: "{app}"
+Name: "{autodesktop}\\ComfyFlow"; Filename: "${windowsScriptHostCommand()}"; Parameters: ${innoQuote(windowsScriptHostArgs('{app}\\ComfyFlow.vbs'))}; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\\ComfyFlow.vbs"; Description: "Launch ComfyFlow"; Flags: postinstall nowait skipifsilent
+Filename: "${windowsScriptHostCommand()}"; Parameters: ${innoQuote(windowsScriptHostArgs('{app}\\ComfyFlow.vbs'))}; Description: "Launch ComfyFlow"; Flags: postinstall nowait skipifsilent
 `
 }
 
